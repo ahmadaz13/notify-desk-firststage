@@ -1,0 +1,121 @@
+{
+  "project": {
+    "name": "NotifyDesk Pilot Edition",
+    "type": "Laravel 11 monolithic server-rendered CRM",
+    "language": "Arabic primary with RTL layout",
+    "stack": {
+      "backend": "Laravel 11",
+      "php": ">=8.2",
+      "views": "Blade",
+      "interactive_components": "Livewire 3 installed and ready for extension",
+      "styling": "Static CSS with responsive mobile-first layout and IBM Plex Sans Arabic",
+      "database": "SQLite by default for local testing; migrations are compatible with MySQL",
+      "authentication": "Laravel session authentication using Auth facade"
+    }
+  },
+  "local_setup": {
+    "requirements": ["PHP 8.2+", "Composer", "SQLite extension or MySQL"],
+    "commands": [
+      "unzip notifydesk-pilot-laravel.zip",
+      "cd notifydesk-laravel",
+      "composer install",
+      "cp .env.example .env",
+      "php artisan key:generate",
+      "touch database/database.sqlite",
+      "php artisan migrate:fresh --seed",
+      "php artisan serve"
+    ],
+    "database_sqlite": {
+      "DB_CONNECTION": "sqlite",
+      "DB_DATABASE": "absolute/path/to/database/database.sqlite"
+    },
+    "database_mysql": {
+      "DB_CONNECTION": "mysql",
+      "DB_HOST": "127.0.0.1",
+      "DB_PORT": 3306,
+      "DB_DATABASE": "notifydesk",
+      "DB_USERNAME": "your_database_user",
+      "DB_PASSWORD": "your_database_password",
+      "note": "Set these values in .env before running migrations."
+    },
+    "production_notes": [
+      "Use APP_ENV=production and APP_DEBUG=false.",
+      "Run composer install --no-dev --optimize-autoloader.",
+      "Run php artisan config:cache, php artisan route:cache, and php artisan view:cache.",
+      "Configure the scheduler with * * * * * php artisan schedule:run in the hosting cron system.",
+      "Use HTTPS and a persistent session/cache driver for production deployment."
+    ]
+  },
+  "demo_accounts": [
+    {"name": "Ahmad", "email": "ahmad@example.com", "password": "password", "role": "owner/operator"},
+    {"name": "Khalid", "email": "khalid@example.com", "password": "password", "role": "owner/operator"}
+  ],
+  "routes": {
+    "public": [
+      {"method": "GET", "path": "/login", "purpose": "Display login form"},
+      {"method": "POST", "path": "/login", "purpose": "Authenticate user"}
+    ],
+    "authenticated": [
+      {"method": "GET", "path": "/", "name": "dashboard", "purpose": "Today dashboard"},
+      {"method": "GET", "path": "/clients", "name": "clients.index", "purpose": "Searchable client directory"},
+      {"method": "GET", "path": "/clients/{client}", "name": "clients.show", "purpose": "Unified client detail and timeline"},
+      {"method": "POST", "path": "/clients", "name": "clients.store", "purpose": "Create prospect"},
+      {"method": "POST", "path": "/appointments", "name": "appointments.store", "purpose": "Schedule appointment"},
+      {"method": "PATCH", "path": "/appointments/{appointment}", "name": "appointments.update", "purpose": "Confirm, complete, cancel, or update appointment status"},
+      {"method": "POST", "path": "/payments", "name": "payments.store", "purpose": "Record actual payment"},
+      {"method": "POST", "path": "/expenses", "name": "expenses.store", "purpose": "Record expense"},
+      {"method": "POST", "path": "/clients/{client}/convert", "name": "clients.convert", "purpose": "Convert prospect to subscriber and generate payment schedules"},
+      {"method": "POST", "path": "/logout", "name": "logout", "purpose": "End session"}
+    ]
+  },
+  "domain_workflows": {
+    "client_lifecycle": ["prospect", "contact", "appointment", "confirmation", "meeting", "outcome", "offer", "follow-up", "subscriber", "payment", "renewal"],
+    "conversion": {
+      "billing_types": ["monthly", "annual", "installment"],
+      "schedule_generation": {
+        "monthly": "12 monthly schedules starting on the subscription date",
+        "annual": "1 schedule on the subscription date",
+        "installment": "N schedules based on installments_count, one month apart"
+      }
+    },
+    "timeline": "Activity logs are appended after client creation, appointment changes, conversion, and payment receipt.",
+    "historical_data": "No hard-delete UI is provided; archival is represented by the archived client status."
+  },
+  "database_tables": [
+    "users",
+    "clients",
+    "contact_attempts",
+    "appointments",
+    "appointment_user",
+    "meeting_outcomes",
+    "follow_ups",
+    "commercial_offers",
+    "subscriptions",
+    "payment_schedules",
+    "payments",
+    "expenses",
+    "activity_logs"
+  ],
+  "files_of_interest": [
+    "app/Http/Controllers/AuthController.php",
+    "app/Http/Controllers/DashboardController.php",
+    "database/migrations/2026_09_07_000100_create_crm_tables.php",
+    "database/seeders/DatabaseSeeder.php",
+    "resources/views/layouts/app.blade.php",
+    "resources/views/dashboard.blade.php",
+    "resources/views/clients/index.blade.php",
+    "resources/views/clients/show.blade.php",
+    "public/css/app.css",
+    "routes/web.php"
+  ],
+  "verification": {
+    "migration_and_seed": "passed",
+    "blade_view_cache": "passed",
+    "guest_root_redirects_to_login": "passed",
+    "authenticated_dashboard_http_response": "passed",
+    "authenticated_dashboard_arabic_render": "passed",
+    "authenticated_client_detail_render": "passed",
+    "automated_tests": {"passed": 3, "assertions": 5},
+    "known_scope_note": "Meeting outcome, CSV import, scheduled reminders, and full offer/follow-up forms are represented in the schema and domain foundation but need additional UI endpoints for a later production iteration."
+  }
+}

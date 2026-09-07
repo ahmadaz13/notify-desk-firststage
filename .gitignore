@@ -1,0 +1,10 @@
+/vendor/
+.env
+.env.*
+/node_modules/
+/storage/*.key
+/.idea/
+Homestead.json
+Homestead.yaml
+.DS_Store
+
