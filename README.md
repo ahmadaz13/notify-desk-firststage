@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # NotifyDesk Pilot Edition
 
 NotifyDesk Pilot Edition is a lightweight Arabic RTL Sales Operations CRM for Ahmad and Khalid's 60-day sales validation experiment. It is a traditional Laravel 11 monolith using server-rendered Blade templates, session authentication, SQLite for local testing, and migrations compatible with MySQL.
@@ -157,3 +158,7 @@ php artisan migrate --force
 
 التوثيق الآلي وهيكل المشروع الكامل متوفر في:
 - `docs/notifydesk-documentation.json`
+=======
+# notify-desk-firststage
+
+>>>>>>> 91778e0ab6f74007443ac243bf088d89525399ee
