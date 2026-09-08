@@ -203,6 +203,17 @@
                     <label>جهة الاتصال</label>
                     <input name="contact_person" placeholder="الاسم">
                 </div>
+                @if(auth()->user()->isAdmin())
+                <div class="field">
+                    <label>الشريك (اختياري)</label>
+                    <select name="partner_id">
+                        <option value="">لا يوجد (مباشر)</option>
+                        @foreach(\App\Models\Partner::all() as $p)
+                            <option value="{{ $p->id }}">{{ $p->company_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
             </div>
             <button class="btn btn-primary" style="margin-top:15px" type="submit">حفظ العميل</button>
         </form>
@@ -244,26 +255,223 @@
     </div>
 </div>
 
-{{-- Financial Breakdown --}}
-<div class="section-head" id="money">
-    <h2>ملخص المال والسيولة</h2>
-    <span class="muted">بيانات الشهر الجاري</span>
+{{-- Partner Earnings Summary Section (Partners Only) --}}
+@if(!empty($isPartner) && $isPartner)
+<div id="partner-earnings" class="partner-earnings-section" style="margin-top:28px">
+    <div class="section-head" style="margin-bottom:14px">
+        <div>
+            <h2 style="font-size:20px;font-weight:800;color:var(--nd-ink)">ملخص أرباحك</h2>
+            <div class="muted" style="margin-top:4px">لوحة الأداء المالي لحصتك من مدفوعات العملاء المحالين</div>
+        </div>
+        @if($partner && $partner->profit_share_percentage !== null)
+            <div>
+                <span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:13px;font-weight:700;padding:6px 14px;border-radius:9999px;border:1px solid #ddd6fe">
+                    نسبة حصتك: {{ number_format($partner->profit_share_percentage, 1) }}%
+                </span>
+            </div>
+        @endif
+    </div>
+
+    <div class="card partner-share-card" style="background:linear-gradient(135deg, #1e1b4b 0%, #2e1065 50%, #3b0764 100%);color:#ffffff;border-radius:16px;padding:24px;border:1px solid rgba(255,255,255,0.15);box-shadow:0 12px 30px -8px rgba(46, 16, 101, 0.35)">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:18px">
+            {{-- Sub-item 1: Total Client Payments --}}
+            <div style="background:rgba(255, 255, 255, 0.08);padding:18px 20px;border-radius:12px;border:1px solid rgba(255, 255, 255, 0.1);backdrop-filter:blur(10px)">
+                <div class="kpi-label" style="color:#c4b5fd;font-weight:600;font-size:13px;margin-bottom:6px">إجمالي مدفوعات عملائك</div>
+                <div class="kpi-value" style="font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.5px">
+                    {{ number_format($totalClientPayments, 2) }} <span style="font-size:15px;font-weight:600;color:#ddd6fe">د.أ</span>
+                </div>
+                <div style="font-size:12px;color:#a78bfa;margin-top:6px">إجمالي المبالغ المحصلة من عملائك</div>
+            </div>
+
+            {{-- Sub-item 2: Net Operating Revenue --}}
+            <div style="background:rgba(255, 255, 255, 0.08);padding:18px 20px;border-radius:12px;border:1px solid rgba(255, 255, 255, 0.1);backdrop-filter:blur(10px)">
+                <div class="kpi-label" style="color:#c4b5fd;font-weight:600;font-size:13px;margin-bottom:6px">صافي العائد التشغيلي</div>
+                <div class="kpi-value" style="font-size:26px;font-weight:800;color:#38bdf8;letter-spacing:-0.5px">
+                    {{ number_format($netRevenue, 2) }} <span style="font-size:15px;font-weight:600;color:#bae6fd">د.أ</span>
+                </div>
+                <div style="font-size:12px;color:#a78bfa;margin-top:6px">بعد استقطاع 20% تكاليف تشغيل النظام</div>
+            </div>
+
+            {{-- Sub-item 3: Estimated Share --}}
+            <div style="background:rgba(255, 255, 255, 0.14);padding:18px 20px;border-radius:12px;border:1px solid rgba(255, 255, 255, 0.2);backdrop-filter:blur(10px)">
+                <div class="kpi-label" style="color:#fbcfe8;font-weight:700;font-size:13px;margin-bottom:6px">حصتك التقديرية</div>
+                @if($earnedShare !== null)
+                    <div class="kpi-value" style="font-size:28px;font-weight:900;color:#4ade80;letter-spacing:-0.5px">
+                        {{ number_format($earnedShare, 2) }} <span style="font-size:16px;font-weight:700;color:#bbf7d0">د.أ</span>
+                    </div>
+                    <div style="font-size:12px;color:#d1fae5;margin-top:6px">
+                        أرباحك التقديرية المكتسبة بنسبة {{ number_format($partner->profit_share_percentage, 1) }}%
+                    </div>
+                @else
+                    <div style="font-size:14px;font-weight:600;color:#fde047;line-height:1.6;padding:6px 0">
+                        لم يتم تحديد نسبة الربح بعد، تواصل مع الإدارة
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- Smart Financial Dashboard Section --}}
+<div x-data="{ showInvestmentModal: false, showExpenseModal: false }" id="money" style="margin-top:28px">
+    <div class="section-head">
+        <div>
+            <h2 style="font-size:20px;font-weight:800;color:var(--nd-ink)">لوحة المؤشرات المالية الذكية (Financial Dashboard)</h2>
+            <div class="muted" style="margin-top:4px">مؤشرات الإيرادات الخام، تكلفة التشغيل، صافي التقييم، ورصيد السيولة</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button type="button" @click="showInvestmentModal = true" class="btn btn-primary touch-btn" style="min-height:48px;font-size:14px;display:inline-flex;align-items:center;gap:6px">
+                <span>＋</span>
+                <span>إضافة استثمار</span>
+            </button>
+            <button type="button" @click="showExpenseModal = true" class="btn btn-ghost touch-btn" style="min-height:48px;font-size:14px;border:1.5px solid var(--nd-accent);color:var(--nd-accent);display:inline-flex;align-items:center;gap:6px">
+                <span>＋</span>
+                <span>صرف استثماري</span>
+            </button>
+        </div>
+    </div>
+
+    {{-- 5 Financial Cards --}}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:16px;margin-top:14px">
+        {{-- Gross Revenue --}}
+        <div class="card" style="border-top:4px solid var(--nd-accent)">
+            <div class="kpi-label">إجمالي الإيرادات الخام (Gross Revenue)</div>
+            <div class="kpi-value" style="color:var(--nd-ink)">{{ number_format($total_gross_revenue, 2) }} د.أ</div>
+            <div class="muted">إجمالي المقبوضات التراكمية المسجلة</div>
+        </div>
+
+        {{-- Operating Cost --}}
+        <div class="card" style="border-top:4px solid var(--nd-warning)">
+            <div class="kpi-label">تكلفة التشغيل (Operating Cost)</div>
+            <div class="kpi-value" style="color:var(--nd-warning)">{{ number_format($operational_cost, 2) }} د.أ</div>
+            <div class="muted">نسبة التشغيل المعتمدة ({{ $operational_cost_percentage }}%)</div>
+        </div>
+
+        {{-- Net Operating Revenue (Highlighted) --}}
+        <div class="card financial-card-highlight">
+            <div class="kpi-label" style="font-weight:700">صافي الإيراد التشغيلي (Net Operating Revenue)</div>
+            <div class="kpi-value">{{ number_format($net_operating_revenue, 2) }} د.أ</div>
+            <div class="muted">الإيراد بعد خصم تكلفة التشغيل</div>
+        </div>
+
+        {{-- Estimated Market Value --}}
+        <div class="card financial-card-gold">
+            <div class="kpi-label" style="font-weight:700">القيمة السوقية التقديرية (Estimated Market Value)</div>
+            <div class="kpi-value">{{ number_format($estimated_market_value, 2) }} د.أ</div>
+            <div class="muted">(بناءً على مضاعف {{ $market_multiplier }}) · ARR × {{ $market_multiplier }}</div>
+        </div>
+
+        {{-- Liquidity Balance --}}
+        <div class="card" style="border-top:4px solid #3b82f6">
+            <div class="kpi-label">رصيد السيولة (Liquidity Balance)</div>
+            <div class="kpi-value" style="color:#1d4ed8">{{ number_format($liquidity_balance, 2) }} د.أ</div>
+            <div class="muted">الاستثمارات: {{ number_format($total_investments, 2) }} د.أ · الصرف: {{ number_format($total_capital_expenses, 2) }} د.أ</div>
+        </div>
+    </div>
+
+    {{-- Action Buttons at bottom of financial section --}}
+    <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
+        <button type="button" @click="showInvestmentModal = true" class="btn btn-primary touch-btn" style="min-height:48px;font-size:15px;padding:12px 22px">
+            ＋ إضافة استثمار
+        </button>
+        <button type="button" @click="showExpenseModal = true" class="btn btn-ghost touch-btn" style="min-height:48px;font-size:15px;padding:12px 22px;border:1px solid var(--nd-border)">
+            ＋ صرف استثماري
+        </button>
+    </div>
+
+    {{-- Investment Modal --}}
+    <div x-show="showInvestmentModal" x-cloak class="modal-backdrop" @keydown.escape.window="showInvestmentModal = false">
+        <div class="modal-box" @click.away="showInvestmentModal = false">
+            <div class="modal-header">
+                <h3>إضافة استثمار جديد</h3>
+                <button type="button" class="modal-close" @click="showInvestmentModal = false">&times;</button>
+            </div>
+            <form method="POST" action="{{ route('investments.store') }}">
+                @csrf
+                <div class="field" style="margin-bottom:14px">
+                    <label>اسم المستثمر *</label>
+                    <input class="touch-input" type="text" name="investor_name" required placeholder="مثال: أحمد عبد الله">
+                </div>
+                <div class="field" style="margin-bottom:14px">
+                    <label>المبلغ (د.أ) *</label>
+                    <input class="touch-input" type="number" step="0.01" min="0.01" name="amount" required placeholder="مثال: 5000.00">
+                </div>
+                <div class="field" style="margin-bottom:14px">
+                    <label>تاريخ الإيداع / الدخول *</label>
+                    <input class="touch-input" type="date" name="entry_date" required value="{{ now()->toDateString() }}">
+                </div>
+                <div class="field" style="margin-bottom:20px">
+                    <label>ملاحظات (اختياري)</label>
+                    <textarea name="notes" placeholder="أي شروط أو تفاصيل إضافية..."></textarea>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:10px">
+                    <button type="button" class="btn btn-ghost touch-btn" @click="showInvestmentModal = false">إلغاء</button>
+                    <button type="submit" class="btn btn-primary touch-btn">حفظ الاستثمار</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- Capital Expense Modal --}}
+    <div x-show="showExpenseModal" x-cloak class="modal-backdrop" @keydown.escape.window="showExpenseModal = false">
+        <div class="modal-box" @click.away="showExpenseModal = false">
+            <div class="modal-header">
+                <h3>تسجيل صرف استثماري</h3>
+                <button type="button" class="modal-close" @click="showExpenseModal = false">&times;</button>
+            </div>
+            <form method="POST" action="{{ route('capital-expenses.store') }}">
+                @csrf
+                <div class="field" style="margin-bottom:14px">
+                    <label>وصف الصرف *</label>
+                    <input class="touch-input" type="text" name="description" required placeholder="مثال: شراء أجهزة وتجهيزات خوادم">
+                </div>
+                <div class="field" style="margin-bottom:14px">
+                    <label>المبلغ (د.أ) *</label>
+                    <input class="touch-input" type="number" step="0.01" min="0.01" name="amount" required placeholder="مثال: 750.00">
+                </div>
+                <div class="field" style="margin-bottom:14px">
+                    <label>تاريخ الصرف *</label>
+                    <input class="touch-input" type="date" name="expense_date" required value="{{ now()->toDateString() }}">
+                </div>
+                <div class="field" style="margin-bottom:20px">
+                    <label>الاستثمار المرتبط (اختياري)</label>
+                    <select class="touch-input" name="investment_id">
+                        <option value="">-- بدون ربط باستثمار محدد --</option>
+                        @foreach($investments as $inv)
+                            <option value="{{ $inv->id }}">{{ $inv->investor_name }} ({{ number_format($inv->amount, 2) }} د.أ - {{ $inv->entry_date }})</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:10px">
+                    <button type="button" class="btn btn-ghost touch-btn" @click="showExpenseModal = false">إلغاء</button>
+                    <button type="submit" class="btn btn-primary touch-btn">حفظ الصرف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- Monthly Operating Cashflow Summary (Preserved for Ahmad & Khalid) --}}
+<div class="section-head" style="margin-top:32px">
+    <h2>ملخص السيولة الشهرية (حركة الشهر الحالي)</h2>
+    <span class="muted">بيانات التدفق النقدي للشهر الجاري</span>
 </div>
 <div class="grid grid-3">
     <div class="card">
-        <div class="kpi-label">إجمالي المقبوضات</div>
+        <div class="kpi-label">إجمالي المقبوضات الشهرية</div>
         <div class="kpi-value">{{ number_format($monthIncome, 2) }} د.أ</div>
-        <div class="muted">دفعات الاشتراكات الفعلية</div>
+        <div class="muted">دفعات الاشتراكات الفعلية لهذا الشهر</div>
     </div>
     <div class="card">
-        <div class="kpi-label">إجمالي المصروفات</div>
+        <div class="kpi-label">إجمالي المصروفات الشهرية</div>
         <div class="kpi-value">{{ number_format($monthExpenses, 2) }} د.أ</div>
-        <div class="muted">مصاريف التشغيل المسجلة</div>
+        <div class="muted">مصاريف التشغيل المسجلة لهذا الشهر</div>
     </div>
     <div class="card">
-        <div class="kpi-label">الصافي المحقق</div>
+        <div class="kpi-label">الصافي الشهري المحقق</div>
         <div class="kpi-value" style="color:var(--nd-success)">{{ number_format($netCashResult, 2) }} د.أ</div>
-        <div class="muted">صافي التدفق النقدي</div>
+        <div class="muted">صافي التدفق النقدي للشهر</div>
     </div>
 </div>
 @endsection

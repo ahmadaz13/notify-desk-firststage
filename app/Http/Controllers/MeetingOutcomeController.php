@@ -18,12 +18,19 @@ class MeetingOutcomeController extends Controller
             ->first();
 
         abort_unless($item, 404, 'الموعد غير موجود');
+        $clientModel = \App\Models\Client::findOrFail($item->client_id);
+        \Illuminate\Support\Facades\Gate::authorize('view', $clientModel);
 
         return view('appointments.outcome', compact('item'));
     }
 
     public function store(Request $request, int $appointment, MeetingOutcomeService $outcomeService)
     {
+        $item = DB::table('appointments')->where('id', $appointment)->first();
+        abort_unless($item, 404);
+        $clientModel = \App\Models\Client::findOrFail($item->client_id);
+        \Illuminate\Support\Facades\Gate::authorize('update', $clientModel);
+
         $data = $request->validate([
             'attendance_status' => 'required|in:attended,attended_late,cancelled,no_show',
             'meeting_date_time' => 'nullable|date',

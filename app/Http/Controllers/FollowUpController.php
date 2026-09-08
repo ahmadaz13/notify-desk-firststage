@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Client;
 use App\Services\FollowUpService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class FollowUpController extends Controller
 {
     public function store(Request $request, int $client, FollowUpService $followUpService)
     {
+        $clientModel = Client::findOrFail($client);
+        Gate::authorize('update', $clientModel);
+
         $data = $request->validate([
             'method' => 'required|string|max:80',
             'reason' => 'required|string|max:150',

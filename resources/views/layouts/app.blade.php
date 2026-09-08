@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <script defer src="{{ asset('js/alpine.min.js') }}"></script>
 </head>
 <body>
 <div class="app-shell">
@@ -26,7 +27,10 @@
             <a class="{{ request()->routeIs('clients.import*') ? 'active' : '' }}" href="{{ route('clients.import') }}">استيراد CSV</a>
             <a href="{{ route('dashboard') }}#quick-add">إضافة سريعة</a>
             <a href="{{ route('dashboard') }}#money">المال</a>
-            <a href="{{ route('dashboard') }}#more">المزيد</a>
+            @if(auth()->user()->isAdmin())
+                <a class="{{ request()->routeIs('conflicts.*') ? 'active' : '' }}" href="{{ route('conflicts.index') }}">التعارضات</a>
+            @endif
+            <a class="{{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">المزيد</a>
         </nav>
         <div style="display:flex;align-items:center;gap:12px">
             <a href="{{ route('notifications.index') }}" title="الإشعارات والتنبيهات" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:12px;background:#fff;border:1px solid var(--nd-border);color:var(--nd-ink);text-decoration:none">

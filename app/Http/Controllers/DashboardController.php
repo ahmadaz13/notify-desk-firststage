@@ -51,26 +51,53 @@ class DashboardController extends Controller
 
         $reminders = DB::table('clients')->whereNotNull('status')->where('status', '!=', 'archived')->orderBy('updated_at', 'desc')->limit(4)->get();
 
-        return view('dashboard', compact(
+        $financialMetrics = $this->calculateFinancialMetrics();
+        $investments = DB::table('investments')->orderByDesc('entry_date')->get();
+
+        $isPartner = auth()->user()->isPartner();
+        $partner = null;
+        $totalClientPayments = 0.0;
+        $netRevenue = 0.0;
+        $earnedShare = null;
+
+        if ($isPartner) {
+            $partner = auth()->user()->partner;
+            if ($partner) {
+                $totalClientPayments = (float) $partner->total_client_payments;
+                $netRevenue = (float) ($totalClientPayments * 0.8);
+                $earnedShare = $partner->earned_share;
+            }
+        }
+
+        return view('dashboard', array_merge(compact(
             'clients', 'prospects', 'subscribers', 'appointments', 'nextAppointment',
             'collected', 'expenses', 'overdue', 'reminders',
             'todayCollections', 'monthIncome', 'monthExpenses', 'netCashResult', 'overdueCollections',
-            'unreadNotifications'
-        ));
+            'unreadNotifications', 'investments',
+            'isPartner', 'partner', 'totalClientPayments', 'netRevenue', 'earnedShare'
+        ), $financialMetrics));
     }
 
     public function clients(Request $request)
     {
         $query = trim((string) $request->get('q'));
         $status = $request->get('status', 'all');
-        $clients = DB::table('clients')->when($query, fn ($q) => $q->where(function ($inner) use ($query) { $inner->where('business_name', 'like', "%{$query}%")->orWhere('phone', 'like', "%{$query}%")->orWhere('city_area', 'like', "%{$query}%"); }))->when($status !== 'all', fn ($q) => $q->where('status', $status))->orderByDesc('updated_at')->paginate(10)->withQueryString();
+        $clients = DB::table('clients')
+            ->when(auth()->user()->isPartner(), fn ($q) => $q->where('partner_id', auth()->user()->partner_id))
+            ->when($query, fn ($q) => $q->where(function ($inner) use ($query) { $inner->where('business_name', 'like', "%{$query}%")->orWhere('phone', 'like', "%{$query}%")->orWhere('city_area', 'like', "%{$query}%"); }))
+            ->when($status !== 'all', fn ($q) => $q->where('status', $status))
+            ->orderByDesc('updated_at')
+            ->paginate(10)
+            ->withQueryString();
         return view('clients.index', compact('clients', 'query', 'status'));
     }
 
     public function showClient(int $client)
     {
-        $client = DB::table('clients')->where('id', $client)->first();
-        abort_unless($client, 404);
+        $clientModel = \App\Models\Client::findOrFail($client);
+        \Illuminate\Support\Facades\Gate::authorize('view', $clientModel);
+        $client = $clientModel;
+
         $timeline = DB::table('activity_logs')->where('client_id', $client->id)->orderByDesc('created_at')->get();
         $appointments = DB::table('appointments')->where('client_id', $client->id)->orderByDesc('appointment_date')->get();
         $payments = DB::table('payments')->where('client_id', $client->id)->orderByDesc('paid_at')->get();
@@ -90,16 +117,40 @@ class DashboardController extends Controller
 
     public function storeClient(Request $request)
     {
-        $data = $request->validate(['business_name' => 'required|string|max:255', 'phone' => 'required|string|max:50', 'city_area' => 'required|string|max:120', 'business_category' => 'required|string|max:120', 'lead_source' => 'required|string|max:80', 'contact_person' => 'nullable|string|max:120', 'notes' => 'nullable|string']);
+        $data = $request->validate([
+            'business_name' => 'required|string|max:255',
+            'phone' => 'required|string|max:50',
+            'city_area' => 'required|string|max:120',
+            'business_category' => 'required|string|max:120',
+            'lead_source' => 'required|string|max:80',
+            'contact_person' => 'nullable|string|max:120',
+            'notes' => 'nullable|string',
+            'partner_id' => 'nullable|exists:partners,id',
+        ]);
+
+        if (auth()->user()->isPartner()) {
+            $data['partner_id'] = auth()->user()->partner_id;
+        } elseif (auth()->user()->isAdmin()) {
+            $data['partner_id'] = $request->filled('partner_id') ? (int) $request->partner_id : null;
+        }
+
         $data['primary_owner_id'] = auth()->id();
-        $data['created_at'] = now(); $data['updated_at'] = now();
-        $id = DB::transaction(function () use ($data) { $id = DB::table('clients')->insertGetId($data); $this->log($id, 'client_created', 'تم إنشاء عميل جديد'); return $id; });
+        $data['created_at'] = now();
+        $data['updated_at'] = now();
+        $id = DB::transaction(function () use ($data) {
+            $id = DB::table('clients')->insertGetId($data);
+            $this->log($id, 'client_created', 'تم إنشاء عميل جديد');
+            return $id;
+        });
         return redirect()->route('clients.show', $id)->with('success', 'تم إنشاء العميل بنجاح.');
     }
 
     public function storeAppointment(Request $request)
     {
         $data = $request->validate(['client_id' => 'required|exists:clients,id', 'appointment_date' => 'required|date', 'appointment_time' => 'required', 'appointment_type' => 'required|string', 'location' => 'nullable|string|max:255', 'notes' => 'nullable|string']);
+        $clientModel = \App\Models\Client::findOrFail($data['client_id']);
+        \Illuminate\Support\Facades\Gate::authorize('update', $clientModel);
+
         $data['created_at'] = now(); $data['updated_at'] = now();
         $id = DB::transaction(function () use ($data) { $id = DB::table('appointments')->insertGetId($data); $this->log($data['client_id'], 'appointment_created', 'تم جدولة موعد جديد'); return $id; });
         return back()->with('success', 'تم جدولة الموعد.');
@@ -109,6 +160,9 @@ class DashboardController extends Controller
     {
         $data = $request->validate(['status' => 'required|in:scheduled,confirmed,rescheduled,cancelled,no_show,completed']);
         $item = DB::table('appointments')->where('id', $appointment)->first(); abort_unless($item, 404);
+        $clientModel = \App\Models\Client::findOrFail($item->client_id);
+        \Illuminate\Support\Facades\Gate::authorize('update', $clientModel);
+
         DB::transaction(function () use ($data, $item) { DB::table('appointments')->where('id', $item->id)->update(['status' => $data['status'], 'updated_at' => now()]); $this->log($item->client_id, 'appointment_'.$data['status'], 'تم تحديث حالة الموعد إلى '.$data['status']); });
         return back()->with('success', 'تم تحديث حالة الموعد.');
     }
@@ -116,6 +170,9 @@ class DashboardController extends Controller
     public function storePayment(Request $request)
     {
         $data = $request->validate(['client_id' => 'required|exists:clients,id', 'amount' => 'required|numeric|min:0.01', 'payment_method' => 'required|string', 'paid_at' => 'required|date']);
+        $clientModel = \App\Models\Client::findOrFail($data['client_id']);
+        \Illuminate\Support\Facades\Gate::authorize('update', $clientModel);
+
         DB::transaction(function () use ($data) { $subscription = DB::table('subscriptions')->where('client_id', $data['client_id'])->whereIn('status', ['active', 'payment_due'])->latest('id')->first(); if (!$subscription) { $subscriptionId = DB::table('subscriptions')->insertGetId(['client_id' => $data['client_id'], 'user_id' => auth()->id(), 'billing_type' => 'monthly', 'total_price' => $data['amount'], 'start_date' => now()->toDateString(), 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]); } else { $subscriptionId = $subscription->id; } DB::table('payments')->insert(array_merge($data, ['subscription_id' => $subscriptionId, 'recorded_by' => auth()->id(), 'paid_at' => Carbon::parse($data['paid_at']), 'created_at' => now(), 'updated_at' => now()])); $this->log($data['client_id'], 'payment_received', 'تم تسجيل دفعة بقيمة '.$data['amount'].' د.أ'); DB::table('clients')->where('id', $data['client_id'])->update(['status' => 'subscriber', 'updated_at' => now()]); });
         return back()->with('success', 'تم تسجيل الدفعة.');
     }
@@ -129,6 +186,9 @@ class DashboardController extends Controller
 
     public function convert(Request $request, int $client)
     {
+        $clientModel = \App\Models\Client::findOrFail($client);
+        \Illuminate\Support\Facades\Gate::authorize('update', $clientModel);
+
         $data = $request->validate(['billing_type' => 'required|in:monthly,annual,installment', 'total_price' => 'required|numeric|min:0.01', 'start_date' => 'required|date', 'installments_count' => 'nullable|integer|min:2|max:12']);
         DB::transaction(function () use ($data, $client) { $count = $data['billing_type'] === 'annual' ? 1 : ($data['billing_type'] === 'installment' ? (int) ($data['installments_count'] ?: 2) : 12); $subscriptionId = DB::table('subscriptions')->insertGetId(array_merge($data, ['client_id' => $client, 'user_id' => auth()->id(), 'status' => 'active', 'renewal_date' => Carbon::parse($data['start_date'])->addYear()->toDateString(), 'created_at' => now(), 'updated_at' => now()])); $per = round(((float) $data['total_price']) / $count, 2); for ($i = 0; $i < $count; $i++) { DB::table('payment_schedules')->insert(['subscription_id' => $subscriptionId, 'amount_due' => $i === $count - 1 ? ((float) $data['total_price']) - ($per * ($count - 1)) : $per, 'due_date' => Carbon::parse($data['start_date'])->addMonths($data['billing_type'] === 'annual' ? 0 : $i)->toDateString(), 'status' => $i === 0 ? 'due' : 'upcoming', 'created_at' => now(), 'updated_at' => now()]); } DB::table('clients')->where('id', $client)->update(['status' => 'subscriber', 'updated_at' => now()]); $this->log($client, 'converted', 'تم تحويل العميل إلى مشترك وإنشاء جدول الدفعات'); });
         return back()->with('success', 'تم التحويل وإنشاء جدول الدفعات.');
@@ -137,5 +197,43 @@ class DashboardController extends Controller
     private function log(int $clientId, string $type, string $description): void
     {
         DB::table('activity_logs')->insert(['client_id' => $clientId, 'user_id' => auth()->id(), 'type' => $type, 'description' => $description, 'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    private function calculateFinancialMetrics(): array
+    {
+        $totalGrossRevenue = (float) DB::table('payments')->sum('amount');
+
+        $opCostSetting = DB::table('settings')->where('key', 'operational_cost_percentage')->value('value');
+        $operationalCostPercentage = (is_numeric($opCostSetting) && (float) $opCostSetting >= 0)
+            ? (float) $opCostSetting
+            : 20.0;
+
+        $operationalCost = $totalGrossRevenue * ($operationalCostPercentage / 100);
+        $netOperatingRevenue = $totalGrossRevenue - $operationalCost;
+        $annualRecurringRevenue = $netOperatingRevenue * 12;
+
+        $multiplierSetting = DB::table('settings')->where('key', 'market_valuation_multiplier')->value('value');
+        $marketMultiplier = (is_numeric($multiplierSetting) && (float) $multiplierSetting >= 0)
+            ? (float) $multiplierSetting
+            : 5.0;
+
+        $estimatedMarketValue = $annualRecurringRevenue * $marketMultiplier;
+
+        $totalInvestments = (float) DB::table('investments')->sum('amount');
+        $totalCapitalExpenses = (float) DB::table('capital_expenses')->sum('amount');
+        $liquidityBalance = $totalInvestments - $totalCapitalExpenses;
+
+        return [
+            'total_gross_revenue' => $totalGrossRevenue,
+            'operational_cost_percentage' => $operationalCostPercentage,
+            'operational_cost' => $operationalCost,
+            'net_operating_revenue' => $netOperatingRevenue,
+            'annual_recurring_revenue' => $annualRecurringRevenue,
+            'market_multiplier' => $marketMultiplier,
+            'estimated_market_value' => $estimatedMarketValue,
+            'total_investments' => $totalInvestments,
+            'total_capital_expenses' => $totalCapitalExpenses,
+            'liquidity_balance' => $liquidityBalance,
+        ];
     }
 }

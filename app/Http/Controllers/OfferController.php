@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Client;
 use App\Services\OfferService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class OfferController extends Controller
 {
     public function store(Request $request, int $client, OfferService $offerService)
     {
+        $clientModel = Client::findOrFail($client);
+        Gate::authorize('update', $clientModel);
+
         $data = $request->validate([
             'package' => 'required|string|max:120',
             'billing_period' => 'required|in:monthly,annual,installment',
