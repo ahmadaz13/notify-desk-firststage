@@ -53,6 +53,13 @@ class Subscription extends Model
         'cancelled_at',
         'cancellation_reason',
         'cancelled_by',
+        'cancel_at_period_end',
+        'cancellation_requested_at',
+        'ended_at',
+        'pending_plan_id',
+        'pending_plan_price_id',
+        'pending_quantity',
+        'pending_change_effective_at',
     ];
 
     protected $casts = [
@@ -81,6 +88,11 @@ class Subscription extends Model
         'start_date' => 'date',
         'renewal_date' => 'date',
         'cancelled_at' => 'datetime',
+        'cancel_at_period_end' => 'boolean',
+        'cancellation_requested_at' => 'datetime',
+        'ended_at' => 'datetime',
+        'pending_quantity' => 'integer',
+        'pending_change_effective_at' => 'datetime',
     ];
 
     public function client(): BelongsTo
@@ -133,5 +145,30 @@ class Subscription extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class)->orderByDesc('issue_date')->orderByDesc('id');
+    }
+
+    public function billingPeriods(): HasMany
+    {
+        return $this->hasMany(SubscriptionBillingPeriod::class)->orderBy('period_start')->orderBy('id');
+    }
+
+    public function lifecycleEvents(): HasMany
+    {
+        return $this->hasMany(SubscriptionEvent::class)->orderBy('effective_at')->orderBy('id');
+    }
+
+    public function metricEvents(): HasMany
+    {
+        return $this->hasMany(SubscriptionMetricEvent::class)->orderBy('effective_at')->orderBy('id');
+    }
+
+    public function pendingPlan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class, 'pending_plan_id');
+    }
+
+    public function pendingPlanPrice(): BelongsTo
+    {
+        return $this->belongsTo(PlanPrice::class, 'pending_plan_price_id');
     }
 }

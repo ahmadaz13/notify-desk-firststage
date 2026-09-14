@@ -580,7 +580,7 @@
             <div class="section-head">
                 <div>
                     <h2 style="font-size:20px;font-weight:800;color:var(--nd-ink)">لوحة المؤشرات المالية الذكية (Financial Dashboard)</h2>
-                    <div class="muted" style="margin-top:4px">مؤشرات الإيرادات الخام، تكلفة التشغيل، صافي التقييم، ورصيد السيولة</div>
+                    <div class="muted" style="margin-top:4px">هذه بطاقات تشغيلية قديمة وليست المصدر المعتمد لـ MRR/ARR أو التقارير المالية. استخدم Executive و Finance.</div>
                 </div>
                 <div style="display:flex;gap:10px;flex-wrap:wrap">
                     <button type="button" @click="showInvestmentModal = true" class="btn btn-primary touch-btn" style="min-height:48px;font-size:14px;display:inline-flex;align-items:center;gap:6px">
@@ -592,6 +592,14 @@
                         <span>صرف استثماري</span>
                     </button>
                 </div>
+            </div>
+
+            <div class="card" style="border:1px solid #bfdbfe;background:#eff6ff;margin-bottom:16px">
+                <strong>المصدر المعتمد للمؤشرات:</strong>
+                <a href="{{ route('executive.index') }}">Executive Dashboard</a>
+                <span class="muted">لـ MRR/ARR والحركة الشهرية، و</span>
+                <a href="{{ route('finance.index') }}">Finance Reports</a>
+                <span class="muted">للقوائم الإدارية، الإيراد المعترف به، النقد والذمم.</span>
             </div>
 
             {{-- 6 Financial Cards --}}

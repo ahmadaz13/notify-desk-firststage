@@ -38,7 +38,7 @@ class CreditNoteService
                 }
             }
 
-            $lineRows = $this->normalizeLines($data['lines'] ?? []);
+            $lineRows = $this->normalizeLines($data['lines'] ?? [], $originalInvoice);
             if ($lineRows === []) {
                 throw ValidationException::withMessages(['lines' => 'يجب إضافة سطر واحد على الأقل لإشعار الدائن.']);
             }
@@ -80,6 +80,7 @@ class CreditNoteService
 
             $this->assignNumberAndIssue($creditNote, $issueDate);
             $creditNote->refresh();
+            app(BillingAccountingService::class)->postCreditNoteIssued($creditNote);
 
             $this->log($client->id, $userId, 'credit_note_created', 'تم إنشاء إشعار دائن '.$creditNote->credit_note_number, [
                 'credit_note_id' => $creditNote->id,
@@ -137,6 +138,7 @@ class CreditNoteService
                 'applied_at' => now(),
                 'created_by' => $userId,
             ]);
+            app(BillingAccountingService::class)->postCreditApplication($application);
 
             $this->log($invoice->client_id, $userId, 'credit_note_applied', 'تم تطبيق رصيد إشعار دائن على الفاتورة '.$invoice->invoice_number, [
                 'credit_note_id' => $creditNote->id,
@@ -169,6 +171,7 @@ class CreditNoteService
                 'reversed_at' => now(),
                 'reversed_by' => $userId,
             ]);
+            app(BillingAccountingService::class)->postCreditApplicationReversal($reversal);
 
             $this->log($application->invoice->client_id, $userId, 'credit_note_application_reversed', 'تم عكس تطبيق رصيد إشعار دائن على الفاتورة '.$application->invoice->invoice_number, [
                 'credit_note_application_id' => $application->id,
@@ -211,6 +214,7 @@ class CreditNoteService
                 'voided_at' => now(),
                 'void_reason' => $reason,
             ]);
+            app(BillingAccountingService::class)->postCreditNoteVoid($creditNote->fresh(), $userId);
 
             $this->log($creditNote->client_id, $userId, 'credit_note_voided', 'تم إلغاء إشعار الدائن '.$creditNote->credit_note_number, [
                 'credit_note_id' => $creditNote->id,
@@ -224,9 +228,17 @@ class CreditNoteService
         });
     }
 
-    private function normalizeLines(array $lines): array
+    private function normalizeLines(array $lines, ?Invoice $originalInvoice = null): array
     {
         $normalized = [];
+        $singleInvoiceLineId = null;
+        if ($originalInvoice !== null) {
+            $invoiceLines = $originalInvoice->lines()->get();
+            if ($invoiceLines->count() === 1) {
+                $singleInvoiceLineId = $invoiceLines->first()->id;
+            }
+        }
+
         foreach (array_values($lines) as $index => $line) {
             $description = trim((string) ($line['description'] ?? $line['description_snapshot'] ?? ''));
             if ($description === '') {
@@ -239,7 +251,13 @@ class CreditNoteService
                 throw ValidationException::withMessages(["lines.$index.subtotal_jod" => 'قيمة السطر يجب أن تكون أكبر من صفر.']);
             }
 
-            $invoiceLineId = filled($line['invoice_line_id'] ?? null) ? (int) $line['invoice_line_id'] : null;
+            $invoiceLineId = filled($line['invoice_line_id'] ?? null) ? (int) $line['invoice_line_id'] : $singleInvoiceLineId;
+            if ($originalInvoice !== null && $invoiceLineId === null && $subtotalMinor > 0 && $originalInvoice->lines()->count() > 1) {
+                throw ValidationException::withMessages(["lines.$index.invoice_line_id" => 'يجب ربط سطر إشعار الدائن بسطر الفاتورة عند وجود أكثر من سطر قابل للاعتراف.']);
+            }
+            if ($invoiceLineId !== null && $originalInvoice !== null && ! $originalInvoice->lines()->whereKey($invoiceLineId)->exists()) {
+                throw ValidationException::withMessages(["lines.$index.invoice_line_id" => 'سطر الفاتورة المحدد لا يتبع الفاتورة الأصلية.']);
+            }
             $normalized[] = [
                 'invoice_line_id' => $invoiceLineId,
                 'description_snapshot' => $description,

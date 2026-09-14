@@ -1257,6 +1257,30 @@
                     @endforelse
                 </div>
             </div>
+
+            @can(\App\Support\FinancialPermissions::VIEW_ACCOUNTING)
+                <div class="card" style="margin-top:16px">
+                    <div class="section-head" style="margin-top:0">
+                        <h2>الأثر المحاسبي</h2>
+                        <span class="muted">{{ $accountingTrace->count() }} قيود</span>
+                    </div>
+                    <div class="list">
+                        @forelse($accountingTrace as $trace)
+                            @php($entry = $trace['entry'])
+                            <div class="list-row">
+                                <span class="badge {{ $entry->status === 'reversed' ? 'red' : 'blue' }}">{{ $entry->status }}</span>
+                                <div class="list-main">
+                                    <strong class="ltr" style="direction:ltr">{{ $entry->journal_number }}</strong>
+                                    <small>{{ $trace['source_label'] }} · {{ $entry->event_type }} · {{ $entry->entry_date?->format('Y-m-d') }}</small>
+                                    <small class="muted">{{ $entry->description }}</small>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="muted" style="padding:14px 0">لا توجد قيود محاسبية مرتبطة بعناصر الفوترة لهذا العميل بعد.</div>
+                        @endforelse
+                    </div>
+                </div>
+            @endcan
         </div>
 
         {{-- Record Payment or Convert --}}
@@ -1569,16 +1593,58 @@
                                 </div>
                             </div>
                             <div class="muted" style="font-size:12px">
-                                يبدأ: {{ $sub->start_date }}
-                                @if($sub->renewal_date) · التجديد: {{ $sub->renewal_date }} @endif
+                                الخطة: {{ $sub->plan_name_snapshot ?: 'غير محدد' }}
+                                · الفترة الحالية: {{ optional($sub->current_period_start)->format('Y-m-d') ?: $sub->start_date }} → {{ optional($sub->current_period_end)->format('Y-m-d') ?: 'غير محدد' }}
+                                @if($sub->next_billing_date) · التجديد القادم: {{ $sub->next_billing_date->format('Y-m-d') }} @endif
+                                · الكمية: {{ $sub->quantity ?: 1 }}
                                 @if($sub->setup_fee > 0) · رسوم التأسيس: {{ number_format($sub->setup_fee, 3) }} د.أ @endif
                                 @if($sub->discount_amount > 0) · الخصم: {{ number_format($sub->discount_amount, 3) }} د.أ ({{ $sub->annual_discount_percentage }}%) @endif
                                 @if($sub->tax_amount > 0) · الضريبة: {{ number_format($sub->tax_amount, 3) }} د.أ ({{ $sub->tax_percentage }}%) @endif
                             </div>
+                            @if($sub->pending_plan_price_id)
+                                <div style="font-size:12px;color:#92400e;background:#fffbeb;padding:6px 10px;border-radius:6px">
+                                    تغيير خطة مجدول للفترة القادمة: {{ $sub->pendingPlanPrice?->plan?->name_ar ?: 'خطة غير محددة' }}
+                                    · {{ $sub->pendingPlanPrice?->billing_interval }}
+                                    · كمية {{ $sub->pending_quantity }}
+                                    · فعال في {{ optional($sub->pending_change_effective_at)->format('Y-m-d') }}
+                                </div>
+                            @endif
+                            @if($sub->cancel_at_period_end)
+                                <div style="font-size:12px;color:#991b1b;background:#fef2f2;padding:6px 10px;border-radius:6px">
+                                    الإلغاء مجدول في نهاية الفترة الحالية: {{ optional($sub->current_period_end)->format('Y-m-d') }}
+                                </div>
+                            @endif
+                            @if($sub->billingPeriods->isNotEmpty())
+                                <div style="font-size:12px;background:#fff;padding:8px 10px;border-radius:8px;border:1px solid var(--nd-border)">
+                                    <strong>فترات الفوترة:</strong>
+                                    @foreach($sub->billingPeriods->take(4) as $period)
+                                        <div class="muted">
+                                            #{{ $period->period_number }} · {{ $period->period_start->format('Y-m-d') }} → {{ $period->period_end->format('Y-m-d') }}
+                                            · {{ $period->status }}
+                                            @if($period->invoice) · {{ $period->invoice->invoice_number }} @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
                             @if($sub->status === 'cancelled')
                                 <div style="font-size:12px;color:var(--nd-danger);background:#fef2f2;padding:6px 10px;border-radius:6px">
                                     ⛔ تم الإلغاء بتاريخ {{ $sub->cancelled_at }}. السبب: {{ $sub->cancellation_reason ?: 'غير محدد' }}
                                 </div>
+                                @can(\App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_LIFECYCLE)
+                                    <form method="POST" action="{{ route('subscriptions.reactivate', $sub->id) }}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-top:8px">
+                                        @csrf
+                                        <select name="plan_price_id" required>
+                                            @foreach($sellablePlans as $plan)
+                                                @foreach($plan->activePrices as $price)
+                                                    <option value="{{ $price->id }}">{{ $plan->name_ar }} · {{ $price->billing_interval }} · {{ \App\Support\Money::fromMinorUnits($price->amount_minor)->format() }} د.أ</option>
+                                                @endforeach
+                                            @endforeach
+                                        </select>
+                                        <input type="number" name="quantity" min="1" value="{{ $sub->quantity ?: 1 }}" required>
+                                        <input type="date" name="start_date" value="{{ now()->toDateString() }}" required>
+                                        <button class="btn btn-primary" type="submit">إعادة تفعيل</button>
+                                    </form>
+                                @endcan
                             @elseif($sub->status === 'active')
                                 <div style="display:flex;gap:8px;margin-top:6px;justify-content:flex-end;flex-wrap:wrap">
                                     @can('create', \App\Models\Contract::class)
@@ -1589,20 +1655,35 @@
                                             </button>
                                         </form>
                                     @endcan
-                                    <form method="POST" action="{{ route('subscriptions.renew', $sub->id) }}" onsubmit="return confirm('هل تريد بالتأكيد تجديد هذا الاشتراك؟ سيتم توليد اشتراك جديد للمرحلة القادمة.')">
-                                        @csrf
-                                        <button type="submit" class="btn btn-soft" style="font-size:11px;padding:6px 12px">
-                                            🔄 تجديد الاشتراك
-                                        </button>
-                                    </form>
-                                    <form method="POST" action="{{ route('subscriptions.cancel', $sub->id) }}" onsubmit="return confirm('هل تريد بالتأكيد إلغاء هذا الاشتراك؟ سيتم إيقاف المطالبات والتنبيهات المستقبلية.')">
-                                        @csrf
-                                        <input type="hidden" name="cancellation_reason" value="طلب العميل / إنهاء الخدمة">
-                                        <button type="submit" class="btn btn-danger" style="font-size:11px;padding:6px 12px">
-                                            ⛔ إلغاء الاشتراك
-                                        </button>
-                                    </form>
                                 </div>
+                                @can(\App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_LIFECYCLE)
+                                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:8px">
+                                        <form method="POST" action="{{ route('subscriptions.plan-change.schedule', $sub->id) }}" style="display:flex;gap:6px;flex-wrap:wrap">
+                                            @csrf
+                                            <select name="plan_price_id" required style="min-width:190px">
+                                                @foreach($sellablePlans as $plan)
+                                                    @foreach($plan->activePrices as $price)
+                                                        <option value="{{ $price->id }}">{{ $plan->name_ar }} · {{ $price->billing_interval }} · {{ \App\Support\Money::fromMinorUnits($price->amount_minor)->format() }} د.أ</option>
+                                                    @endforeach
+                                                @endforeach
+                                            </select>
+                                            <input type="number" name="quantity" min="1" value="{{ $sub->quantity ?: 1 }}" required style="max-width:90px">
+                                            <button type="submit" class="btn btn-soft">جدولة تغيير</button>
+                                        </form>
+                                        @if($sub->cancel_at_period_end)
+                                            <form method="POST" action="{{ route('subscriptions.cancel.undo', $sub->id) }}">
+                                                @csrf
+                                                <button type="submit" class="btn btn-soft">إلغاء جدولة الإلغاء</button>
+                                            </form>
+                                        @else
+                                            <form method="POST" action="{{ route('subscriptions.cancel', $sub->id) }}" onsubmit="return confirm('سيتم الإلغاء في نهاية الفترة الحالية فقط. متابعة؟')" style="display:flex;gap:6px">
+                                                @csrf
+                                                <input name="cancellation_reason" placeholder="سبب الإلغاء" style="min-width:160px">
+                                                <button type="submit" class="btn btn-danger">جدولة إلغاء</button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                @endcan
                             @endif
                         </div>
                     @endforeach

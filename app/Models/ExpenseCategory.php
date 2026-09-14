@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ExpenseCategory extends Model
@@ -15,6 +16,7 @@ class ExpenseCategory extends Model
         'name',
         'key',
         'code',
+        'chart_account_id',
         'name_ar',
         'name_en',
         'icon',
@@ -37,6 +39,11 @@ class ExpenseCategory extends Model
     public function expenses(): HasMany
     {
         return $this->hasMany(Expense::class, 'category_id');
+    }
+
+    public function chartAccount(): BelongsTo
+    {
+        return $this->belongsTo(ChartAccount::class);
     }
 
     public function scopeActive(Builder $query): Builder

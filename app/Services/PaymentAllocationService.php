@@ -132,6 +132,7 @@ class PaymentAllocationService
             'allocated_at' => now(),
             'created_by' => $userId,
         ]);
+        app(BillingAccountingService::class)->postPaymentAllocation($allocation);
 
         $this->log($invoice->client_id, $userId, 'payment_allocated', 'تم تخصيص دفعة على الفاتورة '.$invoice->invoice_number, [
             'payment_id' => $payment->id,

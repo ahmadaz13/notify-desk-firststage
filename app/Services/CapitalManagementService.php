@@ -220,6 +220,8 @@ class CapitalManagementService
 
             if ($fundingSource === FixedAsset::FUNDING_COMPANY_ACCOUNT && $account !== null) {
                 $this->cashMovements->recordAssetAcquisition($asset, $account, $actor->id);
+            } elseif ($fundingSource === FixedAsset::FUNDING_PERSONAL) {
+                app(AccountingEventPostingService::class)->postPersonalFixedAsset($asset);
             }
 
             $this->log($actor->id, 'fixed_asset_acquired', 'تم تسجيل أصل ثابت', [
@@ -254,6 +256,8 @@ class CapitalManagementService
             ]);
             if ($asset->funding_source === FixedAsset::FUNDING_COMPANY_ACCOUNT) {
                 $this->cashMovements->recordAssetAcquisitionReversal($reversal, $actor->id);
+            } elseif ($asset->funding_source === FixedAsset::FUNDING_PERSONAL) {
+                app(AccountingEventPostingService::class)->postPersonalFixedAssetReversal($reversal);
             }
             $this->log($actor->id, 'fixed_asset_acquisition_reversed', 'تم عكس اقتناء أصل ثابت', [
                 'fixed_asset_id' => $asset->id,

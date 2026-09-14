@@ -93,6 +93,7 @@ class FinancialAccountService
             $transfer->refresh();
 
             $this->postTransferMovements($transfer, false, $userId);
+            app(AccountingEventPostingService::class)->postFinancialTransfer($transfer, $userId);
 
             $this->log(null, $userId, 'financial_transfer_created', 'تم إنشاء تحويل داخلي '.$transfer->transfer_number, [
                 'financial_transfer_id' => $transfer->id,
@@ -128,6 +129,7 @@ class FinancialAccountService
             ]);
 
             $this->postTransferMovements($transfer, true, $userId, $reversal->id);
+            app(AccountingEventPostingService::class)->postFinancialTransferReversal($reversal, $userId);
 
             $this->log(null, $userId, 'financial_transfer_reversed', 'تم عكس تحويل داخلي '.$transfer->transfer_number, [
                 'financial_transfer_id' => $transfer->id,

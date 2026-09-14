@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\CapitalExpenseController;
 use App\Http\Controllers\CapitalManagementController;
@@ -17,7 +18,9 @@ use App\Http\Controllers\CsvImportController;
 use App\Http\Controllers\DailyNoteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\ExecutiveDashboardController;
 use App\Http\Controllers\FinancialAccountController;
+use App\Http\Controllers\FinanceReportController;
 use App\Http\Controllers\FreeInstallationController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\HealthCheckController;
@@ -30,6 +33,9 @@ use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\PartnerDashboardController;
 use App\Http\Controllers\PublicClientController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\SaasMetricsController;
+use App\Http\Controllers\SubscriptionBillingController;
+use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 // Health Check (Public, Rate Limited)
@@ -89,8 +95,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/capital-expenses', [CapitalExpenseController::class, 'store'])->name('capital-expenses.store');
 
     // Subscriptions Workflow
-    Route::post('/subscriptions/{subscription}/cancel', [\App\Http\Controllers\SubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
-    Route::post('/subscriptions/{subscription}/renew', [\App\Http\Controllers\SubscriptionController::class, 'renew'])->name('subscriptions.renew');
+    Route::post('/subscriptions/{subscription}/plan-change', [SubscriptionController::class, 'schedulePlanChange'])->name('subscriptions.plan-change.schedule');
+    Route::post('/subscriptions/{subscription}/cancel', [SubscriptionController::class, 'scheduleCancellation'])->name('subscriptions.cancel');
+    Route::post('/subscriptions/{subscription}/cancel/undo', [SubscriptionController::class, 'undoCancellation'])->name('subscriptions.cancel.undo');
+    Route::post('/subscriptions/{subscription}/reactivate', [SubscriptionController::class, 'reactivate'])->name('subscriptions.reactivate');
     Route::post('/invoices/{invoice}/void', [BillingController::class, 'voidInvoice'])->name('invoices.void');
 
     // Contracts Workflow
@@ -156,6 +164,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/recurring-expense-obligations/{obligation}/skip', [OperatingExpenseController::class, 'skipObligation'])->name('recurring-expense-obligations.skip');
     Route::post('/recurring-expense-obligations/{obligation}/cancel', [OperatingExpenseController::class, 'cancelObligation'])->name('recurring-expense-obligations.cancel');
     Route::get('/capital-management', [CapitalManagementController::class, 'index'])->name('capital-management.index');
+    Route::get('/executive', [ExecutiveDashboardController::class, 'index'])->name('executive.index');
+    Route::get('/saas-metrics', [SaasMetricsController::class, 'index'])->name('saas-metrics.index');
+    Route::get('/saas-metrics/export/{report}', [SaasMetricsController::class, 'export'])->name('saas-metrics.export');
+    Route::get('/finance', [FinanceReportController::class, 'index'])->name('finance.index');
+    Route::get('/finance/export/{report}', [FinanceReportController::class, 'export'])->name('finance.export');
+    Route::get('/subscription-billing', [SubscriptionBillingController::class, 'index'])->name('subscription-billing.index');
+    Route::post('/subscription-billing/generate-renewals', [SubscriptionBillingController::class, 'generateRenewals'])->name('subscription-billing.generate-renewals');
+    Route::post('/subscription-billing/backfill-periods', [SubscriptionBillingController::class, 'backfillPeriods'])->name('subscription-billing.backfill-periods');
     Route::post('/funding-sources', [CapitalManagementController::class, 'storeFundingSource'])->name('funding-sources.store');
     Route::post('/funding-sources/{fundingSource}/archive', [CapitalManagementController::class, 'archiveFundingSource'])->name('funding-sources.archive');
     Route::post('/capital-funding-transactions', [CapitalManagementController::class, 'storeFunding'])->name('capital-funding-transactions.store');
@@ -165,6 +181,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/fixed-assets', [CapitalManagementController::class, 'storeFixedAsset'])->name('fixed-assets.store');
     Route::post('/fixed-assets/{asset}/reverse', [CapitalManagementController::class, 'reverseFixedAsset'])->name('fixed-assets.reverse');
     Route::patch('/fixed-assets/{asset}/status', [CapitalManagementController::class, 'updateFixedAssetStatus'])->name('fixed-assets.status');
+    Route::get('/accounting', [AccountingController::class, 'index'])->name('accounting.index');
+    Route::post('/accounting/chart-accounts/{chartAccount}/archive', [AccountingController::class, 'archiveAccount'])->name('accounting.chart-accounts.archive');
+    Route::post('/accounting/periods/{period}/close', [AccountingController::class, 'closePeriod'])->name('accounting.periods.close');
+    Route::post('/accounting/periods/{period}/reopen', [AccountingController::class, 'reopenPeriod'])->name('accounting.periods.reopen');
+    Route::post('/accounting/backfill', [AccountingController::class, 'backfill'])->name('accounting.backfill');
+    Route::post('/accounting/revenue-schedules/backfill', [AccountingController::class, 'backfillRevenueSchedules'])->name('accounting.revenue-schedules.backfill');
+    Route::post('/accounting/revenue-recognition/run', [AccountingController::class, 'recognizeRevenue'])->name('accounting.revenue-recognition.run');
+    Route::post('/accounting/revenue-recognition/schedules/{schedule}/confirm', [AccountingController::class, 'confirmRevenueRecognition'])->name('accounting.revenue-recognition.confirm');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings/update', [SettingsController::class, 'update'])->name('settings.update');
     Route::get('/settings/export', [SettingsController::class, 'export'])->name('settings.export');

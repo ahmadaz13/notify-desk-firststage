@@ -14,6 +14,7 @@ class AssetCategory extends Model
 
     protected $fillable = [
         'code',
+        'chart_account_id',
         'name_ar',
         'name_en',
         'description',
@@ -35,6 +36,11 @@ class AssetCategory extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function chartAccount(): BelongsTo
+    {
+        return $this->belongsTo(ChartAccount::class);
     }
 
     public function fixedAssets(): HasMany

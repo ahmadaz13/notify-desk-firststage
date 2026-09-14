@@ -31,6 +31,22 @@ class FinancialPermissions
     public const MANAGE_ASSET_CATEGORIES = 'manage_asset_categories';
     public const MANAGE_FIXED_ASSETS = 'manage_fixed_assets';
     public const VIEW_CAPITAL_MANAGEMENT = 'view_capital_management';
+    public const VIEW_ACCOUNTING = 'view_accounting';
+    public const MANAGE_CHART_OF_ACCOUNTS = 'manage_chart_of_accounts';
+    public const MANAGE_ACCOUNTING_PERIODS = 'manage_accounting_periods';
+    public const RUN_ACCOUNTING_BACKFILL = 'run_accounting_backfill';
+    public const RUN_ACCOUNTING_RECONCILIATION = 'run_accounting_reconciliation';
+    public const MANAGE_REVENUE_RECOGNITION = 'manage_revenue_recognition';
+    public const RUN_REVENUE_RECOGNITION = 'run_revenue_recognition';
+    public const RESOLVE_REVENUE_RECOGNITION_REVIEWS = 'resolve_revenue_recognition_reviews';
+    public const VIEW_FINANCIAL_STATEMENTS = 'view_financial_statements';
+    public const EXPORT_FINANCIAL_REPORTS = 'export_financial_reports';
+    public const MANAGE_SUBSCRIPTION_LIFECYCLE = 'manage_subscription_lifecycle';
+    public const RUN_SUBSCRIPTION_BILLING = 'run_subscription_billing';
+    public const RESOLVE_SUBSCRIPTION_BILLING_REVIEWS = 'resolve_subscription_billing_reviews';
+    public const VIEW_SAAS_METRICS = 'view_saas_metrics';
+    public const EXPORT_SAAS_METRICS = 'export_saas_metrics';
+    public const VIEW_EXECUTIVE_DASHBOARD = 'view_executive_dashboard';
 
     public const ALL = [
         self::RECORD_PAYMENT,
@@ -58,6 +74,22 @@ class FinancialPermissions
         self::MANAGE_ASSET_CATEGORIES,
         self::MANAGE_FIXED_ASSETS,
         self::VIEW_CAPITAL_MANAGEMENT,
+        self::VIEW_ACCOUNTING,
+        self::MANAGE_CHART_OF_ACCOUNTS,
+        self::MANAGE_ACCOUNTING_PERIODS,
+        self::RUN_ACCOUNTING_BACKFILL,
+        self::RUN_ACCOUNTING_RECONCILIATION,
+        self::MANAGE_REVENUE_RECOGNITION,
+        self::RUN_REVENUE_RECOGNITION,
+        self::RESOLVE_REVENUE_RECOGNITION_REVIEWS,
+        self::VIEW_FINANCIAL_STATEMENTS,
+        self::EXPORT_FINANCIAL_REPORTS,
+        self::MANAGE_SUBSCRIPTION_LIFECYCLE,
+        self::RUN_SUBSCRIPTION_BILLING,
+        self::RESOLVE_SUBSCRIPTION_BILLING_REVIEWS,
+        self::VIEW_SAAS_METRICS,
+        self::EXPORT_SAAS_METRICS,
+        self::VIEW_EXECUTIVE_DASHBOARD,
     ];
 
     public static function allows(?User $user, string $permission): bool

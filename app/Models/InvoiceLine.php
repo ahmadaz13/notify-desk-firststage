@@ -6,6 +6,7 @@ use App\Support\Money;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class InvoiceLine extends Model
 {
@@ -50,6 +51,16 @@ class InvoiceLine extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
+    public function revenueRecognitionSchedule(): HasOne
+    {
+        return $this->hasOne(RevenueRecognitionSchedule::class);
     }
 
     public function totalJod(): string

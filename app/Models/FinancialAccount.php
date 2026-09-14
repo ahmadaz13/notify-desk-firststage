@@ -31,6 +31,7 @@ class FinancialAccount extends Model
         'name_en',
         'type',
         'currency',
+        'chart_account_id',
         'is_active',
         'archived_at',
         'notes',
@@ -45,6 +46,11 @@ class FinancialAccount extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function chartAccount(): BelongsTo
+    {
+        return $this->belongsTo(ChartAccount::class);
     }
 
     public function cashMovements(): HasMany

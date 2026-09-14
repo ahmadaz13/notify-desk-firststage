@@ -37,6 +37,7 @@ class CollectionCorrectionService
                 'reversed_at' => now(),
                 'reversed_by' => $userId,
             ]);
+            app(BillingAccountingService::class)->postPaymentAllocationReversal($reversal);
 
             $this->log($allocation->client_id, $userId, 'allocation_reversed', 'تم عكس تخصيص دفعة على الفاتورة '.$allocation->invoice->invoice_number, [
                 'payment_allocation_id' => $allocation->id,

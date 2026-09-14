@@ -6,8 +6,10 @@ use App\Models\Appointment;
 use App\Models\Client;
 use App\Models\Installation;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
 use App\Models\Plan;
 use App\Models\Partner;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Services\ReceivableService;
 use App\Support\AppointmentTypes;
@@ -165,7 +167,11 @@ class ClientController extends Controller
             ->orderByDesc('id')
             ->get();
         $offers = DB::table('commercial_offers')->where('client_id', $client->id)->orderByDesc('offer_date')->get();
-        $subscriptions = DB::table('subscriptions')->where('client_id', $client->id)->orderByDesc('start_date')->get();
+        $subscriptions = Subscription::with(['billingPeriods.invoice', 'lifecycleEvents', 'pendingPlanPrice.plan'])
+            ->where('client_id', $client->id)
+            ->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->get();
         $invoices = Invoice::with('lines')
             ->where('client_id', $client->id)
             ->orderByDesc('issue_date')
@@ -211,8 +217,38 @@ class ClientController extends Controller
             ->with(['services', 'activePrices' => fn ($query) => $query->effective(now())->orderBy('billing_interval')])
             ->orderBy('code')
             ->get();
+        $accountingTrace = collect();
+        if (Gate::allows(FinancialPermissions::VIEW_ACCOUNTING)) {
+            $sourcePairs = [
+                Invoice::class => $invoices->pluck('id')->all(),
+                \App\Models\PaymentAllocation::class => $payments->flatMap->allocations->pluck('id')->all(),
+                \App\Models\PaymentAllocationReversal::class => $payments->flatMap->allocations->pluck('reversal.id')->filter()->all(),
+                \App\Models\CreditNote::class => $creditNotes->pluck('id')->all(),
+                \App\Models\CreditNoteApplication::class => $creditNotes->flatMap->applications->pluck('id')->all(),
+                \App\Models\CreditNoteApplicationReversal::class => $creditNotes->flatMap->applications->pluck('reversal.id')->filter()->all(),
+                \App\Models\Refund::class => $refunds->pluck('id')->all(),
+            ];
+            $accountingTrace = collect($sourcePairs)
+                ->flatMap(function (array $ids, string $type) {
+                    if ($ids === []) {
+                        return collect();
+                    }
 
-        return view('clients.show', compact('client', 'timeline', 'appointments', 'payments', 'creditNotes', 'refunds', 'offers', 'subscriptions', 'invoices', 'invoiceReceivables', 'paymentReceivables', 'creditNoteReceivables', 'availableCustomerCredits', 'receivableSummary', 'followUps', 'outcomes', 'schedules', 'teamUsers', 'catalogServices', 'contracts', 'contactAttempts', 'installations', 'installationAppointments', 'activeInstallationAppointments', 'appointmentTypeLabels', 'lifecycleStages', 'lifecycleLabels', 'contactOutcomes', 'paymentMethodOptions', 'activeFinancialAccounts', 'sellablePlans'));
+                    return JournalEntry::query()
+                        ->where('source_type', $type)
+                        ->whereIn('source_id', $ids)
+                        ->orderBy('entry_date')
+                        ->orderBy('id')
+                        ->get()
+                        ->map(fn (JournalEntry $entry) => [
+                            'entry' => $entry,
+                            'source_label' => class_basename($type).' #'.$entry->source_id,
+                        ]);
+                })
+                ->values();
+        }
+
+        return view('clients.show', compact('client', 'timeline', 'appointments', 'payments', 'creditNotes', 'refunds', 'offers', 'subscriptions', 'invoices', 'invoiceReceivables', 'paymentReceivables', 'creditNoteReceivables', 'availableCustomerCredits', 'receivableSummary', 'followUps', 'outcomes', 'schedules', 'teamUsers', 'catalogServices', 'contracts', 'contactAttempts', 'installations', 'installationAppointments', 'activeInstallationAppointments', 'appointmentTypeLabels', 'lifecycleStages', 'lifecycleLabels', 'contactOutcomes', 'paymentMethodOptions', 'activeFinancialAccounts', 'sellablePlans', 'accountingTrace'));
     }
 
     public function edit(int $id): View

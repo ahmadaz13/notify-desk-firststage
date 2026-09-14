@@ -374,7 +374,10 @@ class CashMovementService
             return $existing;
         }
 
-        return CashMovement::create($attributes);
+        $movement = CashMovement::create($attributes);
+        app(AccountingEventPostingService::class)->postCashMovement($movement);
+
+        return $movement;
     }
 
     public function assertAccountReceivesOrdinaryMovement(FinancialAccount $account): void

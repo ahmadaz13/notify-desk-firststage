@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CreditNoteLine extends Model
 {
@@ -39,5 +40,10 @@ class CreditNoteLine extends Model
     public function invoiceLine(): BelongsTo
     {
         return $this->belongsTo(InvoiceLine::class);
+    }
+
+    public function revenueRecognitionAdjustments(): HasMany
+    {
+        return $this->hasMany(RevenueRecognitionAdjustment::class);
     }
 }

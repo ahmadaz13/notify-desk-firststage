@@ -37,6 +37,8 @@ class InvoiceService
 
             $this->assertTotalsMatchLines($invoice->fresh('lines'));
             $this->assignNumberAndIssue($invoice, $issueDate);
+            app(BillingAccountingService::class)->postInvoiceIssued($invoice);
+            app(RevenueRecognitionService::class)->createSchedulesForInvoice($invoice->fresh('lines'), $userId);
             $this->log($client->id, $userId, 'invoice_created', 'تم إنشاء فاتورة جديدة '.$invoice->invoice_number, $invoice);
             $this->log($client->id, $userId, 'invoice_issued', 'تم إصدار الفاتورة '.$invoice->invoice_number, $invoice);
 
@@ -70,6 +72,8 @@ class InvoiceService
 
             $this->assertTotalsMatchLines($invoice->fresh('lines'));
             $this->assignNumberAndIssue($invoice, $issueDate);
+            app(BillingAccountingService::class)->postInvoiceIssued($invoice);
+            app(RevenueRecognitionService::class)->createSchedulesForInvoice($invoice->fresh('lines'), $userId);
             $this->log($client->id, $userId, 'invoice_created', 'تم إنشاء فاتورة عمل إضافي '.$invoice->invoice_number, $invoice);
             $this->log($client->id, $userId, 'invoice_issued', 'تم إصدار الفاتورة '.$invoice->invoice_number, $invoice);
 
@@ -104,6 +108,7 @@ class InvoiceService
             'voided_at' => now(),
             'void_reason' => $reason,
         ]);
+        app(BillingAccountingService::class)->postInvoiceVoid($invoice->fresh(), $userId);
 
         $this->log($invoice->client_id, $userId, 'invoice_voided', 'تم إلغاء الفاتورة '.$invoice->invoice_number, $invoice);
 

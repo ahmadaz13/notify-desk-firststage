@@ -34,5 +34,6 @@ class DatabaseSeeder extends Seeder
         $this->call(AssetCategorySeeder::class);
         $this->call(ServiceCatalogSeeder::class);
         $this->call(CommercialCatalogSeeder::class);
+        $this->call(AccountingSeeder::class);
     }
 }

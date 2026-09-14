@@ -96,6 +96,8 @@ class OperatingExpenseService
 
             if ($fundingSource === Expense::FUNDING_COMPANY_ACCOUNT && $account !== null) {
                 $this->cashMovements->recordExpensePaid($expense, $account, $actor->id);
+            } elseif ($fundingSource === Expense::FUNDING_PERSONAL) {
+                app(AccountingEventPostingService::class)->postPersonalExpense($expense);
             }
 
             if ($obligation !== null) {
@@ -144,6 +146,8 @@ class OperatingExpenseService
 
             if ($expense->funding_source === Expense::FUNDING_COMPANY_ACCOUNT) {
                 $this->cashMovements->recordExpenseReversal($reversal, $actor->id);
+            } elseif ($expense->funding_source === Expense::FUNDING_PERSONAL) {
+                app(AccountingEventPostingService::class)->postPersonalExpenseReversal($reversal);
             }
 
             $obligation = $expense->recurringObligation;

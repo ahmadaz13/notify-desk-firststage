@@ -33,7 +33,10 @@
                 <a class="{{ request()->routeIs('clients.import*') ? 'active' : '' }}" href="{{ route('clients.import') }}">استيراد CSV</a>
                 <a href="{{ route('dashboard') }}#quick-add">إضافة سريعة</a>
                 <a class="{{ request()->routeIs('dashboard') && request()->query('mode') === 'financial' ? 'active' : '' }}" href="{{ route('dashboard', ['mode' => 'financial']) }}">المال</a>
+                <a class="{{ request()->routeIs('executive.*') ? 'active' : '' }}" href="{{ route('executive.index') }}">Executive</a>
+                <a class="{{ request()->routeIs('saas-metrics.*') ? 'active' : '' }}" href="{{ route('saas-metrics.index') }}">SaaS</a>
                 <a class="{{ request()->routeIs('commercial-catalog.*') ? 'active' : '' }}" href="{{ route('commercial-catalog.index') }}">الكتالوج</a>
+                <a class="{{ request()->routeIs('subscription-billing.*') ? 'active' : '' }}" href="{{ route('subscription-billing.index') }}">التجديدات</a>
                 <a class="{{ request()->routeIs('collections.*') ? 'active' : '' }}" href="{{ route('collections.index') }}">التحصيل</a>
                 <a class="{{ request()->routeIs('financial-accounts.*') || request()->routeIs('financial-transfers.*') ? 'active' : '' }}" href="{{ route('financial-accounts.index') }}">النقد</a>
                 <a class="{{ request()->routeIs('operating-expenses.*') || request()->routeIs('recurring-expense-*') || request()->routeIs('vendors.*') || request()->routeIs('expense-categories.*') ? 'active' : '' }}" href="{{ route('operating-expenses.index') }}">المصاريف</a>
