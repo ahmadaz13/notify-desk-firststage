@@ -9,4 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('reminders:send')->everyMinute();
-
+Schedule::command('finance:generate-recurring-expenses')->dailyAt('06:00');

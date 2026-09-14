@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\ClientLifecycle;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -195,6 +196,8 @@ class CsvImportService
         return DB::transaction(function () use ($validRows, $type, $userId) {
             $importedCount = 0;
             $now = now();
+            $user = \App\Models\User::find($userId);
+            $partnerId = ($user && $user->isPartner()) ? $user->partner_id : null;
 
             foreach ($validRows as $item) {
                 $data = $item['data'] ?? $item;
@@ -202,12 +205,19 @@ class CsvImportService
                 $clientData = [
                     'business_name' => $data['business_name'],
                     'phone' => $data['phone'],
+                    'business_phone' => $data['business_phone'] ?? $data['phone'],
                     'contact_person' => !empty($data['contact_person']) ? $data['contact_person'] : null,
                     'city_area' => $data['city_area'],
+                    'city' => $data['city'] ?? $data['city_area'],
+                    'area' => $data['area'] ?? null,
                     'business_category' => $data['business_category'],
+                    'business_type' => $data['business_type'] ?? $data['business_category'],
                     'lead_source' => !empty($data['lead_source']) ? $data['lead_source'] : 'CSV Import',
+                    'source_reference' => !empty($data['source_reference']) ? $data['source_reference'] : null,
+                    'partner_id' => $partnerId,
                     'primary_owner_id' => $userId,
                     'status' => $type === 'subscriber' ? 'subscriber' : 'prospect',
+                    'stage' => $type === 'subscriber' ? ClientLifecycle::SUBSCRIBER : ClientLifecycle::PROSPECT,
                     'notes' => !empty($data['notes']) ? $data['notes'] : null,
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -225,6 +235,21 @@ class CsvImportService
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
+
+                if (!empty($data['contact_person'])) {
+                    DB::table('client_contacts')->insert([
+                        'client_id' => $clientId,
+                        'name' => $data['contact_person'],
+                        'role' => null,
+                        'primary_phone' => null,
+                        'secondary_phone' => null,
+                        'whatsapp_number' => null,
+                        'preferred_contact_method' => null,
+                        'is_primary' => true,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
 
                 // If subscriber, create subscription and payment schedules
                 if ($type === 'subscriber') {

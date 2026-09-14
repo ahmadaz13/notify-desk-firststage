@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\AppointmentTypes;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -49,6 +50,35 @@ class NotificationService
     }
 
     /**
+     * Get user IDs that should receive notifications for a specific client.
+     * Admins receive all notifications.
+     * The owning partner's users receive notifications for their own clients.
+     * Uninvolved partners receive nothing.
+     */
+    public function getRecipientUserIds(?int $partnerId): array
+    {
+        $adminIds = DB::table('users')
+            ->where(function ($q) {
+                $q->whereNull('role')
+                    ->orWhere('role', 'admin');
+            })
+            ->pluck('id')
+            ->toArray();
+
+        if ($partnerId) {
+            $partnerUserIds = DB::table('users')
+                ->where('role', 'partner')
+                ->where('partner_id', $partnerId)
+                ->pluck('id')
+                ->toArray();
+
+            return array_values(array_unique(array_merge($adminIds, $partnerUserIds)));
+        }
+
+        return $adminIds;
+    }
+
+    /**
      * Scan and send reminders for appointments occurring within the next 5 hours.
      *
      * @return int Number of notifications created
@@ -64,10 +94,9 @@ class NotificationService
             ->join('clients', 'clients.id', '=', 'appointments.client_id')
             ->whereDate('appointments.appointment_date', $today)
             ->whereIn('appointments.status', ['scheduled', 'confirmed'])
-            ->select('appointments.*', 'clients.business_name')
+            ->select('appointments.*', 'clients.business_name', 'clients.partner_id')
             ->get();
 
-        $users = DB::table('users')->pluck('id');
         $createdCount = 0;
 
         foreach ($appointments as $apt) {
@@ -77,11 +106,14 @@ class NotificationService
             // Check if appointment is between now - 30 minutes and now + 5 hours
             if ($aptDateTime->between($now->copy()->subMinutes(30), $inFiveHours)) {
                 $location = $apt->location ?: 'عن بُعد';
-                $title = 'تذكير بموعد قادم: ' . $apt->business_name;
-                $message = "لديك موعد مع {$apt->business_name} اليوم في تمام الساعة {$apt->appointment_time} ({$location}).";
+                $typeLabel = AppointmentTypes::label($apt->appointment_type);
+                $title = 'تذكير بموعد ' . $typeLabel . ': ' . $apt->business_name;
+                $message = "لديك موعد {$typeLabel} مع {$apt->business_name} اليوم في تمام الساعة {$apt->appointment_time} ({$location}).";
                 $actionUrl = route('clients.show', $apt->client_id, false);
 
-                foreach ($users as $userId) {
+                $targetUsers = $this->getRecipientUserIds($apt->partner_id);
+
+                foreach ($targetUsers as $userId) {
                     $id = $this->createNotification(
                         $userId,
                         'appointment_reminder',
@@ -108,9 +140,16 @@ class NotificationService
      */
     public function sendPaymentReminders(): int
     {
+        return $this->checkDuePaymentReminders();
+    }
+
+    /**
+     * Idempotent check for due payment reminders.
+     */
+    public function checkDuePaymentReminders(): int
+    {
         $today = Carbon::today();
         $threeDaysLater = $today->copy()->addDays(3);
-        $users = DB::table('users')->pluck('id');
         $createdCount = 0;
 
         // Fetch unpaid schedules
@@ -118,11 +157,13 @@ class NotificationService
             ->join('subscriptions', 'subscriptions.id', '=', 'payment_schedules.subscription_id')
             ->join('clients', 'clients.id', '=', 'subscriptions.client_id')
             ->whereNotIn('payment_schedules.status', ['paid', 'cancelled'])
+            ->where('subscriptions.status', '!=', 'cancelled')
             ->where('clients.status', '!=', 'archived')
             ->select(
                 'payment_schedules.*',
                 'clients.business_name',
-                'clients.id as client_id'
+                'clients.id as client_id',
+                'clients.partner_id'
             )
             ->get();
 
@@ -130,6 +171,7 @@ class NotificationService
             $dueDate = Carbon::parse($schedule->due_date)->startOfDay();
             $actionUrl = route('clients.show', $schedule->client_id, false);
             $amountFormatted = number_format((float) $schedule->amount_due, 2);
+            $targetUsers = $this->getRecipientUserIds($schedule->partner_id);
 
             // 1. Overdue
             if ($dueDate->lt($today)) {
@@ -137,7 +179,8 @@ class NotificationService
                 $title = "دفعة متأخرة: {$schedule->business_name}";
                 $message = "توجد دفعة متأخرة بمقدار {$daysOverdue} يوم بقيمة {$amountFormatted} د.أ للعميل {$schedule->business_name}.";
 
-                foreach ($users as $userId) {
+                $notified = false;
+                foreach ($targetUsers as $userId) {
                     $id = $this->createNotification(
                         $userId,
                         'payment_overdue',
@@ -149,7 +192,11 @@ class NotificationService
                     );
                     if ($id) {
                         $createdCount++;
+                        $notified = true;
                     }
+                }
+                if ($notified) {
+                    DB::table('payment_schedules')->where('id', $schedule->id)->update(['reminder_sent_at' => now()]);
                 }
             }
             // 2. Due today
@@ -157,7 +204,8 @@ class NotificationService
                 $title = "دفعة مستحقة اليوم: {$schedule->business_name}";
                 $message = "تستحق اليوم دفعة بقيمة {$amountFormatted} د.أ للعميل {$schedule->business_name}.";
 
-                foreach ($users as $userId) {
+                $notified = false;
+                foreach ($targetUsers as $userId) {
                     $id = $this->createNotification(
                         $userId,
                         'payment_due_today',
@@ -169,7 +217,11 @@ class NotificationService
                     );
                     if ($id) {
                         $createdCount++;
+                        $notified = true;
                     }
+                }
+                if ($notified) {
+                    DB::table('payment_schedules')->where('id', $schedule->id)->update(['reminder_sent_at' => now()]);
                 }
             }
             // 3. Due within 3 days
@@ -178,7 +230,8 @@ class NotificationService
                 $title = "تذكير بقرب استحقاق دفعة: {$schedule->business_name}";
                 $message = "تستحق دفعة بقيمة {$amountFormatted} د.أ للعميل {$schedule->business_name} خلال {$daysLeft} أيام ({$schedule->due_date}).";
 
-                foreach ($users as $userId) {
+                $notified = false;
+                foreach ($targetUsers as $userId) {
                     $id = $this->createNotification(
                         $userId,
                         'payment_due_soon',
@@ -190,7 +243,11 @@ class NotificationService
                     );
                     if ($id) {
                         $createdCount++;
+                        $notified = true;
                     }
+                }
+                if ($notified) {
+                    DB::table('payment_schedules')->where('id', $schedule->id)->update(['reminder_sent_at' => now()]);
                 }
             }
         }

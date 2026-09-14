@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\ConflictResolutionRequest;
 use App\Models\Partner;
+use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\ConflictDetected;
+use App\Support\ClientLifecycle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -69,11 +71,15 @@ class PublicClientController extends Controller
             $client = Client::create([
                 'partner_id' => $partner->id,
                 'phone' => $normalizedPhone,
+                'business_phone' => $normalizedPhone,
                 'business_name' => $validated['name'],
                 'city_area' => $validated['area'] ?: 'عمان',
+                'city' => $validated['area'] ?: 'عمان',
                 'business_category' => 'عام',
+                'business_type' => 'عام',
                 'lead_source' => $validated['source'] ?: ('مندوب: ' . $partner->company_name),
                 'status' => 'prospect',
+                'stage' => ClientLifecycle::PROSPECT,
             ]);
 
             DB::table('activity_logs')->insert([
@@ -89,7 +95,29 @@ class PublicClientController extends Controller
                 ->with('success', 'تم إضافة العميل بنجاح');
         }
 
-        // Case B: Client FOUND -> Create ConflictResolutionRequest
+        // Check if auto-transfer is enabled
+        $autoTransferSetting = Setting::get('allow_auto_transfer_clients', false);
+        $autoTransfer = filter_var($autoTransferSetting, FILTER_VALIDATE_BOOLEAN) || $autoTransferSetting === '1';
+
+        if ($autoTransfer) {
+            $foundClient->update([
+                'partner_id' => $partner->id,
+            ]);
+
+            DB::table('activity_logs')->insert([
+                'client_id' => $foundClient->id,
+                'user_id' => null,
+                'type' => 'client_transferred',
+                'description' => "تم ربط العميل بالشريك [{$partner->company_name}] تلقائياً وفقاً لإعدادات النظام",
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return redirect()->route('public.client.create', $uuid)
+                ->with('success', 'تم ربط العميل بالشريك تلقائياً');
+        }
+
+        // Case B: Client FOUND and auto-transfer disabled -> Create ConflictResolutionRequest
         $conflict = ConflictResolutionRequest::create([
             'partner_id' => $partner->id,
             'client_id' => $foundClient->id,

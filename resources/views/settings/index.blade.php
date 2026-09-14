@@ -30,15 +30,41 @@
                 <div class="field">
                     <label style="font-weight:700">نسبة تكلفة التشغيل (%) *</label>
                     <input class="touch-input" type="number" step="0.1" min="0" max="100" name="operational_cost_percentage" value="{{ old('operational_cost_percentage', $operationalCostPercentage) }}" required placeholder="20">
-                    <small class="muted" style="display:block;margin-top:4px">تستخدم لخصم تكلفة التشغيل من الإيراد الخام (الافتراضي 20%)</small>
+                    <small class="muted" style="display:block;margin-top:4px">تُستخدم لحساب التكلفة النظرية للتشغيل من الإيرادات</small>
                     @error('operational_cost_percentage') <span class="error">{{ $message }}</span> @enderror
                 </div>
 
                 <div class="field">
                     <label style="font-weight:700">مضاعف القيمة السوقية *</label>
                     <input class="touch-input" type="number" step="0.1" min="0.1" max="100" name="market_valuation_multiplier" value="{{ old('market_valuation_multiplier', $marketValuationMultiplier) }}" required placeholder="5">
-                    <small class="muted" style="display:block;margin-top:4px">مضاعف الإيراد السنوي المتكرر ARR لحساب القيمة التقديرية (الافتراضي 5)</small>
+                    <small class="muted" style="display:block;margin-top:4px">يُضرب في ARR الفعلي لحساب القيمة السوقية التقديرية</small>
                     @error('market_valuation_multiplier') <span class="error">{{ $message }}</span> @enderror
+                </div>
+
+                <div class="field">
+                    <label style="font-weight:700">خصم الدفع السنوي الافتراضي (%)</label>
+                    <input class="touch-input" type="number" step="0.5" min="0" max="100" name="annual_discount_percentage" value="{{ old('annual_discount_percentage', $annualDiscountPercentage) }}" placeholder="10.0">
+                    <small class="muted" style="display:block;margin-top:4px">نسبة الخصم التشجيعي المطبقة على الاشتراكات السنوية (افتراضياً 10%)</small>
+                    @error('annual_discount_percentage') <span class="error">{{ $message }}</span> @enderror
+                </div>
+
+                <div class="field">
+                    <label style="font-weight:700">ضريبة المبيعات العامة (%)</label>
+                    <input class="touch-input" type="number" step="0.1" min="0" max="100" name="sales_tax_percentage" value="{{ old('sales_tax_percentage', $salesTaxPercentage) }}" placeholder="16.0">
+                    <small class="muted" style="display:block;margin-top:4px">الضريبة المعتمدة على الاشتراكات والخدمات في الأردن (16%)</small>
+                    @error('sales_tax_percentage') <span class="error">{{ $message }}</span> @enderror
+                </div>
+
+                <div class="field">
+                    <label style="font-weight:700">يوم استحقاق الأقساط الشهرية الافتراضي</label>
+                    <select class="touch-input" name="monthly_due_day">
+                        <option value="1" {{ old('monthly_due_day', $monthlyDueDay) == 1 ? 'selected' : '' }}>1 من كل شهر (موصى به)</option>
+                        <option value="5" {{ old('monthly_due_day', $monthlyDueDay) == 5 ? 'selected' : '' }}>5 من كل شهر</option>
+                        <option value="15" {{ old('monthly_due_day', $monthlyDueDay) == 15 ? 'selected' : '' }}>15 من كل شهر</option>
+                        <option value="30" {{ old('monthly_due_day', $monthlyDueDay) == 30 ? 'selected' : '' }}>30 من كل شهر (نهاية الشهر)</option>
+                    </select>
+                    <small class="muted" style="display:block;margin-top:4px">اليوم المعتمد لجدولة التنبيهات والأقساط الشهرية للعملاء</small>
+                    @error('monthly_due_day') <span class="error">{{ $message }}</span> @enderror
                 </div>
             </div>
 
@@ -56,6 +82,45 @@
                 </button>
             </div>
         </form>
+    </div>
+
+    {{-- Formula Chain Informational Card --}}
+    <div class="card" style="padding:22px;background:#f8fafc;border-right:4px solid var(--nd-primary)">
+        <div style="margin-bottom:12px">
+            <h3 style="font-size:16px;font-weight:800;color:var(--nd-ink);margin:0">سلسلة المعادلات المالية الذكية (Financial Formula Chain)</h3>
+            <div class="muted" style="margin-top:4px;font-size:13px">
+                Gross → Operating Cost → Net Operating Revenue → Net Profit → ARR → Market Value
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;margin-top:14px">
+            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
+                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">1. الإيرادات الخام (Gross Revenue)</div>
+                <div class="muted" style="font-size:12px">إجمالي كافة الدفعات والمقبوضات المحصلة والمسجلة في النظام.</div>
+            </div>
+            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
+                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">2. تكلفة التشغيل (Operating Cost)</div>
+                <div class="muted" style="font-size:12px">الإيراد الخام × نسبة التشغيل المعيارية ({{ $operationalCostPercentage }}%).</div>
+            </div>
+            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
+                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">3. صافي الإيراد التشغيلي (Net Revenue)</div>
+                <div class="muted" style="font-size:12px">الإيراد الخام - التكلفة التشغيلية المعيارية.</div>
+            </div>
+            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
+                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">4. صافي الربح الفعلي (Net Profit)</div>
+                <div class="muted" style="font-size:12px">صافي الإيراد التشغيلي - المصاريف التشغيلية الفعلية المسجلة.</div>
+            </div>
+            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
+                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">5. الإيراد السنوي المتكرر (ARR)</div>
+                <div class="muted" style="font-size:12px">(الاشتراكات الشهرية النشطة × 12) + (الاشتراكات السنوية النشطة).</div>
+            </div>
+            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
+                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">6. القيمة السوقية التقديرية (Market Value)</div>
+                <div class="muted" style="font-size:12px">ARR الفعلي × مضاعف القيمة السوقية ({{ $marketValuationMultiplier }}).</div>
+            </div>
+        </div>
+        <div style="margin-top:14px;background:#eff6ff;padding:10px 14px;border-radius:8px;border:1px solid #bfdbfe;font-size:12px;color:#1e40af">
+            <strong>رصيد السيولة (Liquidity):</strong> (الاستثمارات + التحصيلات الفعلية) - (المصاريف الرأسمالية + المصاريف التشغيلية الفعلية).
+        </div>
     </div>
 
     {{-- 2. Partner Management Section --}}

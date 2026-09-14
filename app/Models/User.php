@@ -24,6 +24,8 @@ class User extends Authenticatable
         'password',
         'partner_id',
         'role',
+        'first_login_at',
+        'reset_expires_at',
     ];
 
     /**
@@ -46,6 +48,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'first_login_at' => 'datetime',
+            'reset_expires_at' => 'datetime',
         ];
     }
 
@@ -62,5 +66,20 @@ class User extends Authenticatable
     public function isPartner(): bool
     {
         return $this->role === 'partner';
+    }
+
+    public function expenses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Expense::class, 'paid_by');
+    }
+
+    public function dailyNotes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DailyNote::class);
+    }
+
+    public function appointments(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Appointment::class, 'appointment_user')->withTimestamps();
     }
 }

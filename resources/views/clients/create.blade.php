@@ -26,6 +26,12 @@
             </div>
 
             <div class="field">
+                <label>هاتف النشاط التجاري</label>
+                <input class="touch-input" name="business_phone" value="{{ old('business_phone') }}" placeholder="إن وجد ويختلف عن هاتف جهة الاتصال" style="direction:ltr;text-align:right">
+                @error('business_phone') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
                 <label>المنطقة / المدينة *</label>
                 <input class="touch-input" name="city_area" value="{{ old('city_area') }}" required placeholder="عمان - عبدون">
                 @error('city_area') <span class="error">{{ $message }}</span> @enderror
@@ -35,6 +41,30 @@
                 <label>التصنيف التجاري *</label>
                 <input class="touch-input" name="business_category" value="{{ old('business_category') }}" required placeholder="مطاعم، عيادات، أزياء...">
                 @error('business_category') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>نوع النشاط</label>
+                <input class="touch-input" name="business_type" value="{{ old('business_type') }}" placeholder="مطعم، صيدلية، صالون...">
+                @error('business_type') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>المدينة</label>
+                <input class="touch-input" name="city" value="{{ old('city') }}" placeholder="عمان">
+                @error('city') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>المنطقة</label>
+                <input class="touch-input" name="area" value="{{ old('area') }}" placeholder="عبدون">
+                @error('area') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>عدد الفروع</label>
+                <input class="touch-input" type="number" min="1" name="number_of_branches" value="{{ old('number_of_branches', 1) }}">
+                @error('number_of_branches') <span class="error">{{ $message }}</span> @enderror
             </div>
 
             <div class="field">
@@ -54,6 +84,32 @@
                 <label>جهة الاتصال (اختياري)</label>
                 <input class="touch-input" name="contact_person" value="{{ old('contact_person') }}" placeholder="اسم المدير أو المسؤول">
                 @error('contact_person') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>مرجع المصدر</label>
+                <input class="touch-input" name="source_reference" value="{{ old('source_reference') }}" placeholder="اسم الشخص أو الشركة إن وجد">
+                @error('source_reference') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>Instagram</label>
+                <input class="touch-input" name="instagram" value="{{ old('instagram') }}" placeholder="@business">
+                @error('instagram') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>الموقع الإلكتروني</label>
+                <input class="touch-input" name="website" value="{{ old('website') }}" placeholder="https://example.com" style="direction:ltr;text-align:right">
+                @error('website') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field full">
+                <label>رابط الخريطة أو وصف الموقع</label>
+                <input class="touch-input" name="maps_url" value="{{ old('maps_url') }}" placeholder="Google Maps URL" style="direction:ltr;text-align:right">
+                <input class="touch-input" name="location_text" value="{{ old('location_text') }}" placeholder="وصف الموقع المختصر" style="margin-top:8px">
+                @error('maps_url') <span class="error">{{ $message }}</span> @enderror
+                @error('location_text') <span class="error">{{ $message }}</span> @enderror
             </div>
 
             @if(auth()->user()->isAdmin())

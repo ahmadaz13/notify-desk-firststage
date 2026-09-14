@@ -96,11 +96,11 @@ class FinancialDashboardTest extends TestCase
         // Net operating revenue = 1500 - 300 = 1200.00
         $response->assertViewHas('net_operating_revenue', 1200.00);
 
-        // ARR = 1200 * 12 = 14400. Market valuation = 14400 * 5 = 72000.00
-        $response->assertViewHas('estimated_market_value', 72000.00);
+        // Corrected ARR = 1500 * 12 = 18000. Market valuation = 18000 * 5 = 90000.00
+        $response->assertViewHas('estimated_market_value', 90000.00);
 
-        // Liquidity = 20000 - 5000 = 15000.00
-        $response->assertViewHas('liquidity_balance', 15000.00);
+        // Corrected Liquidity = (20000 + 1500) - (5000 + 0) = 16500.00
+        $response->assertViewHas('liquidity_balance', 16500.00);
 
         // View assertions
         $response->assertSee('إجمالي الإيرادات الخام');

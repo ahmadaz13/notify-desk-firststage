@@ -11,8 +11,20 @@ export default {
     ],
     theme: {
         extend: {
+            colors: {
+                notify: {
+                    primary: '#0C86ED',
+                    light: '#5AB2FF',
+                    dark: '#050B0D',
+                    charcoal: '#32383A',
+                    bg: '#F6F9FC',
+                    surface: '#FFFFFF',
+                },
+            },
             fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                sans: ['Cairo', 'Inter', ...defaultTheme.fontFamily.sans],
+                arabic: ['Cairo', 'sans-serif'],
+                english: ['Inter', 'sans-serif'],
             },
         },
     },

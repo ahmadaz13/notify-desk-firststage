@@ -2,14 +2,35 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Appointment;
+use App\Models\DailyNote;
+use App\Models\ExpenseCategory;
+use App\Models\User;
+use App\Services\DailyOperationalService;
+use App\Services\FreeInstallationService;
+use App\Support\AppointmentTypes;
+use App\Support\FinancialPermissions;
+use App\Support\PaymentMethods;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        protected DailyOperationalService $dailyOpsService
+    ) {}
+
     public function index()
     {
+        if (auth()->check() && auth()->user()->isPartner()) {
+            return app(PartnerDashboardController::class)->index(request());
+        }
+
+        $user = auth()->user();
         $today = Carbon::today();
         $monthStart = $today->copy()->startOfMonth();
         $clients = DB::table('clients')->where('status', '!=', 'archived')->count();
@@ -51,6 +72,16 @@ class DashboardController extends Controller
 
         $reminders = DB::table('clients')->whereNotNull('status')->where('status', '!=', 'archived')->orderBy('updated_at', 'desc')->limit(4)->get();
 
+        // Operational Cockpit Metrics
+        $dailySnapshot = $this->dailyOpsService->getTodaySnapshot($user);
+        $recentExpenses = $this->dailyOpsService->getRecentExpenses($user, 5);
+        $todayAppointments = $this->dailyOpsService->getTodayAppointments($user);
+        $pendingFollowUps = $this->dailyOpsService->getPendingFollowUps($user);
+        $dailyNote = DailyNote::where('user_id', $user->id)->whereDate('date', $today)->first();
+        $expenseCategories = ExpenseCategory::active()->get();
+        $teamUsers = User::where('role', 'admin')->get();
+        $paymentMethodOptions = PaymentMethods::labels();
+
         $financialMetrics = $this->calculateFinancialMetrics();
         $investments = DB::table('investments')->orderByDesc('entry_date')->get();
 
@@ -64,104 +95,103 @@ class DashboardController extends Controller
             $partner = auth()->user()->partner;
             if ($partner) {
                 $totalClientPayments = (float) $partner->total_client_payments;
-                $netRevenue = (float) ($totalClientPayments * 0.8);
+                $deduction = $partner->deduction_percentage !== null ? (float) $partner->deduction_percentage : 20.0;
+                $netRevenue = (float) ($totalClientPayments * (1 - ($deduction / 100)));
                 $earnedShare = $partner->earned_share;
             }
         }
+
+        $requestedMode = request()->query('mode', 'daily');
+        $mode = in_array($requestedMode, ['daily', 'financial'], true) ? $requestedMode : 'daily';
+        $currentMode = $mode;
 
         return view('dashboard', array_merge(compact(
             'clients', 'prospects', 'subscribers', 'appointments', 'nextAppointment',
             'collected', 'expenses', 'overdue', 'reminders',
             'todayCollections', 'monthIncome', 'monthExpenses', 'netCashResult', 'overdueCollections',
             'unreadNotifications', 'investments',
-            'isPartner', 'partner', 'totalClientPayments', 'netRevenue', 'earnedShare'
+            'isPartner', 'partner', 'totalClientPayments', 'netRevenue', 'earnedShare',
+            'dailySnapshot', 'recentExpenses', 'todayAppointments', 'pendingFollowUps', 'dailyNote', 'expenseCategories', 'teamUsers',
+            'currentMode', 'mode', 'paymentMethodOptions'
         ), $financialMetrics));
     }
 
+    /**
+     * @deprecated Use ClientController::index() instead.
+     */
     public function clients(Request $request)
     {
-        $query = trim((string) $request->get('q'));
-        $status = $request->get('status', 'all');
-        $clients = DB::table('clients')
-            ->when(auth()->user()->isPartner(), fn ($q) => $q->where('partner_id', auth()->user()->partner_id))
-            ->when($query, fn ($q) => $q->where(function ($inner) use ($query) { $inner->where('business_name', 'like', "%{$query}%")->orWhere('phone', 'like', "%{$query}%")->orWhere('city_area', 'like', "%{$query}%"); }))
-            ->when($status !== 'all', fn ($q) => $q->where('status', $status))
-            ->orderByDesc('updated_at')
-            ->paginate(10)
-            ->withQueryString();
-        return view('clients.index', compact('clients', 'query', 'status'));
+        return app(ClientController::class)->index($request);
     }
 
+    /**
+     * @deprecated Use ClientController::show() instead.
+     */
     public function showClient(int $client)
     {
-        $clientModel = \App\Models\Client::findOrFail($client);
-        \Illuminate\Support\Facades\Gate::authorize('view', $clientModel);
-        $client = $clientModel;
-
-        $timeline = DB::table('activity_logs')->where('client_id', $client->id)->orderByDesc('created_at')->get();
-        $appointments = DB::table('appointments')->where('client_id', $client->id)->orderByDesc('appointment_date')->get();
-        $payments = DB::table('payments')->where('client_id', $client->id)->orderByDesc('paid_at')->get();
-        $offers = DB::table('commercial_offers')->where('client_id', $client->id)->orderByDesc('offer_date')->get();
-        $subscriptions = DB::table('subscriptions')->where('client_id', $client->id)->orderByDesc('start_date')->get();
-        $followUps = DB::table('follow_ups')->where('client_id', $client->id)->orderByDesc('next_follow_up_date')->get();
-        $outcomes = DB::table('meeting_outcomes')->where('client_id', $client->id)->orderByDesc('created_at')->get();
-        $schedules = DB::table('payment_schedules')
-            ->join('subscriptions', 'subscriptions.id', '=', 'payment_schedules.subscription_id')
-            ->where('subscriptions.client_id', $client->id)
-            ->select('payment_schedules.*')
-            ->orderBy('payment_schedules.due_date')
-            ->get();
-
-        return view('clients.show', compact('client', 'timeline', 'appointments', 'payments', 'offers', 'subscriptions', 'followUps', 'outcomes', 'schedules'));
+        return app(ClientController::class)->show($client);
     }
 
+    /**
+     * @deprecated Use ClientController::store() instead.
+     */
     public function storeClient(Request $request)
     {
-        $data = $request->validate([
-            'business_name' => 'required|string|max:255',
-            'phone' => 'required|string|max:50',
-            'city_area' => 'required|string|max:120',
-            'business_category' => 'required|string|max:120',
-            'lead_source' => 'required|string|max:80',
-            'contact_person' => 'nullable|string|max:120',
-            'notes' => 'nullable|string',
-            'partner_id' => 'nullable|exists:partners,id',
-        ]);
-
-        if (auth()->user()->isPartner()) {
-            $data['partner_id'] = auth()->user()->partner_id;
-        } elseif (auth()->user()->isAdmin()) {
-            $data['partner_id'] = $request->filled('partner_id') ? (int) $request->partner_id : null;
-        }
-
-        $data['primary_owner_id'] = auth()->id();
-        $data['created_at'] = now();
-        $data['updated_at'] = now();
-        $id = DB::transaction(function () use ($data) {
-            $id = DB::table('clients')->insertGetId($data);
-            $this->log($id, 'client_created', 'تم إنشاء عميل جديد');
-            return $id;
-        });
-        return redirect()->route('clients.show', $id)->with('success', 'تم إنشاء العميل بنجاح.');
+        return app(ClientController::class)->store($request);
     }
 
     public function storeAppointment(Request $request)
     {
-        $data = $request->validate(['client_id' => 'required|exists:clients,id', 'appointment_date' => 'required|date', 'appointment_time' => 'required', 'appointment_type' => 'required|string', 'location' => 'nullable|string|max:255', 'notes' => 'nullable|string']);
+        $data = $request->validate([
+            'client_id' => 'required|exists:clients,id',
+            'appointment_date' => 'required|date',
+            'appointment_time' => 'required',
+            'appointment_type' => 'required|string',
+            'location' => 'nullable|string|max:255',
+            'branch_name' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+            'attendees' => 'nullable|array',
+            'attendees.*' => 'exists:users,id',
+        ]);
         $clientModel = \App\Models\Client::findOrFail($data['client_id']);
         \Illuminate\Support\Facades\Gate::authorize('update', $clientModel);
 
-        $data['created_at'] = now(); $data['updated_at'] = now();
-        $id = DB::transaction(function () use ($data) { $id = DB::table('appointments')->insertGetId($data); $this->log($data['client_id'], 'appointment_created', 'تم جدولة موعد جديد'); return $id; });
+        DB::transaction(function () use ($data) {
+            $appointment = Appointment::create([
+                'client_id' => $data['client_id'],
+                'appointment_date' => $data['appointment_date'],
+                'appointment_time' => $data['appointment_time'],
+                'appointment_type' => $data['appointment_type'],
+                'location' => $data['location'] ?? null,
+                'branch_name' => $data['branch_name'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'status' => 'scheduled',
+            ]);
+
+            $attendees = !empty($data['attendees']) ? $data['attendees'] : [auth()->id()];
+            $appointment->users()->sync($attendees);
+
+            $this->log($data['client_id'], 'appointment_created', 'تم جدولة موعد جديد');
+        });
+
         return back()->with('success', 'تم جدولة الموعد.');
     }
 
-    public function updateAppointment(Request $request, int $appointment)
+    public function updateAppointment(Request $request, int $appointment, FreeInstallationService $freeInstallationService)
     {
-        $data = $request->validate(['status' => 'required|in:scheduled,confirmed,rescheduled,cancelled,no_show,completed']);
-        $item = DB::table('appointments')->where('id', $appointment)->first(); abort_unless($item, 404);
-        $clientModel = \App\Models\Client::findOrFail($item->client_id);
+        $data = $request->validate([
+            'status' => 'required|in:scheduled,confirmed,rescheduled,cancelled,no_show,completed',
+            'next_stage' => 'nullable|string',
+        ]);
+        $item = Appointment::with('client')->findOrFail($appointment);
+        $clientModel = $item->client;
         \Illuminate\Support\Facades\Gate::authorize('update', $clientModel);
+
+        if ($item->appointment_type === AppointmentTypes::INSTALLATION && $data['status'] === 'cancelled') {
+            $freeInstallationService->cancelInstallationAppointment($item, $request->user(), $data['next_stage'] ?? null);
+
+            return back()->with('success', 'تم تحديث حالة الموعد.');
+        }
 
         DB::transaction(function () use ($data, $item) { DB::table('appointments')->where('id', $item->id)->update(['status' => $data['status'], 'updated_at' => now()]); $this->log($item->client_id, 'appointment_'.$data['status'], 'تم تحديث حالة الموعد إلى '.$data['status']); });
         return back()->with('success', 'تم تحديث حالة الموعد.');
@@ -169,29 +199,56 @@ class DashboardController extends Controller
 
     public function storePayment(Request $request)
     {
-        $data = $request->validate(['client_id' => 'required|exists:clients,id', 'amount' => 'required|numeric|min:0.01', 'payment_method' => 'required|string', 'paid_at' => 'required|date']);
-        $clientModel = \App\Models\Client::findOrFail($data['client_id']);
-        \Illuminate\Support\Facades\Gate::authorize('update', $clientModel);
+        $data = $request->validate([
+            'client_id' => 'required|exists:clients,id',
+            'amount' => 'required|numeric|min:0.01',
+            'payment_method' => ['required', 'string', Rule::in(PaymentMethods::values())],
+            'paid_at' => 'required|date',
+        ]);
+        Gate::authorize(FinancialPermissions::RECORD_PAYMENT);
 
-        DB::transaction(function () use ($data) { $subscription = DB::table('subscriptions')->where('client_id', $data['client_id'])->whereIn('status', ['active', 'payment_due'])->latest('id')->first(); if (!$subscription) { $subscriptionId = DB::table('subscriptions')->insertGetId(['client_id' => $data['client_id'], 'user_id' => auth()->id(), 'billing_type' => 'monthly', 'total_price' => $data['amount'], 'start_date' => now()->toDateString(), 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]); } else { $subscriptionId = $subscription->id; } DB::table('payments')->insert(array_merge($data, ['subscription_id' => $subscriptionId, 'recorded_by' => auth()->id(), 'paid_at' => Carbon::parse($data['paid_at']), 'created_at' => now(), 'updated_at' => now()])); $this->log($data['client_id'], 'payment_received', 'تم تسجيل دفعة بقيمة '.$data['amount'].' د.أ'); DB::table('clients')->where('id', $data['client_id'])->update(['status' => 'subscriber', 'updated_at' => now()]); });
+        $clientModel = \App\Models\Client::findOrFail($data['client_id']);
+        $subscription = DB::table('subscriptions')
+            ->where('client_id', $clientModel->id)
+            ->whereIn('status', ['active', 'payment_due'])
+            ->latest('id')
+            ->first();
+
+        if (! $subscription) {
+            throw ValidationException::withMessages([
+                'client_id' => 'لا يمكن تسجيل دفعة قبل وجود اشتراك صالح للعميل.',
+            ]);
+        }
+
+        DB::transaction(function () use ($data, $subscription) {
+            DB::table('payments')->insert(array_merge($data, [
+                'subscription_id' => $subscription->id,
+                'recorded_by' => auth()->id(),
+                'paid_at' => Carbon::parse($data['paid_at']),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]));
+
+            $this->log($data['client_id'], 'payment_received', 'تم تسجيل دفعة بقيمة '.$data['amount'].' د.أ');
+        });
         return back()->with('success', 'تم تسجيل الدفعة.');
     }
 
     public function storeExpense(Request $request)
     {
+        Gate::authorize(FinancialPermissions::MANAGE_EXPENSES);
+
         $data = $request->validate(['amount' => 'required|numeric|min:0.01', 'category' => 'required|string|max:120', 'date' => 'required|date', 'notes' => 'nullable|string']);
         DB::table('expenses')->insert(array_merge($data, ['paid_by' => auth()->id(), 'created_at' => now(), 'updated_at' => now()]));
         return back()->with('success', 'تم تسجيل المصروف.');
     }
 
+    /**
+     * @deprecated Use ClientController::convert() instead.
+     */
     public function convert(Request $request, int $client)
     {
-        $clientModel = \App\Models\Client::findOrFail($client);
-        \Illuminate\Support\Facades\Gate::authorize('update', $clientModel);
-
-        $data = $request->validate(['billing_type' => 'required|in:monthly,annual,installment', 'total_price' => 'required|numeric|min:0.01', 'start_date' => 'required|date', 'installments_count' => 'nullable|integer|min:2|max:12']);
-        DB::transaction(function () use ($data, $client) { $count = $data['billing_type'] === 'annual' ? 1 : ($data['billing_type'] === 'installment' ? (int) ($data['installments_count'] ?: 2) : 12); $subscriptionId = DB::table('subscriptions')->insertGetId(array_merge($data, ['client_id' => $client, 'user_id' => auth()->id(), 'status' => 'active', 'renewal_date' => Carbon::parse($data['start_date'])->addYear()->toDateString(), 'created_at' => now(), 'updated_at' => now()])); $per = round(((float) $data['total_price']) / $count, 2); for ($i = 0; $i < $count; $i++) { DB::table('payment_schedules')->insert(['subscription_id' => $subscriptionId, 'amount_due' => $i === $count - 1 ? ((float) $data['total_price']) - ($per * ($count - 1)) : $per, 'due_date' => Carbon::parse($data['start_date'])->addMonths($data['billing_type'] === 'annual' ? 0 : $i)->toDateString(), 'status' => $i === 0 ? 'due' : 'upcoming', 'created_at' => now(), 'updated_at' => now()]); } DB::table('clients')->where('id', $client)->update(['status' => 'subscriber', 'updated_at' => now()]); $this->log($client, 'converted', 'تم تحويل العميل إلى مشترك وإنشاء جدول الدفعات'); });
-        return back()->with('success', 'تم التحويل وإنشاء جدول الدفعات.');
+        return app(ClientController::class)->convert($request, $client);
     }
 
     private function log(int $clientId, string $type, string $description): void
@@ -202,6 +259,7 @@ class DashboardController extends Controller
     private function calculateFinancialMetrics(): array
     {
         $totalGrossRevenue = (float) DB::table('payments')->sum('amount');
+        $allTimeCollections = $totalGrossRevenue;
 
         $opCostSetting = DB::table('settings')->where('key', 'operational_cost_percentage')->value('value');
         $operationalCostPercentage = (is_numeric($opCostSetting) && (float) $opCostSetting >= 0)
@@ -210,29 +268,61 @@ class DashboardController extends Controller
 
         $operationalCost = $totalGrossRevenue * ($operationalCostPercentage / 100);
         $netOperatingRevenue = $totalGrossRevenue - $operationalCost;
-        $annualRecurringRevenue = $netOperatingRevenue * 12;
+
+        // Actual operational expenses recorded
+        $allTimeOperationalExpenses = (float) DB::table('expenses')->sum('amount');
+        $netProfit = $netOperatingRevenue - $allTimeOperationalExpenses;
+
+        // Corrected ARR: (Active monthly subscriptions * 12) + (Active annual subscriptions) + (Active installment subscriptions)
+        $activeSubscriptions = DB::table('subscriptions')
+            ->where('status', 'active')
+            ->get();
+
+        $monthlyTotal = 0.0;
+        $annualTotal = 0.0;
+        $installmentTotal = 0.0;
+
+        foreach ($activeSubscriptions as $sub) {
+            $billing = strtolower($sub->billing_type ?? $sub->billing_cycle ?? '');
+            $price = (float) $sub->total_price;
+            if ($billing === 'monthly') {
+                $monthlyTotal += $price;
+            } elseif ($billing === 'annual') {
+                $annualTotal += $price;
+            } elseif ($billing === 'installment') {
+                $installmentTotal += $price;
+            }
+        }
+
+        $annualRecurringRevenue = ($monthlyTotal * 12) + $annualTotal + $installmentTotal;
 
         $multiplierSetting = DB::table('settings')->where('key', 'market_valuation_multiplier')->value('value');
         $marketMultiplier = (is_numeric($multiplierSetting) && (float) $multiplierSetting >= 0)
             ? (float) $multiplierSetting
             : 5.0;
 
+        // Market Valuation = ARR * marketMultiplier (no longer explodes with cumulative historical revenue)
         $estimatedMarketValue = $annualRecurringRevenue * $marketMultiplier;
 
         $totalInvestments = (float) DB::table('investments')->sum('amount');
         $totalCapitalExpenses = (float) DB::table('capital_expenses')->sum('amount');
-        $liquidityBalance = $totalInvestments - $totalCapitalExpenses;
+
+        // Corrected Liquidity: (Investments + All Collections) - (Capital Expenses + Operational Expenses)
+        $liquidityBalance = ($totalInvestments + $allTimeCollections) - ($totalCapitalExpenses + $allTimeOperationalExpenses);
 
         return [
             'total_gross_revenue' => $totalGrossRevenue,
             'operational_cost_percentage' => $operationalCostPercentage,
             'operational_cost' => $operationalCost,
             'net_operating_revenue' => $netOperatingRevenue,
+            'all_time_operational_expenses' => $allTimeOperationalExpenses,
+            'net_profit' => $netProfit,
             'annual_recurring_revenue' => $annualRecurringRevenue,
             'market_multiplier' => $marketMultiplier,
             'estimated_market_value' => $estimatedMarketValue,
             'total_investments' => $totalInvestments,
             'total_capital_expenses' => $totalCapitalExpenses,
+            'all_time_collections' => $allTimeCollections,
             'liquidity_balance' => $liquidityBalance,
         ];
     }

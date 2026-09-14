@@ -25,21 +25,35 @@
         </div>
 
         <div class="field" style="margin-bottom:16px">
+            <label>كلمة المرور الأولية للحساب (اختياري)</label>
+            <input class="touch-input" type="text" name="password" value="{{ old('password') }}" placeholder="اتركه فارغاً لتوليد كلمة مرور عشوائية تلقائياً" style="direction:ltr;text-align:right">
+            <small class="muted">سيتم عرض كلمة المرور مرة واحدة بعد الإنشاء لنسخها وإرسالها للشريك.</small>
+            @error('password') <span class="error">{{ $message }}</span> @enderror
+        </div>
+
+        <div class="field" style="margin-bottom:16px">
             <label>رقم الهاتف (اختياري)</label>
             <input class="touch-input" type="text" name="phone" value="{{ old('phone') }}" placeholder="0791234567">
             @error('phone') <span class="error">{{ $message }}</span> @enderror
         </div>
 
-        <div class="field" style="margin-bottom:24px">
+        <div class="field" style="margin-bottom:16px">
             <label>نسبة حصة الأرباح % (اختياري)</label>
             <input class="touch-input" type="number" step="0.01" min="0" max="100" name="profit_share_percentage" value="{{ old('profit_share_percentage') }}" placeholder="مثال: 15.00">
-            <small class="muted">تُحسب من 80% من إجمالي مقبوضات عملاء هذا الشريك.</small>
+            <small class="muted">نسبة الشريك من صافي الإيراد بعد استقطاع تكاليف التشغيل.</small>
             @error('profit_share_percentage') <span class="error">{{ $message }}</span> @enderror
+        </div>
+
+        <div class="field" style="margin-bottom:24px">
+            <label>نسبة استقطاع التشغيل % (الافتراضي 20%)</label>
+            <input class="touch-input" type="number" step="0.01" min="0" max="100" name="deduction_percentage" value="{{ old('deduction_percentage', '20.00') }}" placeholder="20.00">
+            <small class="muted">النسبة المستقطعة لتكاليف التشغيل قبل احتساب أرباح الشريك.</small>
+            @error('deduction_percentage') <span class="error">{{ $message }}</span> @enderror
         </div>
 
         <div style="display:flex;gap:12px;justify-content:flex-end">
             <a href="{{ route('partners.index') }}" class="btn btn-ghost touch-btn">إلغاء</a>
-            <button type="submit" class="btn btn-primary touch-btn">حفظ وتوليد رابط المندوب</button>
+            <button type="submit" class="btn btn-primary touch-btn">حفظ وتوليد بيانات الدخول</button>
         </div>
     </form>
 </div>

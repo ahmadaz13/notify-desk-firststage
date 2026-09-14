@@ -1,3 +1,47 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  /* Notify Brand Colors */
+  --notify-primary: #0C86ED;
+  --notify-primary-hover: #0a73cc;
+  --notify-primary-light: #5AB2FF;
+  --notify-near-black: #050B0D;
+  --notify-charcoal: #32383A;
+  --notify-bg: #F6F9FC;
+  --notify-surface: #FFFFFF;
+  --notify-surface-alt: #F1F5F9;
+  --notify-border: rgba(148, 163, 184, 0.28);
+  --notify-border-strong: rgba(148, 163, 184, 0.45);
+
+  /* Status Colors */
+  --notify-success: #10b981;
+  --notify-success-soft: #ecfdf5;
+  --notify-warning: #f59e0b;
+  --notify-warning-soft: #fffbeb;
+  --notify-danger: #ef4444;
+  --notify-danger-soft: #fef2f2;
+  --notify-info: #0C86ED;
+  --notify-info-soft: #eff6ff;
+
+  /* Backward Compatibility Aliases */
+  --nd-primary: var(--notify-primary);
+  --nd-primary-light: var(--notify-primary-light);
+  --nd-bg: var(--notify-bg);
+  --nd-surface: var(--notify-surface);
+  --nd-accent: var(--notify-primary);
+  --nd-accent-soft: rgba(12, 134, 237, 0.12);
+  --nd-border: var(--notify-border);
+  --nd-ink: var(--notify-near-black);
+  --nd-muted: #64748b;
+  --nd-warning: var(--notify-warning);
+  --nd-danger: var(--notify-danger);
+  --nd-success: var(--notify-success);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}

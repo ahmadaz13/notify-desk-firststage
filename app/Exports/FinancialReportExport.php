@@ -24,7 +24,7 @@ class FinancialReportExport
         $liquidityBalance = $totalInvestments - $totalCapitalExpenses;
 
         $rows = [
-            ['تقرير المؤشرات والملخص المالي', 'NotifyDesk V2 Financial Summary Report'],
+            ['تقرير المؤشرات والملخص المالي', 'Notify V3 Financial Summary Report'],
             ['تاريخ التصدير', now()->format('Y-m-d H:i:s')],
             [''],
             ['المؤشر المالي', 'القيمة (د.أ)', 'الملاحظات'],

@@ -14,17 +14,32 @@ class Partner extends Model
 
     protected $fillable = [
         'company_name',
+        'status',
         'email',
         'phone',
         'profit_share_percentage',
+        'deduction_percentage',
         'public_uuid',
+        'onboarded_at',
     ];
 
     protected function casts(): array
     {
         return [
             'profit_share_percentage' => 'decimal:2',
+            'deduction_percentage' => 'decimal:2',
+            'onboarded_at' => 'datetime',
         ];
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->status === 'suspended';
+    }
+
+    public function isActive(): bool
+    {
+        return empty($this->status) || $this->status === 'active';
     }
 
     protected static function booted(): void
@@ -65,6 +80,9 @@ class Partner extends Model
             return null;
         }
 
-        return (float) (($this->total_client_payments * 0.8) * ((float) $this->profit_share_percentage / 100));
+        $deduction = $this->deduction_percentage !== null ? (float) $this->deduction_percentage : 20.0;
+        $netMultiplier = 1 - ($deduction / 100);
+
+        return (float) (($this->total_client_payments * $netMultiplier) * ((float) $this->profit_share_percentage / 100));
     }
 }

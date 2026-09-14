@@ -27,6 +27,12 @@
             </div>
 
             <div class="field">
+                <label>هاتف النشاط التجاري</label>
+                <input class="touch-input" name="business_phone" value="{{ old('business_phone', $client->business_phone) }}" style="direction:ltr;text-align:right">
+                @error('business_phone') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
                 <label>المنطقة / المدينة *</label>
                 <input class="touch-input" name="city_area" value="{{ old('city_area', $client->city_area) }}" required>
                 @error('city_area') <span class="error">{{ $message }}</span> @enderror
@@ -36,6 +42,30 @@
                 <label>التصنيف التجاري *</label>
                 <input class="touch-input" name="business_category" value="{{ old('business_category', $client->business_category) }}" required>
                 @error('business_category') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>نوع النشاط</label>
+                <input class="touch-input" name="business_type" value="{{ old('business_type', $client->business_type) }}">
+                @error('business_type') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>المدينة</label>
+                <input class="touch-input" name="city" value="{{ old('city', $client->city) }}">
+                @error('city') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>المنطقة</label>
+                <input class="touch-input" name="area" value="{{ old('area', $client->area) }}">
+                @error('area') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>عدد الفروع</label>
+                <input class="touch-input" type="number" min="1" name="number_of_branches" value="{{ old('number_of_branches', $client->number_of_branches ?? 1) }}">
+                @error('number_of_branches') <span class="error">{{ $message }}</span> @enderror
             </div>
 
             <div class="field">
@@ -52,6 +82,32 @@
                 <label>جهة الاتصال (اختياري)</label>
                 <input class="touch-input" name="contact_person" value="{{ old('contact_person', $client->contact_person) }}">
                 @error('contact_person') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>مرجع المصدر</label>
+                <input class="touch-input" name="source_reference" value="{{ old('source_reference', $client->source_reference) }}">
+                @error('source_reference') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>Instagram</label>
+                <input class="touch-input" name="instagram" value="{{ old('instagram', $client->instagram) }}">
+                @error('instagram') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field">
+                <label>الموقع الإلكتروني</label>
+                <input class="touch-input" name="website" value="{{ old('website', $client->website) }}" style="direction:ltr;text-align:right">
+                @error('website') <span class="error">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="field full">
+                <label>رابط الخريطة أو وصف الموقع</label>
+                <input class="touch-input" name="maps_url" value="{{ old('maps_url', $client->maps_url) }}" style="direction:ltr;text-align:right">
+                <input class="touch-input" name="location_text" value="{{ old('location_text', $client->location_text) }}" style="margin-top:8px">
+                @error('maps_url') <span class="error">{{ $message }}</span> @enderror
+                @error('location_text') <span class="error">{{ $message }}</span> @enderror
             </div>
 
             @if(auth()->user()->isAdmin())

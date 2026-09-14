@@ -67,7 +67,7 @@ class Phase1InfrastructureTest extends TestCase
 
         $admin = User::create([
             'name' => 'Admin User',
-            'email' => 'admin@notifydesk.local',
+            'email' => 'admin@notify.local',
             'password' => bcrypt('secret'),
             'role' => 'admin',
         ]);

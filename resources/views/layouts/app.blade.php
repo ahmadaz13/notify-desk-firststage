@@ -3,17 +3,22 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $title ?? 'NotifyDesk Pilot Edition' }}</title>
+    <title>{{ $title ?? 'Notify Pilot Edition' }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <script defer src="{{ asset('js/alpine.min.js') }}"></script>
 </head>
 <body>
 <div class="app-shell">
     <header class="topbar">
-        <a class="brand" href="{{ route('dashboard') }}">Notify<span>Desk</span></a>
+        <a class="brand" href="{{ route('dashboard') }}" style="display:inline-flex;align-items:center;gap:8px">
+            @if(file_exists(public_path('images/brand/notify-icon.png')))
+                <img src="{{ asset('images/brand/notify-icon.png') }}" alt="Notify" style="height:28px;width:auto">
+            @endif
+            <span>Notify</span>
+        </a>
         @auth
         @php
             $unreadNotificationsCount = \Illuminate\Support\Facades\DB::table('notifications')
@@ -22,15 +27,20 @@
                 ->count();
         @endphp
         <nav class="nav-links">
-            <a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">اليوم</a>
+            <a class="{{ (request()->routeIs('dashboard') && request()->query('mode') !== 'financial') || request()->routeIs('partner.dashboard') ? 'active' : '' }}" href="{{ auth()->user()->isPartner() ? route('partner.dashboard') : route('dashboard', ['mode' => 'daily']) }}">{{ auth()->user()->isPartner() ? 'الرئيسية' : 'اليوم' }}</a>
             <a class="{{ request()->routeIs('clients.index') || request()->routeIs('clients.show') ? 'active' : '' }}" href="{{ route('clients.index') }}">العملاء</a>
-            <a class="{{ request()->routeIs('clients.import*') ? 'active' : '' }}" href="{{ route('clients.import') }}">استيراد CSV</a>
-            <a href="{{ route('dashboard') }}#quick-add">إضافة سريعة</a>
-            <a href="{{ route('dashboard') }}#money">المال</a>
             @if(auth()->user()->isAdmin())
+                <a class="{{ request()->routeIs('clients.import*') ? 'active' : '' }}" href="{{ route('clients.import') }}">استيراد CSV</a>
+                <a href="{{ route('dashboard') }}#quick-add">إضافة سريعة</a>
+                <a class="{{ request()->routeIs('dashboard') && request()->query('mode') === 'financial' ? 'active' : '' }}" href="{{ route('dashboard', ['mode' => 'financial']) }}">المال</a>
+                <a class="{{ request()->routeIs('commercial-catalog.*') ? 'active' : '' }}" href="{{ route('commercial-catalog.index') }}">الكتالوج</a>
+                <a class="{{ request()->routeIs('collections.*') ? 'active' : '' }}" href="{{ route('collections.index') }}">التحصيل</a>
+                <a class="{{ request()->routeIs('financial-accounts.*') || request()->routeIs('financial-transfers.*') ? 'active' : '' }}" href="{{ route('financial-accounts.index') }}">النقد</a>
+                <a class="{{ request()->routeIs('operating-expenses.*') || request()->routeIs('recurring-expense-*') || request()->routeIs('vendors.*') || request()->routeIs('expense-categories.*') ? 'active' : '' }}" href="{{ route('operating-expenses.index') }}">المصاريف</a>
+                <a class="{{ request()->routeIs('capital-management.*') || request()->routeIs('funding-sources.*') || request()->routeIs('capital-funding-transactions.*') || request()->routeIs('asset-categories.*') || request()->routeIs('fixed-assets.*') ? 'active' : '' }}" href="{{ route('capital-management.index') }}">الأصول</a>
                 <a class="{{ request()->routeIs('conflicts.*') ? 'active' : '' }}" href="{{ route('conflicts.index') }}">التعارضات</a>
+                <a class="{{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">المزيد</a>
             @endif
-            <a class="{{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">المزيد</a>
         </nav>
         <div style="display:flex;align-items:center;gap:12px">
             <a href="{{ route('notifications.index') }}" title="الإشعارات والتنبيهات" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:12px;background:#fff;border:1px solid var(--nd-border);color:var(--nd-ink);text-decoration:none">
@@ -50,19 +60,34 @@
     </main>
     @auth
     <nav class="bottom-nav">
-        <a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><b>⌂</b><span>اليوم</span></a>
-        <a class="{{ request()->routeIs('clients.index') || request()->routeIs('clients.show') ? 'active' : '' }}" href="{{ route('clients.index') }}"><b>♙</b><span>العملاء</span></a>
-        <a class="{{ request()->routeIs('clients.import*') ? 'active' : '' }}" href="{{ route('clients.import') }}"><b>⬇</b><span>استيراد</span></a>
-        <a class="{{ request()->routeIs('notifications.*') ? 'active' : '' }}" href="{{ route('notifications.index') }}" style="position:relative">
-            <b>🔔</b>
-            <span>التنبيهات</span>
-            @if($unreadNotificationsCount > 0)
-                <span style="position:absolute;top:6px;right:calc(50% - 16px);background:var(--nd-danger);color:#fff;font-size:9px;font-weight:800;border-radius:8px;padding:1px 4px;line-height:1">{{ $unreadNotificationsCount }}</span>
-            @endif
-        </a>
-        <a href="{{ route('dashboard') }}#quick-add"><b>＋</b><span>إضافة</span></a>
+        @if(auth()->user()->isPartner())
+            <a class="{{ request()->routeIs('partner.dashboard') ? 'active' : '' }}" href="{{ route('partner.dashboard') }}"><b>⌂</b><span>الرئيسية</span></a>
+            <a class="{{ request()->routeIs('clients.index') || request()->routeIs('clients.show') ? 'active' : '' }}" href="{{ route('clients.index') }}"><b>♙</b><span>العملاء</span></a>
+            <a class="{{ request()->routeIs('notifications.*') ? 'active' : '' }}" href="{{ route('notifications.index') }}" style="position:relative">
+                <b>🔔</b>
+                <span>التنبيهات</span>
+                @if($unreadNotificationsCount > 0)
+                    <span style="position:absolute;top:6px;right:calc(50% - 16px);background:var(--nd-danger);color:#fff;font-size:9px;font-weight:800;border-radius:8px;padding:1px 4px;line-height:1">{{ $unreadNotificationsCount }}</span>
+                @endif
+            </a>
+        @else
+            <a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><b>⌂</b><span>اليوم</span></a>
+            <a class="{{ request()->routeIs('clients.index') || request()->routeIs('clients.show') ? 'active' : '' }}" href="{{ route('clients.index') }}"><b>♙</b><span>العملاء</span></a>
+            <a class="{{ request()->routeIs('clients.import*') ? 'active' : '' }}" href="{{ route('clients.import') }}"><b>⬇</b><span>استيراد</span></a>
+            <a class="{{ request()->routeIs('notifications.*') ? 'active' : '' }}" href="{{ route('notifications.index') }}" style="position:relative">
+                <b>🔔</b>
+                <span>التنبيهات</span>
+                @if($unreadNotificationsCount > 0)
+                    <span style="position:absolute;top:6px;right:calc(50% - 16px);background:var(--nd-danger);color:#fff;font-size:9px;font-weight:800;border-radius:8px;padding:1px 4px;line-height:1">{{ $unreadNotificationsCount }}</span>
+                @endif
+            </a>
+            <a href="{{ route('dashboard') }}#quick-add"><b>＋</b><span>إضافة</span></a>
+        @endif
     </nav>
     @endauth
+    @if(auth()->check() && auth()->user()->isAdmin())
+        <x-quick-expense-fab />
+    @endif
 </div>
 </body>
 </html>
