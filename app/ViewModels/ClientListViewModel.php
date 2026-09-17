@@ -33,10 +33,10 @@ class ClientListViewModel
         $stageOptions = collect($lifecycleStages)
             ->map(fn (string $stage) => [
                 'value' => $stage,
-                'label' => $lifecycleLabels[$stage] ?? str($stage)->headline()->toString(),
+                'label' => self::stageLabel($stage, $lifecycleLabels),
             ])
-            ->prepend(['value' => 'all', 'label' => 'All stages'])
-            ->push(['value' => 'archived', 'label' => 'Closed / archived'])
+            ->prepend(['value' => 'all', 'label' => __('notify.clients.all_stages')])
+            ->push(['value' => 'archived', 'label' => __('notify.clients.closed_archived')])
             ->values()
             ->all();
 
@@ -60,13 +60,13 @@ class ClientListViewModel
             'business_type' => (string) ($client->business_type ?: $client->business_category ?: 'Unspecified'),
             'location' => trim(collect([$client->city ?: $client->city_area, $client->area])->filter()->join(' / ')),
             'business_phone' => $businessPhone,
-            'contact_name' => $contactName ?: 'Unassigned',
+            'contact_name' => $contactName ?: __('notify.clients.unassigned'),
             'contact_phone' => $contactPhone,
             'whatsapp_url' => self::whatsappUrl($whatsappPhone),
-            'stage_label' => $lifecycleLabels[$stage] ?? str($stage)->headline()->toString(),
+            'stage_label' => self::stageLabel($stage, $lifecycleLabels),
             'stage_variant' => self::stageVariant($stage),
             'next_action' => [
-                'label' => (string) ($nextAction['label'] ?? 'Open client'),
+                'label' => self::nextActionLabel((string) ($nextAction['label'] ?? 'Open client')),
                 'at' => self::dateLabel($nextAction['at'] ?? null),
                 'queue' => $nextAction['queue'] ?? null,
             ],
@@ -87,6 +87,33 @@ class ClientListViewModel
             ClientLifecycle::INSTALLATION_SCHEDULED => 'warning',
             default => 'info',
         };
+    }
+
+    private static function stageLabel(string $stage, array $fallbacks): string
+    {
+        $key = 'notify.clients.stages.'.$stage;
+        $translated = __($key);
+
+        return $translated !== $key ? $translated : ($fallbacks[$stage] ?? str($stage)->headline()->toString());
+    }
+
+    private static function nextActionLabel(string $label): string
+    {
+        $key = match ($label) {
+            'Attend appointment' => 'attend_appointment',
+            'Call client' => 'call_client',
+            'Closed' => 'closed',
+            'Needs review' => 'needs_review',
+            'Open client' => 'open_client',
+            'Prepare installation' => 'prepare_installation',
+            'Subscriber' => 'subscriber',
+            'Trial follow-up' => 'trial_follow_up',
+            'Waiting for decision' => 'waiting_for_decision',
+            'Callback at date/time' => 'callback_at_date_time',
+            default => null,
+        };
+
+        return $key ? __('notify.clients.next_actions.'.$key) : $label;
     }
 
     private static function dateLabel(mixed $value): ?string

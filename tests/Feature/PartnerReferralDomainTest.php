@@ -60,7 +60,7 @@ class PartnerReferralDomainTest extends TestCase
         $this->assertNull($direct->partnerAttribution);
     }
 
-    public function test_internal_staff_can_create_client_with_snapshotted_partner_rate(): void
+    public function test_internal_staff_can_create_client_with_default_snapshotted_partner_rate(): void
     {
         $staff = User::factory()->create(['role' => 'staff']);
         $partner = $this->createPartner(900);
@@ -70,14 +70,14 @@ class PartnerReferralDomainTest extends TestCase
             'phone' => '0792223344',
             'city_area' => 'Amman',
             'business_category' => 'Services',
-            'lead_source' => 'Referral',
+            'lead_source' => 'Partner',
             'partner_id' => $partner->id,
             'partner_commission_percentage' => '11.25',
         ])->assertRedirect();
 
         $client = Client::where('business_name', 'Staff Referral')->firstOrFail();
         $this->assertSame($partner->id, $client->partner_id);
-        $this->assertSame(1125, $client->partnerAttribution->commission_bps_snapshot);
+        $this->assertSame(900, $client->partnerAttribution->commission_bps_snapshot);
     }
 
     public function test_public_partner_referral_snapshots_default_rate(): void

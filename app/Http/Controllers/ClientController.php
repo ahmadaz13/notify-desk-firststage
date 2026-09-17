@@ -95,8 +95,10 @@ class ClientController extends Controller
         Gate::authorize('create', Client::class);
 
         $partners = Partner::where('status', 'active')->orderBy('company_name')->get();
+        $leadSourceOptions = $this->leadSourceOptions();
+        $businessCategorySuggestions = $this->businessCategorySuggestions();
 
-        return view('clients.create', compact('partners'));
+        return view('clients.create', compact('partners', 'leadSourceOptions', 'businessCategorySuggestions'));
     }
 
     public function store(Request $request, ClientPartnerAttributionService $attributions): RedirectResponse
@@ -122,20 +124,29 @@ class ClientController extends Controller
             'contact_person' => 'nullable|string|max:120',
             'primary_contact_role' => ['nullable', Rule::in(['owner', 'manager', 'other'])],
             'notes' => 'nullable|string',
-            'partner_id' => ['nullable', Rule::exists('partners', 'id')->where(fn ($query) => $query->where('status', 'active'))],
+            'partner_id' => [
+                Rule::requiredIf(fn () => $request->string('lead_source')->toString() === 'Partner'),
+                'nullable',
+                Rule::exists('partners', 'id')->where(fn ($query) => $query->where('status', 'active')),
+            ],
             'partner_commission_percentage' => 'nullable|numeric|min:0|max:100',
             'partner_attribution_notes' => 'nullable|string|max:1000',
-        ]);
+        ], $this->clientValidationMessages());
 
-        $partnerId = filled($data['partner_id'] ?? null) ? (int) $data['partner_id'] : null;
-        $commissionBps = $this->percentageToBps($data['partner_commission_percentage'] ?? null);
-        $attributionNotes = $data['partner_attribution_notes'] ?? null;
+        $partnerId = $data['lead_source'] === 'Partner' && filled($data['partner_id'] ?? null)
+            ? (int) $data['partner_id']
+            : null;
+        $canManageAttributionTerms = $request->user()->isAdmin();
+        $commissionBps = $canManageAttributionTerms
+            ? $this->percentageToBps($data['partner_commission_percentage'] ?? null)
+            : null;
+        $attributionNotes = $canManageAttributionTerms ? ($data['partner_attribution_notes'] ?? null) : null;
         $primaryContactRole = $data['primary_contact_role'] ?? 'owner';
         unset($data['partner_id'], $data['partner_commission_percentage'], $data['partner_attribution_notes'], $data['primary_contact_role']);
 
-        $data['business_phone'] = $data['business_phone'] ?? $data['phone'];
-        $data['business_type'] = $data['business_type'] ?? $data['business_category'];
-        $data['city'] = $data['city'] ?? $data['city_area'];
+        $data['business_phone'] = filled($data['business_phone'] ?? null) ? $data['business_phone'] : $data['phone'];
+        $data['business_type'] = filled($data['business_type'] ?? null) ? $data['business_type'] : $data['business_category'];
+        $data['city'] = filled($data['city'] ?? null) ? $data['city'] : $data['city_area'];
         $data['number_of_branches'] = $data['number_of_branches'] ?? 1;
         $data['stage'] = ClientLifecycle::PROSPECT;
         $data['status'] = 'prospect';
@@ -166,7 +177,7 @@ class ClientController extends Controller
             ]);
         }
 
-        return redirect()->route('clients.show', $client->id)->with('success', 'تم إنشاء العميل بنجاح.');
+        return redirect()->route('clients.show', $client->id)->with('success', __('notify.clients.created_successfully'));
     }
 
     public function show(
@@ -322,14 +333,16 @@ class ClientController extends Controller
         $client = Client::findOrFail($id);
         Gate::authorize('update', $client);
 
-        $client->load(['partnerAttribution', 'contacts']);
+        $client->load(['partnerAttribution', 'contacts', 'primaryContact']);
         $partners = Partner::query()
             ->where('status', 'active')
-            ->when($client->partner_id, fn ($query) => $query->orWhereKey($client->partner_id))
+            ->when($client->partner_id, fn ($query) => $query->orWhere('id', $client->partner_id))
             ->orderBy('company_name')
             ->get();
+        $leadSourceOptions = $this->leadSourceOptions($client->lead_source);
+        $businessCategorySuggestions = $this->businessCategorySuggestions($client->business_category);
 
-        return view('clients.edit', compact('client', 'partners'));
+        return view('clients.edit', compact('client', 'partners', 'leadSourceOptions', 'businessCategorySuggestions'));
     }
 
     public function update(Request $request, int $id, ClientPartnerAttributionService $attributions): RedirectResponse
@@ -357,6 +370,7 @@ class ClientController extends Controller
             'primary_contact_role' => ['nullable', Rule::in(['owner', 'manager', 'other'])],
             'notes' => 'nullable|string',
             'partner_id' => [
+                Rule::requiredIf(fn () => $request->string('lead_source')->toString() === 'Partner'),
                 'nullable',
                 Rule::exists('partners', 'id')->where(function ($query) use ($client) {
                     $query->where('status', 'active');
@@ -367,17 +381,32 @@ class ClientController extends Controller
             ],
             'partner_commission_percentage' => 'nullable|numeric|min:0|max:100',
             'partner_attribution_notes' => 'nullable|string|max:1000',
-        ]);
+        ], $this->clientValidationMessages());
 
-        $partnerId = filled($data['partner_id'] ?? null) ? (int) $data['partner_id'] : null;
-        $commissionBps = $this->percentageToBps($data['partner_commission_percentage'] ?? null);
-        $attributionNotes = $data['partner_attribution_notes'] ?? null;
+        $leadSourceChanged = $data['lead_source'] !== $client->lead_source;
+        $preserveLegacyAttribution = ! $leadSourceChanged
+            && $data['lead_source'] !== 'Partner'
+            && $client->partner_id !== null;
+        $partnerId = $preserveLegacyAttribution
+            ? (int) $client->partner_id
+            : ($data['lead_source'] === 'Partner' && filled($data['partner_id'] ?? null) ? (int) $data['partner_id'] : null);
+        $canManageAttributionTerms = $request->user()->isAdmin();
+        $commissionBps = $canManageAttributionTerms
+            ? $this->percentageToBps($data['partner_commission_percentage'] ?? null)
+            : null;
+        $attributionNotes = $canManageAttributionTerms && $request->has('partner_attribution_notes')
+            ? ($data['partner_attribution_notes'] ?? null)
+            : $client->partnerAttribution?->notes;
         $primaryContactRole = $data['primary_contact_role'] ?? null;
         unset($data['partner_id'], $data['partner_commission_percentage'], $data['partner_attribution_notes'], $data['primary_contact_role']);
 
-        $data['business_phone'] = $data['business_phone'] ?? $data['phone'];
-        $data['business_type'] = $data['business_type'] ?? $data['business_category'];
-        $data['city'] = $data['city'] ?? $data['city_area'];
+        $data['business_phone'] = filled($data['business_phone'] ?? null) ? $data['business_phone'] : $data['phone'];
+        $data['business_type'] = filled($data['business_type'] ?? null)
+            ? $data['business_type']
+            : ($client->business_type && $client->business_type !== $client->business_category
+                ? $client->business_type
+                : $data['business_category']);
+        $data['city'] = filled($data['city'] ?? null) ? $data['city'] : $data['city_area'];
         $data['number_of_branches'] = $data['number_of_branches'] ?? 1;
 
         $client->update($data);
@@ -424,7 +453,7 @@ class ClientController extends Controller
             'updated_at' => now(),
         ]);
 
-        return redirect()->route('clients.show', $client->id)->with('success', 'تم تحديث بيانات العميل بنجاح.');
+        return redirect()->route('clients.show', $client->id)->with('success', __('notify.clients.updated_successfully'));
     }
 
     public function destroy(int $id, ClientOperationalWorkflowService $workflow): RedirectResponse
@@ -445,6 +474,52 @@ class ClientController extends Controller
         Gate::authorize('update', $clientModel);
 
         abort(410, 'Legacy subscription conversion is deprecated. Use the V2 paid-subscription workflow with an explicit PlanPrice.');
+    }
+
+    private function leadSourceOptions(?string $current = null): array
+    {
+        $options = [
+            'Google Maps' => __('notify.clients.lead_sources.google_maps'),
+            'Instagram' => __('notify.clients.lead_sources.instagram'),
+            'Referral' => __('notify.clients.lead_sources.referral'),
+            'Direct Prospecting' => __('notify.clients.lead_sources.direct_prospecting'),
+            'Partner' => __('notify.clients.lead_sources.partner'),
+            'Other' => __('notify.clients.lead_sources.other'),
+        ];
+
+        if (filled($current) && ! array_key_exists($current, $options)) {
+            $options[$current] = $current;
+        }
+
+        return $options;
+    }
+
+    private function businessCategorySuggestions(?string $current = null): array
+    {
+        return Client::query()
+            ->whereNotNull('business_category')
+            ->where('business_category', '!=', '')
+            ->distinct()
+            ->orderBy('business_category')
+            ->limit(30)
+            ->pluck('business_category')
+            ->when(filled($current), fn ($categories) => $categories->prepend($current))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function clientValidationMessages(): array
+    {
+        return [
+            'business_name.required' => __('notify.clients.validation.business_name_required'),
+            'business_category.required' => __('notify.clients.validation.business_category_required'),
+            'phone.required' => __('notify.clients.validation.phone_required'),
+            'city_area.required' => __('notify.clients.validation.city_area_required'),
+            'lead_source.required' => __('notify.clients.validation.lead_source_required'),
+            'partner_id.required' => __('notify.clients.validation.partner_id_required'),
+            'partner_id.exists' => __('notify.clients.validation.partner_id_invalid'),
+        ];
     }
 
     private function percentageToBps(mixed $percentage): ?int

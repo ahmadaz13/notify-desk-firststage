@@ -47,14 +47,10 @@
         <table class="notify-client-table">
             <thead>
                 <tr>
-                    <th>{{ __('notify.clients.business_name') }}</th>
-                    <th>{{ __('notify.clients.business_type') }}</th>
-                    <th>{{ __('notify.clients.phone') }}</th>
+                    <th>{{ __('notify.clients.business') }}</th>
+                    <th>{{ __('notify.clients.primary_contact') }}</th>
                     <th>{{ __('notify.clients.stage') }}</th>
                     <th>{{ __('notify.clients.next_action') }}</th>
-                    <th>{{ __('notify.clients.responsible') }}</th>
-                    <th>{{ __('notify.clients.last_activity') }}</th>
-                    <th class="notify-client-table__actions">{{ __('notify.common.actions') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -71,30 +67,30 @@
                                 </span>
                             </a>
                         </td>
-                        <td>{{ $client['business_type'] }}</td>
                         <td>
-                            @if($client['business_phone'])
-                                <span dir="ltr">{{ $client['business_phone'] }}</span>
+                            <strong>{{ $client['contact_name'] }}</strong>
+                            @if($client['contact_phone'])
+                                <small dir="ltr">{{ $client['contact_phone'] }}</small>
                             @else
-                                <span class="muted">No phone</span>
+                                <small>{{ __('notify.clients.no_phone') }}</small>
                             @endif
                         </td>
                         <td><x-notify.badge :variant="$client['stage_variant']">{{ $client['stage_label'] }}</x-notify.badge></td>
-                        <td>
-                            <strong>{{ $client['next_action']['label'] }}</strong>
-                            @if($client['next_action']['at'])
-                                <small>{{ $client['next_action']['at'] }}</small>
-                            @endif
-                        </td>
-                        <td>{{ $client['responsible_user'] }}</td>
-                        <td>{{ $client['last_activity'] ?? 'No activity yet' }}</td>
-                        <td>
+                        <td class="notify-client-table__next">
+                            <div class="notify-next-action">
+                                <span>
+                                    <strong>{{ $client['next_action']['label'] }}</strong>
+                                    @if($client['next_action']['at'])
+                                        <small>{{ $client['next_action']['at'] }}</small>
+                                    @endif
+                                </span>
+                            </div>
                             <div class="notify-row-actions">
                                 @if($client['call_href'])
-                                    <x-notify.button :href="$client['call_href']" variant="ghost" icon="activity" hide-label-on-mobile="true">{{ __('notify.actions.call') }}</x-notify.button>
+                                    <x-notify.button :href="$client['call_href']" variant="ghost" icon="phone" hide-label-on-mobile="true">{{ __('notify.actions.call') }}</x-notify.button>
                                 @endif
                                 @if($client['whatsapp_url'])
-                                    <x-notify.button :href="$client['whatsapp_url']" variant="secondary" icon="bell" target="_blank" rel="noopener" hide-label-on-mobile="true">WhatsApp</x-notify.button>
+                                    <x-notify.button :href="$client['whatsapp_url']" variant="secondary" icon="phone" target="_blank" rel="noopener" hide-label-on-mobile="true">WhatsApp</x-notify.button>
                                 @endif
                                 <x-notify.button :href="$client['href']" variant="primary" icon="building" hide-label-on-mobile="true">{{ __('notify.actions.open') }}</x-notify.button>
                             </div>
