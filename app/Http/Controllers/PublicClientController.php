@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\ConflictResolutionRequest;
 use App\Models\Partner;
+use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\ConflictDetected;
+use App\Support\ClientLifecycle;
+use App\Services\ClientPartnerAttributionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -37,14 +40,14 @@ class PublicClientController extends Controller
 
     public function create(string $uuid): View
     {
-        $partner = Partner::where('public_uuid', $uuid)->firstOrFail();
+        $partner = Partner::where('public_uuid', $uuid)->where('status', 'active')->firstOrFail();
 
         return view('public-client-form', compact('partner', 'uuid'));
     }
 
-    public function store(Request $request, string $uuid): RedirectResponse
+    public function store(Request $request, string $uuid, ClientPartnerAttributionService $attributions): RedirectResponse
     {
-        $partner = Partner::where('public_uuid', $uuid)->firstOrFail();
+        $partner = Partner::where('public_uuid', $uuid)->where('status', 'active')->firstOrFail();
 
         $validated = $request->validate([
             'phone' => 'required|string|max:50',
@@ -67,14 +70,18 @@ class PublicClientController extends Controller
         if (!$foundClient) {
             // Case A: Client NOT found
             $client = Client::create([
-                'partner_id' => $partner->id,
                 'phone' => $normalizedPhone,
+                'business_phone' => $normalizedPhone,
                 'business_name' => $validated['name'],
                 'city_area' => $validated['area'] ?: 'عمان',
+                'city' => $validated['area'] ?: 'عمان',
                 'business_category' => 'عام',
+                'business_type' => 'عام',
                 'lead_source' => $validated['source'] ?: ('مندوب: ' . $partner->company_name),
                 'status' => 'prospect',
+                'stage' => ClientLifecycle::PROSPECT,
             ]);
+            $attributions->assign($client, $partner);
 
             DB::table('activity_logs')->insert([
                 'client_id' => $client->id,
@@ -89,7 +96,27 @@ class PublicClientController extends Controller
                 ->with('success', 'تم إضافة العميل بنجاح');
         }
 
-        // Case B: Client FOUND -> Create ConflictResolutionRequest
+        // Check if auto-transfer is enabled
+        $autoTransferSetting = Setting::get('allow_auto_transfer_clients', false);
+        $autoTransfer = filter_var($autoTransferSetting, FILTER_VALIDATE_BOOLEAN) || $autoTransferSetting === '1';
+
+        if ($autoTransfer) {
+            $attributions->assign($foundClient, $partner);
+
+            DB::table('activity_logs')->insert([
+                'client_id' => $foundClient->id,
+                'user_id' => null,
+                'type' => 'client_transferred',
+                'description' => "تم ربط العميل بالشريك [{$partner->company_name}] تلقائياً وفقاً لإعدادات النظام",
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return redirect()->route('public.client.create', $uuid)
+                ->with('success', 'تم ربط العميل بالشريك تلقائياً');
+        }
+
+        // Case B: Client FOUND and auto-transfer disabled -> Create ConflictResolutionRequest
         $conflict = ConflictResolutionRequest::create([
             'partner_id' => $partner->id,
             'client_id' => $foundClient->id,
@@ -101,7 +128,13 @@ class PublicClientController extends Controller
         ]);
 
         // Send Notification to Admins
-        $admins = User::where('role', 'admin')->get();
+        $admins = User::query()
+            ->where('is_active', true)
+            ->where(function ($query) {
+                $query->whereNull('role')
+                    ->orWhereIn('role', User::ownerLevelRoles());
+            })
+            ->get();
         $message = "طلب ربط عميل [{$normalizedPhone}] من الشريك [{$partner->company_name}]. هذا الرقم مسجل مسبقاً. يرجى المراجعة.";
 
         foreach ($admins as $admin) {

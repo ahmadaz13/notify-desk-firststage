@@ -2,7 +2,8 @@
 
 namespace App\Services;
 
-use Carbon\Carbon;
+use App\Support\ClientLifecycle;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 class CsvImportService
@@ -33,7 +34,7 @@ class CsvImportService
      * Parse and analyze a CSV file for preview, identifying valid, duplicate, and invalid rows.
      *
      * @param string $filePath
-     * @param string $type 'prospect' or 'subscriber'
+     * @param string $type legacy UI hint; normal V1 import always creates prospects
      * @return array
      */
     public function previewCsv(string $filePath, string $type = 'prospect'): array
@@ -120,16 +121,6 @@ class CsvImportService
                 $errors[] = 'فئة النشاط مطلوبة';
             }
 
-            if ($type === 'subscriber') {
-                $billingType = strtolower($data['billing_type'] ?? '');
-                if (!in_array($billingType, ['monthly', 'annual', 'installment'])) {
-                    $errors[] = 'نوع الفوترة غير صالح (يجب أن يكون: monthly, annual, installment)';
-                }
-                if (!isset($data['total_price']) || !is_numeric($data['total_price']) || (float) $data['total_price'] <= 0) {
-                    $errors[] = 'السعر الإجمالي مطلوب ورقم موجب';
-                }
-            }
-
             if (!empty($errors)) {
                 $invalid[] = [
                     'row' => $rowIndex,
@@ -186,7 +177,7 @@ class CsvImportService
      * Import confirmed valid rows into the database.
      *
      * @param array $validRows Array of rows containing 'data'
-     * @param string $type 'prospect' or 'subscriber'
+     * @param string $type legacy UI hint; normal V1 import always creates prospects
      * @param int $userId
      * @return int Count of imported clients
      */
@@ -195,6 +186,11 @@ class CsvImportService
         return DB::transaction(function () use ($validRows, $type, $userId) {
             $importedCount = 0;
             $now = now();
+            $user = \App\Models\User::find($userId);
+
+            if (!$user || !$user->isActiveApplicationUser()) {
+                throw new AuthorizationException('CSV import is limited to internal Notify users.');
+            }
 
             foreach ($validRows as $item) {
                 $data = $item['data'] ?? $item;
@@ -202,12 +198,19 @@ class CsvImportService
                 $clientData = [
                     'business_name' => $data['business_name'],
                     'phone' => $data['phone'],
+                    'business_phone' => $data['business_phone'] ?? $data['phone'],
                     'contact_person' => !empty($data['contact_person']) ? $data['contact_person'] : null,
                     'city_area' => $data['city_area'],
+                    'city' => $data['city'] ?? $data['city_area'],
+                    'area' => $data['area'] ?? null,
                     'business_category' => $data['business_category'],
+                    'business_type' => $data['business_type'] ?? $data['business_category'],
                     'lead_source' => !empty($data['lead_source']) ? $data['lead_source'] : 'CSV Import',
+                    'source_reference' => !empty($data['source_reference']) ? $data['source_reference'] : null,
+                    'partner_id' => null,
                     'primary_owner_id' => $userId,
-                    'status' => $type === 'subscriber' ? 'subscriber' : 'prospect',
+                    'status' => 'prospect',
+                    'stage' => ClientLifecycle::PROSPECT,
                     'notes' => !empty($data['notes']) ? $data['notes'] : null,
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -221,48 +224,31 @@ class CsvImportService
                     'client_id' => $clientId,
                     'user_id' => $userId,
                     'type' => 'client_imported',
-                    'description' => 'تم استيراد العميل بنجاح من ملف CSV كـ ' . ($type === 'subscriber' ? 'مشترك' : 'فرصة'),
+                    'description' => 'تم استيراد العميل بنجاح من ملف CSV كفرصة تشغيلية',
+                    'metadata' => json_encode([
+                        'requested_import_type' => $type,
+                        'policy' => 'normal_csv_import_does_not_create_subscriber_or_billing_records',
+                        'referral_policy' => 'csv_import_does_not_create_partner_ownership',
+                    ], JSON_UNESCAPED_UNICODE),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
 
-                // If subscriber, create subscription and payment schedules
-                if ($type === 'subscriber') {
-                    $billingType = strtolower($data['billing_type'] ?? 'monthly');
-                    $totalPrice = (float) $data['total_price'];
-                    $startDate = !empty($data['start_date']) ? Carbon::parse($data['start_date'])->toDateString() : $now->toDateString();
-                    $installmentsCount = !empty($data['installments_count']) ? (int) $data['installments_count'] : ($billingType === 'installment' ? 2 : null);
-
-                    $count = $billingType === 'annual' ? 1 : ($billingType === 'installment' ? ($installmentsCount ?: 2) : 12);
-
-                    $subscriptionId = DB::table('subscriptions')->insertGetId([
+                if (!empty($data['contact_person'])) {
+                    DB::table('client_contacts')->insert([
                         'client_id' => $clientId,
-                        'user_id' => $userId,
-                        'billing_type' => $billingType,
-                        'total_price' => $totalPrice,
-                        'start_date' => $startDate,
-                        'renewal_date' => Carbon::parse($startDate)->addYear()->toDateString(),
-                        'installments_count' => $installmentsCount,
-                        'status' => 'active',
+                        'name' => $data['contact_person'],
+                        'role' => null,
+                        'primary_phone' => $data['phone'],
+                        'secondary_phone' => null,
+                        'whatsapp_number' => null,
+                        'preferred_contact_method' => null,
+                        'is_primary' => true,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ]);
-
-                    $per = round($totalPrice / $count, 2);
-                    for ($i = 0; $i < $count; $i++) {
-                        $amountDue = ($i === $count - 1) ? $totalPrice - ($per * ($count - 1)) : $per;
-                        $dueDate = Carbon::parse($startDate)->addMonths($billingType === 'annual' ? 0 : $i)->toDateString();
-
-                        DB::table('payment_schedules')->insert([
-                            'subscription_id' => $subscriptionId,
-                            'amount_due' => $amountDue,
-                            'due_date' => $dueDate,
-                            'status' => ($i === 0 && Carbon::parse($dueDate)->isPast()) ? 'due' : 'upcoming',
-                            'created_at' => $now,
-                            'updated_at' => $now,
-                        ]);
-                    }
                 }
+
             }
 
             return $importedCount;

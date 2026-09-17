@@ -10,7 +10,7 @@
       "interactive_components": "Livewire 3 installed and ready for extension",
       "styling": "Static CSS with responsive mobile-first layout and IBM Plex Sans Arabic",
       "database": "SQLite by default for local testing; migrations are compatible with MySQL",
-      "authentication": "Laravel session authentication using Auth facade"
+      "authentication": "Laravel session authentication using Auth facade for internal admin/staff users only"
     }
   },
   "local_setup": {
@@ -47,13 +47,41 @@
     ]
   },
   "demo_accounts": [
-    {"name": "Ahmad", "email": "ahmad@example.com", "password": "password", "role": "owner/operator"},
-    {"name": "Khalid", "email": "khalid@example.com", "password": "password", "role": "owner/operator"}
+    {"name": "Ahmad", "email": "ahmad@example.com", "password": "password", "role": "admin"},
+    {"name": "Khalid", "email": "khalid@example.com", "password": "password", "role": "admin"}
   ],
+  "identity_and_permissions": {
+    "active_application_roles": ["admin", "staff"],
+    "inactive_legacy_roles": ["partner"],
+    "active_user_rule": "Authenticated application routes are limited to internal users. Legacy partner-role users are preserved only as historical data and are blocked from active application access.",
+    "admin_boundary": "Admin or strict FinancialPermissions gates are required for commercial catalog configuration, financial accounts, accounting administration, reporting exports, SaaS metrics exports, settings, funding, assets, and legacy/archive administration.",
+    "staff_boundary": "Staff can perform normal CRM and operational work such as prospects, contacts, contact attempts, appointments, follow-ups, free installation workflow, review items, and operational queues.",
+    "partner_policy": "Partner records are referral/history metadata only. Partner login, dashboard, password reset, credential generation, partner-specific navigation, client visibility isolation, CSV ownership, operational notifications, and active financial/share dashboard logic are retired."
+  },
+  "automation_and_data_integrity": {
+    "timezone": "Asia/Amman",
+    "production_scheduler": "* * * * * php artisan schedule:run",
+    "scheduled_commands": [
+      {"command": "reminders:send", "schedule": "every minute", "overlap_guard": "withoutOverlapping(10)", "purpose": "Idempotent operational reminders and commercial finance alert projections"},
+      {"command": "finance:generate-recurring-expenses", "schedule": "daily 06:00", "overlap_guard": "withoutOverlapping(60)", "purpose": "Generate due recurring expense obligations"},
+      {"command": "finance:recognize-revenue", "schedule": "daily 06:30", "overlap_guard": "withoutOverlapping(60)", "purpose": "Post due revenue-recognition journals"},
+      {"command": "finance:generate-subscription-renewals", "schedule": "daily 06:45", "overlap_guard": "withoutOverlapping(60)", "purpose": "Generate due V2 subscription renewals"}
+    ],
+    "manual_commands": [
+      {"command": "finance:backfill-saas-metrics --dry-run", "purpose": "Manual SaaS metric diagnostic/backfill review; intentionally not scheduled daily in production"}
+    ],
+    "operational_reminder_types": ["callback_due", "appointment_reminder", "installation_reminder", "trial_followup_due", "decision_followup_due"],
+    "finance_alert_types": ["renewal_due", "invoice_overdue", "billing_review_required", "revenue_recognition_review_required"],
+    "notification_idempotency": "notifications.occurrence_key plus the user/type/source/occurrence unique key prevents duplicate scheduled notifications for the same source occurrence.",
+    "financial_idempotency": "Recurring obligations, V2 billing periods, revenue-recognition periods, metric events, cash movements, and reversal records retain source-identity constraints so scheduled finance commands are safe to rerun.",
+    "failure_retry": "Commands should be retried after inspecting actionable logs. Revenue recognition returns non-zero when ambiguous execution failures are encountered."
+  },
   "routes": {
     "public": [
       {"method": "GET", "path": "/login", "purpose": "Display login form"},
-      {"method": "POST", "path": "/login", "purpose": "Authenticate user"}
+      {"method": "POST", "path": "/login", "purpose": "Authenticate internal admin/staff user"},
+      {"method": "GET", "path": "/p/{uuid}/client/create", "purpose": "Display public referral lead form"},
+      {"method": "POST", "path": "/p/{uuid}/client", "purpose": "Create referral-attributed prospect or conflict review request without creating a user"}
     ],
     "authenticated": [
       {"method": "GET", "path": "/", "name": "dashboard", "purpose": "Today dashboard"},
@@ -62,14 +90,16 @@
       {"method": "POST", "path": "/clients", "name": "clients.store", "purpose": "Create prospect"},
       {"method": "POST", "path": "/appointments", "name": "appointments.store", "purpose": "Schedule appointment"},
       {"method": "PATCH", "path": "/appointments/{appointment}", "name": "appointments.update", "purpose": "Confirm, complete, cancel, or update appointment status"},
-      {"method": "POST", "path": "/payments", "name": "payments.store", "purpose": "Record actual payment"},
-      {"method": "POST", "path": "/expenses", "name": "expenses.store", "purpose": "Record expense"},
-      {"method": "POST", "path": "/clients/{client}/convert", "name": "clients.convert", "purpose": "Convert prospect to subscriber and generate payment schedules"},
+      {"method": "POST", "path": "/payments", "name": "payments.store", "purpose": "Deprecated compatibility route; returns 410 after authorization. Use /clients/{client}/collections/payments"},
+      {"method": "POST", "path": "/expenses", "name": "expenses.store", "purpose": "Deprecated compatibility route; returns 410 after authorization. Use /operating-expenses"},
+      {"method": "POST", "path": "/clients/{client}/convert", "name": "clients.convert", "purpose": "Deprecated compatibility route; returns 410 after authorization. Use /clients/{client}/paid-subscriptions"},
+      {"method": "GET", "path": "/partner/dashboard", "name": "partner.dashboard", "purpose": "Deprecated compatibility route; returns 410 for internal users and is blocked for legacy partner-role users"},
+      {"method": "POST", "path": "/partners/{partner}/reset-password", "name": "partners.reset-password", "purpose": "Deprecated compatibility route; returns 410 after admin authorization"},
       {"method": "POST", "path": "/logout", "name": "logout", "purpose": "End session"}
     ]
   },
   "domain_workflows": {
-    "client_lifecycle": ["prospect", "contact", "appointment", "confirmation", "meeting", "outcome", "offer", "follow-up", "subscriber", "payment", "renewal"],
+    "client_lifecycle": ["prospect", "contacting", "appointment", "installation_scheduled", "installed_free", "decision_pending", "subscriber", "closed"],
     "conversion": {
       "billing_types": ["monthly", "annual", "installment"],
       "schedule_generation": {
@@ -79,7 +109,8 @@
       }
     },
     "timeline": "Activity logs are appended after client creation, appointment changes, conversion, and payment receipt.",
-    "historical_data": "No hard-delete UI is provided; archival is represented by the archived client status."
+    "historical_data": "No hard-delete UI is provided for operational history; archival is represented by client closed/archived status and suspended partner referrer records.",
+    "referral_attribution": "partner_id and lead-source/referrer metadata preserve historical origin only. They do not control authorization, visibility, revenue, accounting, SaaS metrics, or recognized revenue."
   },
   "database_tables": [
     "users",
@@ -98,6 +129,10 @@
   ],
   "files_of_interest": [
     "app/Http/Controllers/AuthController.php",
+    "app/Console/Commands/SendRemindersCommand.php",
+    "app/Services/NotificationService.php",
+    "docs/backend/BACKEND_V1_FREEZE.md",
+    "docs/backend/UI_BACKEND_CONTRACT_V1.md",
     "app/Http/Controllers/DashboardController.php",
     "database/migrations/2026_09_07_000100_create_crm_tables.php",
     "database/seeders/DatabaseSeeder.php",
@@ -105,6 +140,8 @@
     "resources/views/dashboard.blade.php",
     "resources/views/clients/index.blade.php",
     "resources/views/clients/show.blade.php",
+    "routes/console.php",
+    "docs/backend/AUTOMATION_AND_DATA_INTEGRITY_V1.md",
     "public/css/app.css",
     "routes/web.php"
   ],

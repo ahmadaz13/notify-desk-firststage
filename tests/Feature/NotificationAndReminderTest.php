@@ -13,6 +13,7 @@ class NotificationAndReminderTest extends TestCase
 
     public function test_reminders_command_generates_notifications(): void
     {
+        \Carbon\Carbon::setTestNow('2026-09-12 10:00:00');
         $user = User::factory()->create();
 
         $clientId = DB::table('clients')->insertGetId([

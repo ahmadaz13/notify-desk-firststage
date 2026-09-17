@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -14,17 +15,37 @@ class Partner extends Model
 
     protected $fillable = [
         'company_name',
+        'contact_name',
+        'status',
         'email',
         'phone',
         'profit_share_percentage',
+        'default_commission_bps',
+        'deduction_percentage',
         'public_uuid',
+        'onboarded_at',
+        'notes',
+        'created_by',
     ];
 
     protected function casts(): array
     {
         return [
             'profit_share_percentage' => 'decimal:2',
+            'default_commission_bps' => 'integer',
+            'deduction_percentage' => 'decimal:2',
+            'onboarded_at' => 'datetime',
         ];
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->status === 'suspended';
+    }
+
+    public function isActive(): bool
+    {
+        return empty($this->status) || $this->status === 'active';
     }
 
     protected static function booted(): void
@@ -46,6 +67,27 @@ class Partner extends Model
         return $this->hasMany(Client::class);
     }
 
+    public function attributions(): HasMany
+    {
+        return $this->hasMany(ClientPartnerAttribution::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function effectiveDefaultCommissionBps(): ?int
+    {
+        if ($this->default_commission_bps !== null) {
+            return (int) $this->default_commission_bps;
+        }
+
+        return $this->profit_share_percentage === null
+            ? null
+            : (int) round(((float) $this->profit_share_percentage) * 100);
+    }
+
     public function conflictResolutionRequests(): HasMany
     {
         return $this->hasMany(ConflictResolutionRequest::class);
@@ -65,6 +107,9 @@ class Partner extends Model
             return null;
         }
 
-        return (float) (($this->total_client_payments * 0.8) * ((float) $this->profit_share_percentage / 100));
+        $deduction = $this->deduction_percentage !== null ? (float) $this->deduction_percentage : 20.0;
+        $netMultiplier = 1 - ($deduction / 100);
+
+        return (float) (($this->total_client_payments * $netMultiplier) * ((float) $this->profit_share_percentage / 100));
     }
 }

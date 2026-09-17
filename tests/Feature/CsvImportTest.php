@@ -102,7 +102,7 @@ class CsvImportTest extends TestCase
         ]);
     }
 
-    public function test_csv_confirm_imports_subscribers_with_schedules(): void
+    public function test_csv_confirm_subscriber_type_imports_prospect_without_billing_records(): void
     {
         $user = User::factory()->create();
 
@@ -135,15 +135,10 @@ class CsvImportTest extends TestCase
 
         $this->assertDatabaseHas('clients', [
             'business_name' => 'شركة الأفق الرقمي',
-            'status' => 'subscriber',
+            'status' => 'prospect',
         ]);
 
-        $this->assertDatabaseHas('subscriptions', [
-            'billing_type' => 'monthly',
-            'total_price' => 600,
-        ]);
-
-        // Monthly generates 12 payment schedules
-        $this->assertEquals(12, DB::table('payment_schedules')->count());
+        $this->assertEquals(0, DB::table('subscriptions')->count());
+        $this->assertEquals(0, DB::table('payment_schedules')->count());
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ConflictResolutionRequest;
+use App\Services\ClientPartnerAttributionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,7 +39,7 @@ class ConflictResolutionController extends Controller
         return view('conflicts.show', compact('conflict'));
     }
 
-    public function resolve(Request $request, int $id): RedirectResponse
+    public function resolve(Request $request, int $id, ClientPartnerAttributionService $attributions): RedirectResponse
     {
         $this->checkAdmin();
 
@@ -54,11 +55,11 @@ class ConflictResolutionController extends Controller
         if ($action === 'transfer') {
             if ($client) {
                 $client->update([
-                    'partner_id' => $conflict->partner_id,
                     'business_name' => $conflict->submitted_name ?: $client->business_name,
                     'city_area' => $conflict->submitted_area ?: $client->city_area,
                     'lead_source' => $conflict->submitted_source ?: $client->lead_source,
                 ]);
+                $attributions->assign($client, $conflict->partner, null, null, auth()->id());
 
                 DB::table('activity_logs')->insert([
                     'client_id' => $client->id,

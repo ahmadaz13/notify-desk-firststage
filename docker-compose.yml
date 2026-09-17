@@ -1,0 +1,151 @@
+name: notifydesk
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. PHP-FPM Application Service
+  # ----------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: notifydesk-app:latest
+    container_name: notifydesk_app
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - storage_data:/var/www/storage
+      - app_logs:/var/www/storage/logs
+    networks:
+      - notifydesk-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # ----------------------------------------------------------------------------
+  # 2. Nginx Web Server (Reverse Proxy)
+  # ----------------------------------------------------------------------------
+  webserver:
+    image: nginx:alpine
+    container_name: notifydesk_webserver
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-80}:80"
+      - "${SSL_PORT:-443}:443"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - storage_data:/var/www/storage:ro
+      - app_logs:/var/www/storage/logs:ro
+    networks:
+      - notifydesk-network
+    depends_on:
+      - app
+
+  # ----------------------------------------------------------------------------
+  # 3. MySQL 8.0 Database Service
+  # ----------------------------------------------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: notifydesk_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-notifydesk}
+      MYSQL_USER: ${DB_USERNAME:-notifydesk_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-secret_root}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - notifydesk-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${DB_USERNAME:-notifydesk_user}", "-p${DB_PASSWORD:-secret}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+  # ----------------------------------------------------------------------------
+  # 4. Redis In-Memory Cache, Session & Queue Store
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: notifydesk_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - notifydesk-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ----------------------------------------------------------------------------
+  # 5. Laravel Task Scheduler Worker
+  # ----------------------------------------------------------------------------
+  scheduler:
+    image: notifydesk-app:latest
+    container_name: notifydesk_scheduler
+    restart: unless-stopped
+    command: ["php", "artisan", "schedule:work"]
+    env_file:
+      - .env
+    volumes:
+      - storage_data:/var/www/storage
+      - app_logs:/var/www/storage/logs
+    networks:
+      - notifydesk-network
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  # ----------------------------------------------------------------------------
+  # 6. Laravel Async Queue Worker
+  # ----------------------------------------------------------------------------
+  queue:
+    image: notifydesk-app:latest
+    container_name: notifydesk_queue
+    restart: unless-stopped
+    command: ["php", "artisan", "queue:work", "--tries=3", "--sleep=3"]
+    env_file:
+      - .env
+    volumes:
+      - storage_data:/var/www/storage
+      - app_logs:/var/www/storage/logs
+    networks:
+      - notifydesk-network
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+      redis:
+        condition: service_started
+
+# ------------------------------------------------------------------------------
+# Persistent Docker Volumes
+# ------------------------------------------------------------------------------
+volumes:
+  db_data:
+    driver: local
+  storage_data:
+    driver: local
+  app_logs:
+    driver: local
+  redis_data:
+    driver: local
+
+# ------------------------------------------------------------------------------
+# Bridge Network for Private Container Communication
+# ------------------------------------------------------------------------------
+networks:
+  notifydesk-network:
+    driver: bridge

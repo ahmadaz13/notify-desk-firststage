@@ -32,7 +32,8 @@
                     <th style="padding:16px">اسم الشركة</th>
                     <th style="padding:16px">البريد الإلكتروني</th>
                     <th style="padding:16px">الهاتف</th>
-                    <th style="padding:16px">نسبة الأرباح</th>
+                    <th style="padding:16px">العمولة الافتراضية</th>
+                    <th style="padding:16px">الحالة</th>
                     <th style="padding:16px">عدد العملاء</th>
                     <th style="padding:16px">رابط المندوب</th>
                     <th style="padding:16px;text-align:center">الإجراءات</th>
@@ -46,12 +47,13 @@
                         <td style="padding:16px;direction:ltr;text-align:right">{{ $partner->email }}</td>
                         <td style="padding:16px">{{ $partner->phone ?: '—' }}</td>
                         <td style="padding:16px">
-                            @if($partner->profit_share_percentage !== null)
-                                <span class="badge green">{{ $partner->profit_share_percentage }}%</span>
+                            @if($partner->effectiveDefaultCommissionBps() !== null)
+                                <span class="badge green">{{ number_format($partner->effectiveDefaultCommissionBps() / 100, 2) }}%</span>
                             @else
                                 <span class="muted">غير محدد</span>
                             @endif
                         </td>
+                        <td style="padding:16px">{{ $partner->isActive() ? 'نشط' : 'مؤرشف' }}</td>
                         <td style="padding:16px;font-weight:700">{{ $partner->clients_count ?? $partner->clients()->count() }}</td>
                         <td style="padding:16px">
                             <div style="display:flex;align-items:center;gap:6px">
@@ -66,19 +68,25 @@
                         </td>
                         <td style="padding:16px;text-align:center">
                             <div style="display:inline-flex;gap:8px">
+                                <a href="{{ route('partners.show', $partner->id) }}" class="btn btn-soft" style="padding:6px 12px">التفاصيل</a>
                                 <a href="{{ route('partners.edit', $partner->id) }}" class="btn btn-soft" style="padding:6px 12px">تعديل</a>
-                                <form method="POST" action="{{ route('partners.destroy', $partner->id) }}" onsubmit="return confirm('هل أنت متأكد من حذف هذا الشريك؟ سيتم حذف حساب الدخول المرتبط به.')">
+                                <form method="POST" action="{{ route('partners.destroy', $partner->id) }}" onsubmit="return confirm('هل أنت متأكد من أرشفة مرجع هذا الشريك؟')">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="btn btn-danger" style="padding:6px 12px">حذف</button>
+                                    <button type="submit" class="btn btn-danger" style="padding:6px 12px">أرشفة</button>
                                 </form>
                             </div>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="padding:32px;text-align:center" class="muted">
-                            لا يوجد شركاء مسجلين حالياً. قم بإضافة أول شريك لإنشاء رابط مندوب مخصص له.
+                        <td colspan="8" style="padding:48px 20px;text-align:center">
+                            <div style="font-size:48px;margin-bottom:12px;opacity:0.85">🤝</div>
+                            <h3 style="margin:0 0 8px 0;font-size:18px;color:var(--nd-ink)">لا يوجد شركاء بعد</h3>
+                            <p class="muted" style="margin:0 0 20px 0;font-size:14px">ابدأ ببناء شبكة شركائك وتوليد روابط مناديب مخصصة لكل شريك لمتابعة عملاء الشركاء وعمولاتهم.</p>
+                            <a href="{{ route('partners.create') }}" class="btn btn-primary touch-btn" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;font-size:14px;font-weight:700">
+                                <span>+ إضافة شريك</span>
+                            </a>
                         </td>
                     </tr>
                 @endforelse

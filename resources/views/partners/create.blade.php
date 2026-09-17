@@ -18,9 +18,14 @@
         </div>
 
         <div class="field" style="margin-bottom:16px">
-            <label>البريد الإلكتروني للجهة / الحساب *</label>
+            <label>اسم جهة الاتصال</label>
+            <input class="touch-input" name="contact_name" value="{{ old('contact_name') }}">
+            @error('contact_name') <span class="error">{{ $message }}</span> @enderror
+        </div>
+
+        <div class="field" style="margin-bottom:16px">
+            <label>البريد الإلكتروني للجهة *</label>
             <input class="touch-input" type="email" name="email" value="{{ old('email') }}" required placeholder="partner@example.com" style="direction:ltr;text-align:right">
-            <small class="muted">سيتم إنشاء حساب مستخدم تلقائي للشريك بهذا البريد الإلكتروني مع كلمة مرور أولية.</small>
             @error('email') <span class="error">{{ $message }}</span> @enderror
         </div>
 
@@ -30,16 +35,22 @@
             @error('phone') <span class="error">{{ $message }}</span> @enderror
         </div>
 
+        <div class="field" style="margin-bottom:16px">
+            <label>نسبة العمولة الافتراضية %</label>
+            <input class="touch-input" type="number" step="0.01" min="0" max="100" name="default_commission_percentage" value="{{ old('default_commission_percentage') }}" placeholder="مثال: 15.00">
+            <small class="muted">تُنسخ هذه النسبة عند إسناد العميل ولا تتغير تلقائياً لاحقاً.</small>
+            @error('default_commission_percentage') <span class="error">{{ $message }}</span> @enderror
+        </div>
+
         <div class="field" style="margin-bottom:24px">
-            <label>نسبة حصة الأرباح % (اختياري)</label>
-            <input class="touch-input" type="number" step="0.01" min="0" max="100" name="profit_share_percentage" value="{{ old('profit_share_percentage') }}" placeholder="مثال: 15.00">
-            <small class="muted">تُحسب من 80% من إجمالي مقبوضات عملاء هذا الشريك.</small>
-            @error('profit_share_percentage') <span class="error">{{ $message }}</span> @enderror
+            <label>ملاحظات</label>
+            <textarea name="notes">{{ old('notes') }}</textarea>
+            @error('notes') <span class="error">{{ $message }}</span> @enderror
         </div>
 
         <div style="display:flex;gap:12px;justify-content:flex-end">
             <a href="{{ route('partners.index') }}" class="btn btn-ghost touch-btn">إلغاء</a>
-            <button type="submit" class="btn btn-primary touch-btn">حفظ وتوليد رابط المندوب</button>
+            <button type="submit" class="btn btn-primary touch-btn">حفظ مرجع الشريك</button>
         </div>
     </form>
 </div>

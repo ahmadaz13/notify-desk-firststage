@@ -3,7 +3,12 @@
 namespace App\Services;
 
 use Carbon\Carbon;
+use App\Models\Appointment;
+use App\Models\Client;
+use App\Support\AppointmentTypes;
+use App\Support\ClientLifecycle;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class MeetingOutcomeService
 {
@@ -22,10 +27,11 @@ class MeetingOutcomeService
             abort_unless($appointment, 404, 'الموعد غير موجود');
 
             $clientId = $appointment->client_id;
+            $client = Client::findOrFail($clientId);
 
             $meetingDateTime = !empty($data['meeting_date_time'])
                 ? Carbon::parse($data['meeting_date_time'])
-                : Carbon::parse($appointment->appointment_date . ' ' . $appointment->appointment_time);
+                : Carbon::parse(Carbon::parse($appointment->appointment_date)->toDateString() . ' ' . $appointment->appointment_time);
 
             $outcomeId = DB::table('meeting_outcomes')->insertGetId([
                 'appointment_id' => $appointmentId,
@@ -71,6 +77,48 @@ class MeetingOutcomeService
                 ]);
             }
 
+            $workflow = app(ClientOperationalWorkflowService::class);
+            $outcomeResult = $data['outcome_result'] ?? null;
+
+            if ($outcomeResult === 'installation_scheduled') {
+                if (empty($data['installation_appointment_date']) || empty($data['installation_appointment_time'])) {
+                    throw ValidationException::withMessages([
+                        'installation_appointment_date' => 'تاريخ ووقت التركيب مطلوبان عند اختيار تركيب مجاني.',
+                    ]);
+                }
+
+                $installationAppointment = Appointment::create([
+                    'client_id' => $clientId,
+                    'appointment_date' => Carbon::parse($data['installation_appointment_date'])->toDateString(),
+                    'appointment_time' => $data['installation_appointment_time'],
+                    'appointment_type' => AppointmentTypes::INSTALLATION,
+                    'status' => 'scheduled',
+                    'notes' => $data['meeting_notes'] ?? null,
+                ]);
+                $installationAppointment->users()->sync([$userId]);
+                $workflow->transition($client, ClientLifecycle::INSTALLATION_SCHEDULED, \App\Models\User::findOrFail($userId));
+                $this->log($clientId, $userId, 'installation_scheduled', 'تمت جدولة تركيب مجاني من مخرجات الاجتماع', [
+                    'appointment_id' => $installationAppointment->id,
+                    'meeting_outcome_id' => $outcomeId,
+                ]);
+            } elseif ($outcomeResult === 'follow_up_required') {
+                if (empty($data['next_follow_up_date'])) {
+                    throw ValidationException::withMessages([
+                        'next_follow_up_date' => 'تاريخ المتابعة مطلوب.',
+                    ]);
+                }
+                $workflow->transition($client, ClientLifecycle::CONTACTING, \App\Models\User::findOrFail($userId));
+            } elseif ($outcomeResult === 'decision_pending') {
+                $workflow->transition($client, ClientLifecycle::DECISION_PENDING, \App\Models\User::findOrFail($userId));
+            } elseif ($outcomeResult === 'closed') {
+                $workflow->closeClient(
+                    $client,
+                    \App\Models\User::findOrFail($userId),
+                    $data['closed_reason_code'] ?? 'other',
+                    $data['closed_reason'] ?? $data['meeting_notes'] ?? null
+                );
+            }
+
             // Append to activity logs
             $interestLabels = [
                 'high' => 'مرتفع جداً',
@@ -99,5 +147,18 @@ class MeetingOutcomeService
 
             return $outcomeId;
         });
+    }
+
+    private function log(int $clientId, int $userId, string $type, string $description, array $metadata = []): void
+    {
+        DB::table('activity_logs')->insert([
+            'client_id' => $clientId,
+            'user_id' => $userId,
+            'type' => $type,
+            'description' => $description,
+            'metadata' => $metadata ? json_encode($metadata, JSON_UNESCAPED_UNICODE) : null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }

@@ -19,29 +19,29 @@
             <div class="field">
                 <label>حالة الحضور *</label>
                 <select name="attendance_status" required>
-                    <option value="attended">حضر الاجتماع في الموعد</option>
-                    <option value="attended_late">حضر متأخراً</option>
-                    <option value="no_show">لم يحضر (No Show)</option>
-                    <option value="cancelled">ألغي الاجتماع</option>
+                    <option value="attended">{{ __('notify.appointments.attended') }}</option>
+                    <option value="attended_late">{{ __('notify.appointments.attended_late') }}</option>
+                    <option value="no_show">{{ __('notify.appointments.no_show') }}</option>
+                    <option value="cancelled">{{ __('notify.appointments.cancelled') }}</option>
                 </select>
             </div>
 
             <div class="field">
                 <label>نوع الاجتماع الفعلي *</label>
                 <select name="meeting_type" required>
-                    <option value="physical_visit" @selected($item->appointment_type === 'physical_visit')>زيارة ميدانية في المقر</option>
-                    <option value="online_demo" @selected($item->appointment_type === 'online_demo')>عرض توضيحي أونلاين</option>
-                    <option value="phone_call" @selected($item->appointment_type === 'phone_call')>مكالمة هاتفية</option>
+                    <option value="physical_visit" @selected($item->appointment_type === 'physical_visit')>{{ __('notify.appointments.physical_visit') }}</option>
+                    <option value="online_demo" @selected($item->appointment_type === 'online_demo')>{{ __('notify.appointments.online_demo') }}</option>
+                    <option value="phone_call" @selected($item->appointment_type === 'phone_call')>{{ __('notify.appointments.phone_call') }}</option>
                 </select>
             </div>
 
             <div class="field">
                 <label>مستوى اهتمام العميل *</label>
                 <select name="interest_level" required>
-                    <option value="high">مرتفع جداً (Hot / Ready to close)</option>
-                    <option value="medium" selected>متوسط (Warm / Need follow-up)</option>
-                    <option value="low">منخفض (Cold / Unlikely)</option>
-                    <option value="none">غير مهتم تماماً (Not Interested)</option>
+                    <option value="high">{{ __('notify.appointments.hot') }}</option>
+                    <option value="medium" selected>{{ __('notify.appointments.warm') }}</option>
+                    <option value="low">{{ __('notify.appointments.cold') }}</option>
+                    <option value="none">{{ __('notify.appointments.not_interested') }}</option>
                 </select>
             </div>
 
@@ -53,11 +53,11 @@
             <div class="field full" style="display:flex;flex-direction:row;gap:24px;padding:8px 0">
                 <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
                     <input type="checkbox" name="demo_performed" value="1" checked>
-                    <span>تم تقديم العرض العملي (Demo Performed)</span>
+                    <span>{{ __('notify.appointments.demo_performed') }}</span>
                 </label>
                 <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
                     <input type="checkbox" name="price_discussed" value="1" checked>
-                    <span>تمت مناقشة الأسعار والفوترة (Price Discussed)</span>
+                    <span>{{ __('notify.appointments.price_discussed') }}</span>
                 </label>
             </div>
 
@@ -72,7 +72,7 @@
             </div>
 
             <div class="field full">
-                <label>رد وانطباع العميل (Feedback / Response)</label>
+                <label>{{ __('notify.appointments.feedback_response') }}</label>
                 <textarea name="customer_response" placeholder="ماذا قال العميل في نهاية الجلسة؟"></textarea>
             </div>
 
