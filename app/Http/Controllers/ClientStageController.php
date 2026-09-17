@@ -48,4 +48,23 @@ class ClientStageController extends Controller
 
         return back()->with('success', 'تمت إعادة فتح ملف العميل.');
     }
+
+    public function close(Request $request, Client $client, ClientOperationalWorkflowService $workflow): RedirectResponse
+    {
+        Gate::authorize('update', $client);
+
+        $validated = $request->validate([
+            'closed_reason_code' => ['required', Rule::in(ClientOperationalWorkflowService::CLOSED_REASONS)],
+            'closed_reason' => 'nullable|string|max:1000',
+        ]);
+
+        $workflow->closeClient(
+            $client,
+            $request->user(),
+            $validated['closed_reason_code'],
+            $validated['closed_reason'] ?? null
+        );
+
+        return back()->with('success', 'تم إغلاق ملف العميل مع الحفاظ على السجل.');
+    }
 }

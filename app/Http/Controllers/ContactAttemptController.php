@@ -18,7 +18,7 @@ class ContactAttemptController extends Controller
         Gate::authorize('update', $client);
 
         $validated = $request->validate([
-            'method' => 'required|string|max:80',
+            'method' => 'nullable|string|max:80',
             'result' => ['required', Rule::in(ClientLifecycle::CONTACT_OUTCOMES)],
             'note' => 'nullable|string',
             'next_action' => 'nullable|string|max:255',
@@ -39,6 +39,8 @@ class ContactAttemptController extends Controller
             'close_client' => 'nullable|boolean',
             'closed_reason' => 'nullable|string|max:255',
         ]);
+
+        $validated['method'] = !empty($validated['method']) ? $validated['method'] : 'phone';
 
         $workflow->recordContactOutcome($client, $request->user(), $validated);
 

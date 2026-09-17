@@ -118,15 +118,184 @@ function initContactOutcome(root) {
 
 document.querySelectorAll('[data-contact-outcome-root]').forEach(initContactOutcome);
 
-// Global trigger for call outcome modal
+// Modal Open / Close Helpers
+function openModal(id) {
+    var modal = document.getElementById(id);
+    if (modal) {
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeModal(modal) {
+    if (modal) {
+        modal.hidden = true;
+        document.body.style.overflow = '';
+    }
+}
+
+// Global triggers for Phase 5 action modals
 document.addEventListener('click', function(e) {
-    var trigger = e.target.closest('[data-trigger-call-outcome]');
-    if (trigger) {
+    var triggerCall = e.target.closest('[data-trigger-call-outcome]');
+    if (triggerCall) {
         e.preventDefault();
-        var outcomeOpener = document.querySelector('[data-contact-outcome-open]');
-        if (outcomeOpener) {
-            outcomeOpener.click();
+        var modalCall = document.getElementById('modal-record-call');
+        if (modalCall) {
+            openModal('modal-record-call');
+        } else {
+            var outcomeOpener = document.querySelector('[data-contact-outcome-open]');
+            if (outcomeOpener) outcomeOpener.click();
         }
+        return;
+    }
+
+    var triggerApt = e.target.closest('[data-trigger-create-appointment]');
+    if (triggerApt) {
+        e.preventDefault();
+        openModal('modal-create-appointment');
+        return;
+    }
+
+    var triggerResult = e.target.closest('[data-trigger-appointment-result]');
+    if (triggerResult) {
+        e.preventDefault();
+        openModal('modal-appointment-result');
+        return;
+    }
+
+    var triggerInstall = e.target.closest('[data-trigger-installation-modal]');
+    if (triggerInstall) {
+        e.preventDefault();
+        openModal('modal-complete-installation');
+        return;
+    }
+
+    var triggerFollowup = e.target.closest('[data-trigger-followup-modal]');
+    if (triggerFollowup) {
+        e.preventDefault();
+        openModal('modal-follow-up');
+        return;
+    }
+
+    var triggerClose = e.target.closest('[data-trigger-close-client]');
+    if (triggerClose) {
+        e.preventDefault();
+        openModal('modal-close-client');
+        return;
+    }
+
+    var closer = e.target.closest('[data-close-action-modal]');
+    if (closer) {
+        e.preventDefault();
+        closeModal(closer.closest('.notify-modal-backdrop'));
+        return;
+    }
+
+    // Click on backdrop background
+    if (e.target.classList.contains('notify-modal-backdrop')) {
+        closeModal(e.target);
+        return;
+    }
+});
+
+// Escape key closes modals
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.notify-modal-backdrop:not([hidden])').forEach(closeModal);
+    }
+});
+
+// 1. Record Call outcome conditional fields
+document.querySelectorAll('[data-call-outcome-form]').forEach(function(form) {
+    var outcomeRadios = form.querySelectorAll('input[name="result"]');
+    var conditionalGroups = form.querySelectorAll('[data-for-outcome]');
+    var noteContainer = form.querySelector('[data-note-container]');
+    var noteRequired = form.querySelector('[data-note-required]');
+
+    function syncCallOutcome() {
+        var checked = form.querySelector('input[name="result"]:checked');
+        var val = checked ? checked.value : null;
+
+        conditionalGroups.forEach(function(group) {
+            group.hidden = (group.getAttribute('data-for-outcome') !== val);
+        });
+
+        if (noteContainer) {
+            noteContainer.hidden = !val || (val === 'no_answer_busy');
+        }
+        if (noteRequired) {
+            noteRequired.hidden = (val !== 'not_interested');
+        }
+    }
+
+    outcomeRadios.forEach(function(r) { r.addEventListener('change', syncCallOutcome); });
+    syncCallOutcome();
+});
+
+// 2. Appointment Result conditional fields
+document.querySelectorAll('[data-appointment-result-form]').forEach(function(form) {
+    var decisionRadios = form.querySelectorAll('input[name="first_decision"]');
+    var decisionGroups = form.querySelectorAll('[data-for-decision]');
+    var attendedRadios = form.querySelectorAll('input[name="attended_choice"]');
+    var attendedGroups = form.querySelectorAll('[data-for-attended-choice]');
+
+    function syncDecision() {
+        var checkedDecision = form.querySelector('input[name="first_decision"]:checked');
+        var decVal = checkedDecision ? checkedDecision.value : null;
+
+        decisionGroups.forEach(function(group) {
+            group.hidden = (group.getAttribute('data-for-decision') !== decVal);
+        });
+
+        syncAttendedChoice();
+    }
+
+    function syncAttendedChoice() {
+        var checkedChoice = form.querySelector('input[name="attended_choice"]:checked');
+        var choiceVal = checkedChoice ? checkedChoice.value : null;
+
+        attendedGroups.forEach(function(group) {
+            group.hidden = (group.getAttribute('data-for-attended-choice') !== choiceVal);
+        });
+    }
+
+    decisionRadios.forEach(function(r) { r.addEventListener('change', syncDecision); });
+    attendedRadios.forEach(function(r) { r.addEventListener('change', syncAttendedChoice); });
+    syncDecision();
+});
+
+// 3. Follow-up Outcome conditional fields
+document.querySelectorAll('[data-followup-outcome-form]').forEach(function(form) {
+    var outcomeRadios = form.querySelectorAll('input[name="outcome"]');
+    var conditionalGroups = form.querySelectorAll('[data-for-followup-outcome]');
+
+    function syncFollowUpOutcome() {
+        var checked = form.querySelector('input[name="outcome"]:checked');
+        var val = checked ? checked.value : null;
+
+        conditionalGroups.forEach(function(group) {
+            group.hidden = (group.getAttribute('data-for-followup-outcome') !== val);
+        });
+    }
+
+    outcomeRadios.forEach(function(r) { r.addEventListener('change', syncFollowUpOutcome); });
+    syncFollowUpOutcome();
+});
+
+// 4. Close Client reason note requirement
+document.querySelectorAll('[data-close-client-form]').forEach(function(form) {
+    var reasonSelect = form.querySelector('[data-close-reason-select]');
+    var noteRequired = form.querySelector('[data-close-note-required]');
+
+    function syncCloseReason() {
+        if (noteRequired && reasonSelect) {
+            noteRequired.hidden = (reasonSelect.value !== 'other');
+        }
+    }
+
+    if (reasonSelect) {
+        reasonSelect.addEventListener('change', syncCloseReason);
+        syncCloseReason();
     }
 });
 

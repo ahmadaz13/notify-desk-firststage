@@ -227,6 +227,7 @@ class NotificationService
             ->join('clients', 'clients.id', '=', 'follow_ups.client_id')
             ->where('clients.status', '!=', 'archived')
             ->whereNotIn('clients.stage', [ClientLifecycle::CLOSED, ClientLifecycle::SUBSCRIBER])
+            ->whereNull('follow_ups.completed_at')
             ->where('follow_ups.follow_up_date_time', '<=', $at)
             ->select(
                 'follow_ups.*',

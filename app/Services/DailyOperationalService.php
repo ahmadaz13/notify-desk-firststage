@@ -42,6 +42,7 @@ class DailyOperationalService
             $followUpQuery = DB::table('follow_ups')
                 ->join('clients', 'clients.id', '=', 'follow_ups.client_id')
                 ->where('clients.status', '!=', 'archived')
+                ->whereNull('follow_ups.completed_at')
                 ->whereDate('follow_ups.next_follow_up_date', '<=', $today);
 
             $pendingFollowUps = $followUpQuery->count();
@@ -138,6 +139,7 @@ class DailyOperationalService
 
         $query = DB::table('follow_ups')
             ->join('clients', 'clients.id', '=', 'follow_ups.client_id')
+            ->whereNull('follow_ups.completed_at')
             ->whereDate('follow_ups.next_follow_up_date', '<=', Carbon::today());
 
         return $query->select(

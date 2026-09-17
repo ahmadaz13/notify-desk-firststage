@@ -114,16 +114,52 @@
             @if($primaryAction)
                 @php
                     $pUrl = $primaryAction['href'] ?? $primaryAction['target'] ?? '#';
+                    $pType = $primaryAction['type'] ?? $primaryAction['key'] ?? '';
+                    $pAction = $primaryAction['action'] ?? '';
                     $pIsCall = ($primaryAction['action_type'] ?? '') === 'call_outcome'
-                        || ($primaryAction['key'] ?? '') === 'record_call'
-                        || ($primaryAction['action'] ?? '') === 'open_contact_outcome'
-                        || ($primaryAction['type'] ?? '') === 'record_call';
+                        || $pType === 'record_call'
+                        || $pAction === 'open_contact_outcome';
+                    $pIsResult = $pType === 'record_result';
+                    $pIsInstall = $pType === 'complete_installation' || $pUrl === '#sec-complete-installation';
+                    $pIsFollowUp = $pType === 'record_followup' || $pUrl === '#sec-follow-ups';
+                    $pIsCreateApt = $pType === 'create_appointment' || $pUrl === '#sec-create-appointment';
+                    $pIsClose = $pType === 'close_client' || $pUrl === '#sec-close-client';
                 @endphp
                 <div class="notify-workspace-primary-action">
                     @if($pIsCall)
                         <button type="button"
                                 class="notify-button notify-button--primary notify-button--hero"
                                 data-trigger-call-outcome>
+                            <span>{{ $primaryAction['label'] }}</span>
+                        </button>
+                    @elseif($pIsResult)
+                        <button type="button"
+                                class="notify-button notify-button--primary notify-button--hero"
+                                data-trigger-appointment-result>
+                            <span>{{ $primaryAction['label'] }}</span>
+                        </button>
+                    @elseif($pIsInstall)
+                        <button type="button"
+                                class="notify-button notify-button--primary notify-button--hero"
+                                data-trigger-installation-modal>
+                            <span>{{ $primaryAction['label'] }}</span>
+                        </button>
+                    @elseif($pIsFollowUp)
+                        <button type="button"
+                                class="notify-button notify-button--primary notify-button--hero"
+                                data-trigger-followup-modal>
+                            <span>{{ $primaryAction['label'] }}</span>
+                        </button>
+                    @elseif($pIsCreateApt)
+                        <button type="button"
+                                class="notify-button notify-button--primary notify-button--hero"
+                                data-trigger-create-appointment>
+                            <span>{{ $primaryAction['label'] }}</span>
+                        </button>
+                    @elseif($pIsClose)
+                        <button type="button"
+                                class="notify-button notify-button--primary notify-button--hero"
+                                data-trigger-close-client>
                             <span>{{ $primaryAction['label'] }}</span>
                         </button>
                     @elseif(str_starts_with($pUrl, '#'))
@@ -147,15 +183,51 @@
                     @foreach($secondaryActions as $secAction)
                         @php
                             $sUrl = $secAction['href'] ?? $secAction['target'] ?? '#';
+                            $sType = $secAction['type'] ?? $secAction['key'] ?? '';
+                            $sAction = $secAction['action'] ?? '';
                             $sIsCall = ($secAction['action_type'] ?? '') === 'call_outcome'
-                                || ($secAction['key'] ?? '') === 'record_call'
-                                || ($secAction['action'] ?? '') === 'open_contact_outcome'
-                                || ($secAction['type'] ?? '') === 'record_call';
+                                || $sType === 'record_call'
+                                || $sAction === 'open_contact_outcome';
+                            $sIsResult = $sType === 'record_result';
+                            $sIsInstall = $sType === 'complete_installation' || $sUrl === '#sec-complete-installation';
+                            $sIsFollowUp = $sType === 'record_followup' || $sUrl === '#sec-follow-ups';
+                            $sIsCreateApt = $sType === 'create_appointment' || $sUrl === '#sec-create-appointment';
+                            $sIsClose = $sType === 'close_client' || $sUrl === '#sec-close-client';
                         @endphp
                         @if($sIsCall)
                             <button type="button"
                                     class="notify-button notify-button--soft"
                                     data-trigger-call-outcome>
+                                <span>{{ $secAction['label'] }}</span>
+                            </button>
+                        @elseif($sIsResult)
+                            <button type="button"
+                                    class="notify-button notify-button--soft"
+                                    data-trigger-appointment-result>
+                                <span>{{ $secAction['label'] }}</span>
+                            </button>
+                        @elseif($sIsInstall)
+                            <button type="button"
+                                    class="notify-button notify-button--soft"
+                                    data-trigger-installation-modal>
+                                <span>{{ $secAction['label'] }}</span>
+                            </button>
+                        @elseif($sIsFollowUp)
+                            <button type="button"
+                                    class="notify-button notify-button--soft"
+                                    data-trigger-followup-modal>
+                                <span>{{ $secAction['label'] }}</span>
+                            </button>
+                        @elseif($sIsCreateApt)
+                            <button type="button"
+                                    class="notify-button notify-button--soft"
+                                    data-trigger-create-appointment>
+                                <span>{{ $secAction['label'] }}</span>
+                            </button>
+                        @elseif($sIsClose)
+                            <button type="button"
+                                    class="notify-button notify-button--soft"
+                                    data-trigger-close-client>
                                 <span>{{ $secAction['label'] }}</span>
                             </button>
                         @elseif(str_starts_with($sUrl, '#'))
@@ -369,6 +441,40 @@
         </x-notify.collapsible-section>
     </div>
 </div>
+
+{{-- Phase 05 Focused Operational Action Dialogs / Sheets --}}
+@include('clients.workspace.actions.record-call', [
+    'client' => $client,
+    'teamUsers' => $teamUsers,
+    'appointmentTypeLabels' => $appointmentTypeLabels ?? [],
+])
+
+@include('clients.workspace.actions.create-appointment', [
+    'client' => $client,
+    'teamUsers' => $teamUsers,
+    'appointmentTypeLabels' => $appointmentTypeLabels ?? [],
+])
+
+@include('clients.workspace.actions.appointment-result', [
+    'client' => $client,
+    'activeAppointment' => $appointments->where('appointment_type', '!=', \App\Support\AppointmentTypes::INSTALLATION)->whereIn('status', \App\Support\AppointmentTypes::activeStatuses())->first(),
+])
+
+@include('clients.workspace.actions.complete-installation', [
+    'client' => $client,
+    'catalogServices' => $catalogServices,
+    'eligibleInstallationAppointment' => $appointments->where('appointment_type', \App\Support\AppointmentTypes::INSTALLATION)->whereIn('status', \App\Support\AppointmentTypes::activeStatuses())->first(),
+])
+
+@include('clients.workspace.actions.follow-up', [
+    'client' => $client,
+    'activeFollowUp' => $followUps->firstWhere('completed_at', null) ?? $followUps->first(),
+    'appointmentTypeLabels' => $appointmentTypeLabels ?? [],
+])
+
+@include('clients.workspace.actions.close-client', [
+    'client' => $client,
+])
 
 @include('clients.workspace.workspace-scripts')
 @endsection

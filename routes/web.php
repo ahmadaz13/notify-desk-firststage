@@ -74,6 +74,7 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/clients/{client}/collections/payments', [CollectionsController::class, 'storePayment'])->name('clients.collections.payments.store');
     Route::post('/clients/{client}/credit-notes', [CollectionsController::class, 'storeCreditNote'])->name('clients.credit-notes.store');
     Route::patch('/clients/{client}/stage', [ClientStageController::class, 'update'])->name('clients.stage.update');
+    Route::post('/clients/{client}/close', [ClientStageController::class, 'close'])->name('clients.close');
     Route::post('/clients/{client}/reopen', [ClientStageController::class, 'reopen'])->name('clients.reopen');
     Route::post('/client-review-items/{reviewItem}/resolve', [ClientReviewItemController::class, 'resolve'])->name('client-review-items.resolve');
     Route::post('/client-review-items/{reviewItem}/dismiss', [ClientReviewItemController::class, 'dismiss'])->name('client-review-items.dismiss');
@@ -132,9 +133,11 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     // Meeting Outcomes
     Route::get('/appointments/{appointment}/outcome', [MeetingOutcomeController::class, 'create'])->name('appointments.outcome.create');
     Route::post('/appointments/{appointment}/outcome', [MeetingOutcomeController::class, 'store'])->name('appointments.outcome.store');
+    Route::post('/appointments/{appointment}/compact-outcome', [\App\Http\Controllers\CompactAppointmentOutcomeController::class, 'store'])->name('appointments.compact-outcome.store');
 
     // Follow-ups & Offers
     Route::post('/clients/{client}/follow-ups', [FollowUpController::class, 'store'])->name('clients.follow-ups.store');
+    Route::post('/follow-ups/{followUp}/complete', [FollowUpController::class, 'complete'])->name('follow-ups.complete');
     Route::post('/clients/{client}/offers', [OfferController::class, 'store'])->name('clients.offers.store');
 
     // CSV Import
