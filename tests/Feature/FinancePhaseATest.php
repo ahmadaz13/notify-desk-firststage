@@ -35,7 +35,7 @@ class FinancePhaseATest extends TestCase
             'paid_at' => now()->format('Y-m-d H:i:s'),
         ]);
 
-        $response->assertSessionHasErrors('client_id');
+        $response->assertStatus(410);
         $this->assertDatabaseMissing('subscriptions', ['client_id' => $client->id]);
         $this->assertDatabaseMissing('payments', ['client_id' => $client->id]);
         $this->assertDatabaseMissing('activity_logs', [
@@ -81,7 +81,7 @@ class FinancePhaseATest extends TestCase
         $this->assertSame(ClientLifecycle::INSTALLED_FREE, $client->stage);
     }
 
-    public function test_existing_valid_subscriber_payment_flow_remains_usable(): void
+    public function test_legacy_subscriber_payment_route_is_deprecated(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $client = $this->createClient(['status' => 'subscriber', 'stage' => ClientLifecycle::SUBSCRIBER]);
@@ -94,14 +94,13 @@ class FinancePhaseATest extends TestCase
             'paid_at' => now()->format('Y-m-d H:i:s'),
         ]);
 
-        $response->assertRedirect();
-        $response->assertSessionHas('success');
-        $this->assertDatabaseHas('payments', [
+        $response->assertStatus(410);
+        $this->assertDatabaseMissing('payments', [
             'client_id' => $client->id,
             'subscription_id' => $subscription->id,
             'payment_method' => 'cliq',
         ]);
-        $this->assertDatabaseHas('activity_logs', [
+        $this->assertDatabaseMissing('activity_logs', [
             'client_id' => $client->id,
             'type' => 'payment_received',
         ]);
@@ -223,14 +222,14 @@ class FinancePhaseATest extends TestCase
             'amount' => '50.000',
             'payment_method' => 'zain_cash',
             'paid_at' => now()->format('Y-m-d H:i:s'),
-        ])->assertSessionHas('success');
+        ])->assertStatus(410);
 
         $this->actingAs($admin)->post(route('expenses.store'), [
             'amount' => '10.000',
             'category_id' => $category->id,
             'date' => now()->toDateString(),
             'visibility' => 'shared',
-        ])->assertSessionHas('success');
+        ])->assertStatus(410);
 
         $this->actingAs($admin)->get(route('settings.export'))->assertOk();
     }

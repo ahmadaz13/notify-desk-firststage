@@ -6,89 +6,218 @@
     $bps = fn (?int $value) => $saas->bps($value);
 @endphp
 
-<div class="page-head">
-    <div>
-        <div class="eyebrow">Founder Executive Dashboard</div>
-        <h1 class="page-title">Executive Finance and SaaS Dashboard</h1>
-        <div class="muted" style="margin-top:5px">MRR/ARR = SaaS contract metrics. Recognized Revenue = accounting revenue. Cash Collected = customer cash receipts. Cash Available = company account balances.</div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <a class="btn btn-ghost" href="{{ route('finance.index', request()->query()) }}">Finance Reports</a>
-        <a class="btn btn-primary" href="{{ route('saas-metrics.index', request()->query()) }}">SaaS Metrics</a>
-    </div>
-</div>
+<div class="p5-wrap">
+    {{-- Page Header --}}
+    <header class="p5-header">
+        <div class="p5-header-main">
+            <div class="p5-eyebrow">{{ __('notify.executive.eyebrow') }}</div>
+            <h1 class="p5-title">{{ __('notify.executive.title') }}</h1>
+            <p class="p5-subtitle">{{ __('notify.executive.subtitle') }}</p>
+        </div>
+        <div class="p5-header-actions">
+            <a class="p5-btn p5-btn-soft" href="{{ route('finance.index', request()->query()) }}">{{ __('notify.executive.finance_reports_btn') }}</a>
+            <a class="p5-btn p5-btn-primary" href="{{ route('saas-metrics.index', request()->query()) }}">{{ __('notify.executive.saas_details_btn') }}</a>
+        </div>
+    </header>
 
-<div class="grid grid-4">
-    <div class="card"><div class="kpi-label">MRR</div><div class="kpi-value">{{ $jod($saasReport['ending_mrr_minor']) }} د.أ</div><div class="muted">SaaS contract metric</div></div>
-    <div class="card"><div class="kpi-label">ARR</div><div class="kpi-value">{{ $jod($saasReport['ending_arr_minor']) }} د.أ</div><div class="muted">SaaS contract metric</div></div>
-    <div class="card"><div class="kpi-label">Active Subscribers</div><div class="kpi-value">{{ $saasReport['active_subscribing_clients'] }}</div><div class="muted">{{ $saasReport['active_subscriptions'] }} active subscriptions</div></div>
-    <div class="card"><div class="kpi-label">Net New MRR</div><div class="kpi-value">{{ $jod($saasReport['net_new_mrr_minor']) }} د.أ</div><div class="muted">New + Expansion + Reactivation - Contraction - Churn</div></div>
-    <div class="card"><div class="kpi-label">MRR Churn</div><div class="kpi-value">{{ $jod($saasReport['movements']['churn_mrr_minor']) }} د.أ</div></div>
-    <div class="card"><div class="kpi-label">Recognized Revenue This Month</div><div class="kpi-value">{{ $jod($finance['recognized_revenue_this_period_minor']) }} د.أ</div><div class="muted">Accounting revenue, not MRR</div></div>
-    <div class="card"><div class="kpi-label">Cash Collected This Month</div><div class="kpi-value">{{ $jod($saasReport['cash_collected_minor']) }} د.أ</div><div class="muted">Customer cash receipts, not MRR</div></div>
-    <div class="card"><div class="kpi-label">Cash Available</div><div class="kpi-value">{{ $jod($finance['cash_available_minor']) }} د.أ</div><div class="muted">Company account balances</div></div>
-    <div class="card"><div class="kpi-label">Accounts Receivable</div><div class="kpi-value">{{ $jod($finance['accounts_receivable_minor']) }} د.أ</div></div>
-    <div class="card"><div class="kpi-label">Operating Expenses</div><div class="kpi-value">{{ $jod($finance['operating_expenses_this_period_minor']) }} د.أ</div></div>
-    <div class="card"><div class="kpi-label">Management Net Income</div><div class="kpi-value">{{ $jod($finance['management_net_income_this_period_minor']) }} د.أ</div></div>
-    <div class="card"><div class="kpi-label">Upcoming Renewals</div><div class="kpi-value">{{ $saasReport['renewal_metrics']['due_30_count'] }}</div><div class="muted">Operational forecast, not recognized revenue</div></div>
-</div>
-
-<div class="grid grid-4" style="margin-top:14px">
-    <div class="card"><div class="kpi-label">New MRR</div><div class="kpi-value">{{ $jod($saasReport['movements']['new_mrr_minor']) }}</div></div>
-    <div class="card"><div class="kpi-label">Expansion MRR</div><div class="kpi-value">{{ $jod($saasReport['movements']['expansion_mrr_minor']) }}</div></div>
-    <div class="card"><div class="kpi-label">Contraction MRR</div><div class="kpi-value">{{ $jod($saasReport['movements']['contraction_mrr_minor']) }}</div></div>
-    <div class="card"><div class="kpi-label">Reactivation MRR</div><div class="kpi-value">{{ $jod($saasReport['movements']['reactivation_mrr_minor']) }}</div></div>
-    <div class="card"><div class="kpi-label">Logo Churn Rate</div><div class="kpi-value">{{ $bps($saasReport['logo_churn_rate_bps']) }}</div></div>
-    <div class="card"><div class="kpi-label">NRR</div><div class="kpi-value">{{ $bps($saasReport['nrr_bps']) }}</div></div>
-    <div class="card"><div class="kpi-label">GRR</div><div class="kpi-value">{{ $bps($saasReport['grr_bps']) }}</div></div>
-    <div class="card"><div class="kpi-label">Deferred Revenue</div><div class="kpi-value">{{ $jod($finance['deferred_revenue_minor']) }}</div></div>
-</div>
-
-<div class="grid grid-2" style="margin-top:18px">
-    <div class="card">
-        <h3 style="margin-top:0">MRR Movement Waterfall</h3>
-        <table class="table">
-            <tbody>
-            <tr><th>Starting MRR</th><td>{{ $jod($saasReport['starting_mrr_minor']) }}</td></tr>
-            <tr><th>New MRR</th><td>{{ $jod($saasReport['movements']['new_mrr_minor']) }}</td></tr>
-            <tr><th>Expansion MRR</th><td>{{ $jod($saasReport['movements']['expansion_mrr_minor']) }}</td></tr>
-            <tr><th>Reactivation MRR</th><td>{{ $jod($saasReport['movements']['reactivation_mrr_minor']) }}</td></tr>
-            <tr><th>Contraction MRR</th><td>-{{ $jod($saasReport['movements']['contraction_mrr_minor']) }}</td></tr>
-            <tr><th>Churn MRR</th><td>-{{ $jod($saasReport['movements']['churn_mrr_minor']) }}</td></tr>
-            <tr><th>Ending MRR</th><td>{{ $jod($saasReport['ending_mrr_minor']) }}</td></tr>
-            </tbody>
-        </table>
+    {{-- Primary Health Metrics --}}
+    <div class="p5-kpis">
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.mrr') }}</span>
+            <span class="p5-kpi-value is-primary">{{ $jod($saasReport['ending_mrr_minor']) }} {{ __('notify.common.currency_jod') }}</span>
+            <span class="p5-kpi-meta">{{ __('notify.executive.mrr_contract_meta') }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.arr') }}</span>
+            <span class="p5-kpi-value is-primary">{{ $jod($saasReport['ending_arr_minor']) }} {{ __('notify.common.currency_jod') }}</span>
+            <span class="p5-kpi-meta">{{ __('notify.executive.arr_contract_meta') }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.active_subscribers') }}</span>
+            <span class="p5-kpi-value is-success">{{ $saasReport['active_subscribing_clients'] }}</span>
+            <span class="p5-kpi-meta">{{ $saasReport['active_subscriptions'] }} {{ __('notify.executive.active_subscriptions_count') }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.net_new_mrr') }}</span>
+            <span class="p5-kpi-value {{ $saasReport['net_new_mrr_minor'] >= 0 ? 'is-success' : 'is-danger' }}">{{ $jod($saasReport['net_new_mrr_minor']) }} {{ __('notify.common.currency_jod') }}</span>
+            <span class="p5-kpi-meta">{{ __('notify.executive.net_new_mrr_formula') }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.churn') }}</span>
+            <span class="p5-kpi-value is-danger">{{ $jod($saasReport['movements']['churn_mrr_minor']) }} {{ __('notify.common.currency_jod') }}</span>
+            <span class="p5-kpi-meta">{{ __('notify.executive.churn_meta') }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.recognized_revenue_this_period') }}</span>
+            <span class="p5-kpi-value">{{ $jod($finance['recognized_revenue_this_period_minor']) }} {{ __('notify.common.currency_jod') }}</span>
+            <span class="p5-kpi-meta">{{ __('notify.executive.recognized_revenue_meta') }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.cash_collected_this_period') }}</span>
+            <span class="p5-kpi-value is-success">{{ $jod($saasReport['cash_collected_minor']) }} {{ __('notify.common.currency_jod') }}</span>
+            <span class="p5-kpi-meta">{{ __('notify.executive.cash_collected_meta') }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.cash_available') }}</span>
+            <span class="p5-kpi-value is-primary">{{ $jod($finance['cash_available_minor']) }} {{ __('notify.common.currency_jod') }}</span>
+            <span class="p5-kpi-meta">{{ __('notify.executive.cash_available_meta') }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.receivables') }}</span>
+            <span class="p5-kpi-value">{{ $jod($finance['accounts_receivable_minor']) }} {{ __('notify.common.currency_jod') }}</span>
+            <span class="p5-kpi-meta">{{ __('notify.executive.receivables_meta') }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.operating_expenses_label') }}</span>
+            <span class="p5-kpi-value is-warning">{{ $jod($finance['operating_expenses_this_period_minor']) }} {{ __('notify.common.currency_jod') }}</span>
+            <span class="p5-kpi-meta">{{ __('notify.executive.operating_expenses_meta') }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.management_net_income') }}</span>
+            <span class="p5-kpi-value {{ $finance['management_net_income_this_period_minor'] >= 0 ? 'is-success' : 'is-danger' }}">{{ $jod($finance['management_net_income_this_period_minor']) }} {{ __('notify.common.currency_jod') }}</span>
+            <span class="p5-kpi-meta">{{ __('notify.executive.management_net_income_meta') }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.upcoming_renewals_30') }}</span>
+            <span class="p5-kpi-value">{{ $saasReport['renewal_metrics']['due_30_count'] }}</span>
+            <span class="p5-kpi-meta">{{ __('notify.executive.upcoming_renewals_meta') }}</span>
+        </div>
     </div>
-    <div class="card">
-        <h3 style="margin-top:0">MRR by Plan</h3>
-        <table class="table">
-            <thead><tr><th>Plan</th><th>MRR</th><th>ARR</th></tr></thead>
-            <tbody>
-            @foreach($saasReport['plan_metrics'] as $row)
-                <tr><td>{{ $row['plan_name'] }}</td><td>{{ $jod($row['mrr_minor']) }}</td><td>{{ $jod($row['arr_minor']) }}</td></tr>
-            @endforeach
-            </tbody>
-        </table>
-    </div>
-</div>
 
-<div class="grid grid-2" style="margin-top:18px">
-    <div class="card">
-        <h3 style="margin-top:0">Recognized Revenue vs Cash Collected</h3>
-        <table class="table">
-            <tbody>
-            <tr><th>Recognized Revenue</th><td>{{ $jod($finance['recognized_revenue_this_period_minor']) }}</td></tr>
-            <tr><th>Cash Collected</th><td>{{ $jod($saasReport['cash_collected_minor']) }}</td></tr>
-            <tr><th>Operating Expenses</th><td>{{ $jod($finance['operating_expenses_this_period_minor']) }}</td></tr>
-            <tr><th>Overdue Receivables</th><td>{{ $jod($finance['overdue_receivables_minor']) }}</td></tr>
-            </tbody>
-        </table>
+    {{-- Secondary SaaS Metrics --}}
+    <div class="p5-kpis">
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.new_mrr') }}</span>
+            <span class="p5-kpi-value is-success">{{ $jod($saasReport['movements']['new_mrr_minor']) }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.expansion_mrr') }}</span>
+            <span class="p5-kpi-value is-primary">{{ $jod($saasReport['movements']['expansion_mrr_minor']) }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.contraction_mrr') }}</span>
+            <span class="p5-kpi-value is-warning">{{ $jod($saasReport['movements']['contraction_mrr_minor']) }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.reactivation_mrr') }}</span>
+            <span class="p5-kpi-value is-success">{{ $jod($saasReport['movements']['reactivation_mrr_minor']) }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.logo_churn') }}</span>
+            <span class="p5-kpi-value {{ $saasReport['logo_churn_rate_bps'] > 0 ? 'is-danger' : 'is-success' }}">{{ $bps($saasReport['logo_churn_rate_bps']) }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.nrr') }}</span>
+            <span class="p5-kpi-value is-primary">{{ $bps($saasReport['nrr_bps']) }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.grr') }}</span>
+            <span class="p5-kpi-value">{{ $bps($saasReport['grr_bps']) }}</span>
+        </div>
+        <div class="p5-kpi-card">
+            <span class="p5-kpi-label">{{ __('notify.executive.deferred_revenue') }}</span>
+            <span class="p5-kpi-value">{{ $jod($finance['deferred_revenue_minor']) }}</span>
+        </div>
     </div>
-    <div class="card">
-        <h3 style="margin-top:0">Reconciliation</h3>
-        <p>SaaS metrics: <strong>{{ $saasReconciliationResult['ok'] ? 'OK' : 'Needs review' }}</strong></p>
-        <p>Financial reporting: <strong>{{ $financialReconciliationResult['ok'] ? 'OK' : 'Needs review' }}</strong></p>
-        <div class="muted">Discrepancies are exposed here; this dashboard does not create synthetic movements to force totals to balance.</div>
+
+    {{-- MRR Movement Waterfall & MRR by Plan --}}
+    <div class="p5-grid-2">
+        <div class="p5-card">
+            <div class="p5-card-head">
+                <h2 class="p5-card-title">{{ __('notify.executive.waterfall_title') }}</h2>
+                <span class="p5-kpi-meta">{{ __('notify.executive.waterfall_subtitle') }}</span>
+            </div>
+            <div class="p5-table-wrap">
+                <table class="p5-table">
+                    <tbody>
+                        <tr><th>{{ __('notify.executive.starting_mrr') }}</th><td>{{ $jod($saasReport['starting_mrr_minor']) }}</td></tr>
+                        <tr><th>{{ __('notify.executive.new_mrr') }}</th><td style="color:#16A34A">+{{ $jod($saasReport['movements']['new_mrr_minor']) }}</td></tr>
+                        <tr><th>{{ __('notify.executive.expansion_mrr') }}</th><td style="color:#0055CC">+{{ $jod($saasReport['movements']['expansion_mrr_minor']) }}</td></tr>
+                        <tr><th>{{ __('notify.executive.reactivation_mrr') }}</th><td style="color:#16A34A">+{{ $jod($saasReport['movements']['reactivation_mrr_minor']) }}</td></tr>
+                        <tr><th>{{ __('notify.executive.contraction_mrr') }}</th><td style="color:#D97706">-{{ $jod($saasReport['movements']['contraction_mrr_minor']) }}</td></tr>
+                        <tr><th>{{ __('notify.executive.churn') }}</th><td style="color:#B42318">-{{ $jod($saasReport['movements']['churn_mrr_minor']) }}</td></tr>
+                        <tr><th>{{ __('notify.executive.ending_mrr') }}</th><td><strong>{{ $jod($saasReport['ending_mrr_minor']) }}</strong></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="p5-card">
+            <div class="p5-card-head">
+                <h2 class="p5-card-title">{{ __('notify.executive.mrr_by_plan') }}</h2>
+                <span class="p5-kpi-meta">{{ __('notify.executive.mrr_by_plan_meta') }}</span>
+            </div>
+            <div class="p5-table-wrap">
+                <table class="p5-table">
+                    <thead>
+                        <tr>
+                            <th>{{ __('notify.executive.plan_col') }}</th>
+                            <th>MRR</th>
+                            <th>ARR</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($saasReport['plan_metrics'] as $row)
+                            <tr>
+                                <td><strong>{{ $row['plan_name'] }}</strong></td>
+                                <td>{{ $jod($row['mrr_minor']) }}</td>
+                                <td>{{ $jod($row['arr_minor']) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {{-- Revenue vs Cash Collected & Reconciliation --}}
+    <div class="p5-grid-2">
+        <div class="p5-card">
+            <div class="p5-card-head">
+                <h2 class="p5-card-title">{{ __('notify.executive.revenue_vs_cash') }}</h2>
+                <span class="p5-kpi-meta">{{ __('notify.executive.revenue_vs_cash_subtitle') }}</span>
+            </div>
+            <div class="p5-table-wrap">
+                <table class="p5-table">
+                    <tbody>
+                        <tr><th>{{ __('notify.finance.recognized_revenue') }}</th><td><strong>{{ $jod($finance['recognized_revenue_this_period_minor']) }}</strong></td></tr>
+                        <tr><th>{{ __('notify.executive.cash_collected') }}</th><td><strong>{{ $jod($saasReport['cash_collected_minor']) }}</strong></td></tr>
+                        <tr><th>{{ __('notify.executive.operating_expenses') }}</th><td>{{ $jod($finance['operating_expenses_this_period_minor']) }}</td></tr>
+                        <tr><th>{{ __('notify.executive.overdue_ar') }}</th><td style="color:#B42318">{{ $jod($finance['overdue_receivables_minor']) }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="p5-card">
+            <div class="p5-card-head">
+                <h2 class="p5-card-title">{{ __('notify.executive.reconciliation_title') }}</h2>
+                <span class="p5-kpi-meta">{{ __('notify.executive.reconciliation_subtitle') }}</span>
+            </div>
+            <div class="p5-list">
+                <div class="p5-list-item" style="display:flex;justify-content:space-between;align-items:center">
+                    <div>
+                        <strong>{{ __('notify.executive.saas_reconciliation') }}</strong>
+                        <span class="p5-kpi-meta">{{ __('notify.executive.saas_reconciliation_meta') }}</span>
+                    </div>
+                    <span class="p5-badge {{ $saasReconciliationResult['ok'] ? 'p5-badge-success' : 'p5-badge-danger' }}">
+                        {{ $saasReconciliationResult['ok'] ? __('notify.statuses.reconciled') : __('notify.statuses.needs_review') }}
+                    </span>
+                </div>
+                <div class="p5-list-item" style="display:flex;justify-content:space-between;align-items:center">
+                    <div>
+                        <strong>{{ __('notify.executive.financial_reconciliation') }}</strong>
+                        <span class="p5-kpi-meta">{{ __('notify.executive.financial_reconciliation_meta') }}</span>
+                    </div>
+                    <span class="p5-badge {{ $financialReconciliationResult['ok'] ? 'p5-badge-success' : 'p5-badge-danger' }}">
+                        {{ $financialReconciliationResult['ok'] ? __('notify.statuses.reconciled') : __('notify.statuses.needs_review') }}
+                    </span>
+                </div>
+            </div>
+            <span class="p5-kpi-meta" style="margin-top:10px;display:block">
+                {{ __('notify.executive.reconciliation_note') }}
+            </span>
+        </div>
     </div>
 </div>
 @endsection

@@ -1,181 +1,186 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="page-head">
-    <div>
-        <div class="eyebrow"><a href="{{ route('clients.index') }}">العملاء</a> / استيراد ملف</div>
-        <h1 class="page-title">استيراد جهات الاتصال عبر CSV</h1>
-    </div>
-    <div style="display:flex;gap:8px">
-        <a class="btn btn-ghost" href="{{ route('clients.import.template', 'prospects') }}">⬇ تحميل نموذج الفرص</a>
-        <a class="btn btn-ghost" href="{{ route('clients.import.template', 'subscribers') }}">⬇ تحميل نموذج المشتركين</a>
-    </div>
-</div>
+<div class="p5-wrap">
+    {{-- Header --}}
+    <header class="p5-header">
+        <div class="p5-header-main">
+            <div class="p5-eyebrow"><a href="{{ route('clients.index') }}" style="color:#0055CC;text-decoration:none">{{ __('notify.clients.title') }}</a> / استيراد ملف</div>
+            <h1 class="p5-title">{{ __('notify.clients.import_title') }}</h1>
+            <p class="p5-subtitle">رفع واستيراد الفرص التشغيلية الجديدة مع فحص آلي فوري للتكرار والبيانات الإلزامية قبل التأكيد. تحويل العميل إلى مشترك يتم فقط من ملف العميل عبر مسار الاشتراك المدفوع المعتمد.</p>
+        </div>
+        <div class="p5-header-actions">
+            <a class="p5-btn p5-btn-soft" href="{{ route('clients.import.template', 'prospects') }}">{{ __('notify.clients.download_template') }}</a>
+        </div>
+    </header>
 
-<div class="grid grid-2">
-    <div class="card form-card">
-        <h3 style="margin-top:0">رفع ملف CSV</h3>
-        <p class="muted">قم باختيار نوع البيانات وملف الـ CSV من جهازك. سيتم فحص التكرار تلقائياً بناءً على أرقام الهواتف.</p>
-
-        <form method="POST" action="{{ route('clients.import.preview') }}" enctype="multipart/form-data">
-            @csrf
-            <div class="form-grid">
-                <div class="field">
-                    <label>نوع البيانات *</label>
-                    <select name="type" required>
-                        <option value="prospect" @selected(($type ?? '') === 'prospect')>فرص جديدة (Prospects)</option>
-                        <option value="subscriber" @selected(($type ?? '') === 'subscriber')>مشتركون مباشرون (Subscribers)</option>
-                    </select>
-                </div>
-                <div class="field">
-                    <label>ملف الـ CSV *</label>
-                    <input type="file" name="csv_file" accept=".csv,text/csv" required>
-                </div>
-                <div class="field full">
-                    <button class="btn btn-primary" type="submit">معاينة وفحص الملف</button>
-                </div>
+    {{-- Upload & Instructions --}}
+    <div class="p5-grid-2">
+        {{-- Upload Form --}}
+        <div class="p5-card">
+            <div class="p5-card-head">
+                <h2 class="p5-card-title">{{ __('notify.clients.upload_card_title') }}</h2>
+                <span class="p5-kpi-meta">{{ __('notify.clients.upload_card_step') }}</span>
             </div>
-        </form>
-    </div>
-
-    <div class="card">
-        <h3 style="margin-top:0">تعليمات الاستيراد</h3>
-        <ul style="padding-right:20px;font-size:13px;line-height:1.8;color:var(--nd-muted)">
-            <li>تأكد من استخدام التنسيق القياسي الموجود في النماذج أعلاه.</li>
-            <li>الحقول الإلزامية للفرص: <b>اسم النشاط، الهاتف، المنطقة، الفئة</b>.</li>
-            <li>للمشتركين تضاف حقول: <b>نوع الفوترة (monthly, annual, installment)، والسعر الإجمالي</b>.</li>
-            <li>يتم تنظيف أرقام الهواتف ومقارنتها تلقائياً مع قاعدة البيانات الحالية وداخل الملف لتجنب أي تكرار.</li>
-            <li>لا يتم استيراد البيانات الفعلية إلا بعد مراجعة المعاينة والضغط على زر "تأكيد الاستيراد".</li>
-        </ul>
-    </div>
-</div>
-
-@if(isset($preview))
-<div style="margin-top:24px">
-    <div class="section-head">
-        <h2>نتائج فحص ومعاينة الملف</h2>
-        <span class="muted">إجمالي الصفوف: {{ $preview['total'] }}</span>
-    </div>
-
-    <div class="grid grid-3 kpis" style="margin-bottom:16px">
-        <div class="card">
-            <div class="kpi-label">صفوف صالحة للاستيراد</div>
-            <div class="kpi-value" style="color:var(--nd-success)">{{ count($preview['valid']) }}</div>
-            <div class="muted">جاهزة للإدخال في النظام</div>
-        </div>
-        <div class="card">
-            <div class="kpi-label">صفوف مكررة (مستبعدة)</div>
-            <div class="kpi-value" style="color:var(--nd-warning)">{{ count($preview['duplicates']) }}</div>
-            <div class="muted">موجودة بالنظام أو مكررة بالملف</div>
-        </div>
-        <div class="card">
-            <div class="kpi-label">صفوف غير مكتملة (مرفوضة)</div>
-            <div class="kpi-value" style="color:var(--nd-danger)">{{ count($preview['invalid']) }}</div>
-            <div class="muted">تنقصها حقول إلزامية</div>
-        </div>
-    </div>
-
-    @if(count($preview['valid']) > 0)
-    <div class="card" style="margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <h3 style="margin:0;color:var(--nd-success)">الصفوف الصالحة ({{ count($preview['valid']) }})</h3>
-            <form method="POST" action="{{ route('clients.import.confirm') }}">
+            <p class="p5-kpi-meta" style="margin-bottom:14px">{{ __('notify.clients.upload_card_desc') }}</p>
+            <form method="POST" action="{{ route('clients.import.preview') }}" enctype="multipart/form-data">
                 @csrf
-                <button class="btn btn-primary" type="submit">✓ تأكيد استيراد الصفوف الصالحة ({{ count($preview['valid']) }})</button>
+                <input type="hidden" name="type" value="prospect">
+                <div class="p5-form-grid">
+                    <div class="p5-field">
+                        <label>{{ __('notify.clients.file_label') }} *</label>
+                        <input type="file" name="csv_file" accept=".csv,text/csv" required class="p5-input">
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:14px">
+                    <button class="p5-btn p5-btn-primary" type="submit">معاينة وفحص الملف</button>
+                </div>
             </form>
         </div>
-        <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:13px;text-align:right">
-                <thead>
-                    <tr style="border-bottom:1px solid var(--nd-border);color:var(--nd-muted)">
-                        <th style="padding:8px">السطر</th>
-                        <th style="padding:8px">اسم النشاط</th>
-                        <th style="padding:8px">الهاتف</th>
-                        <th style="padding:8px">المنطقة</th>
-                        <th style="padding:8px">الفئة</th>
-                        <th style="padding:8px">جهة الاتصال</th>
-                        @if($type === 'subscriber')
-                        <th style="padding:8px">الفوترة</th>
-                        <th style="padding:8px">المبلغ</th>
-                        @endif
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($preview['valid'] as $row)
-                    <tr style="border-bottom:1px solid var(--nd-border)">
-                        <td style="padding:8px">{{ $row['row'] }}</td>
-                        <td style="padding:8px;font-weight:700">{{ $row['data']['business_name'] ?? '' }}</td>
-                        <td style="padding:8px;direction:ltr;text-align:right">{{ $row['data']['phone'] ?? '' }}</td>
-                        <td style="padding:8px">{{ $row['data']['city_area'] ?? '' }}</td>
-                        <td style="padding:8px">{{ $row['data']['business_category'] ?? '' }}</td>
-                        <td style="padding:8px">{{ $row['data']['contact_person'] ?? '-' }}</td>
-                        @if($type === 'subscriber')
-                        <td style="padding:8px"><span class="badge">{{ $row['data']['billing_type'] ?? '' }}</span></td>
-                        <td style="padding:8px">{{ $row['data']['total_price'] ?? '' }} د.أ</td>
-                        @endif
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    </div>
-    @endif
 
-    @if(count($preview['duplicates']) > 0)
-    <div class="card" style="margin-bottom:16px">
-        <h3 style="margin-top:0;color:var(--nd-warning)">الصفوف المكررة المستبعدة ({{ count($preview['duplicates']) }})</h3>
-        <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:13px;text-align:right">
-                <thead>
-                    <tr style="border-bottom:1px solid var(--nd-border);color:var(--nd-muted)">
-                        <th style="padding:8px">السطر</th>
-                        <th style="padding:8px">اسم النشاط</th>
-                        <th style="padding:8px">الهاتف</th>
-                        <th style="padding:8px">السبب</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($preview['duplicates'] as $row)
-                    <tr style="border-bottom:1px solid var(--nd-border)">
-                        <td style="padding:8px">{{ $row['row'] }}</td>
-                        <td style="padding:8px;font-weight:700">{{ $row['data']['business_name'] ?? '' }}</td>
-                        <td style="padding:8px;direction:ltr;text-align:right">{{ $row['data']['phone'] ?? '' }}</td>
-                        <td style="padding:8px;color:var(--nd-warning)">{{ $row['reason'] }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
+        {{-- Guidelines --}}
+        <div class="p5-card">
+            <div class="p5-card-head">
+                <h2 class="p5-card-title">إرشادات تنسيق الملف</h2>
+                <span class="p5-kpi-meta">قواعد مهمة</span>
+            </div>
+            <ul style="padding-inline-start:18px;font-size:13px;line-height:1.8;color:#475569;margin:0">
+                <li>استخدم التنسيق القياسي الموجود في النماذج أعلاه دون تعديل أسماء الأعمدة.</li>
+                <li>الحقول الإلزامية: <strong>اسم النشاط، الهاتف، المنطقة، الفئة</strong>.</li>
+                <li>استخدم جوال المالك أو صاحب القرار، ثم جوال المدير؛ هاتف النشاط التجاري هو الخيار الاحتياطي فقط.</li>
+                <li>الاستيراد ينشئ فرصاً تشغيلية فقط؛ لا ينشئ اشتراكات أو فواتير أو دفعات أو جداول تحصيل.</li>
+                <li>يتم فحص أرقام الهواتف ومقارنتها تلقائياً مع قاعدة البيانات الحالية وداخل الملف لتجنب أي تكرار.</li>
+                <li>لا يتم إدخال أي سجل فعلي إلى النظام إلا بعد فحص المعاينة والضغط على "تأكيد الاستيراد".</li>
+            </ul>
         </div>
     </div>
-    @endif
 
-    @if(count($preview['invalid']) > 0)
-    <div class="card">
-        <h3 style="margin-top:0;color:var(--nd-danger)">الصفوف غير المكتملة المرفوضة ({{ count($preview['invalid']) }})</h3>
-        <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:13px;text-align:right">
-                <thead>
-                    <tr style="border-bottom:1px solid var(--nd-border);color:var(--nd-muted)">
-                        <th style="padding:8px">السطر</th>
-                        <th style="padding:8px">اسم النشاط</th>
-                        <th style="padding:8px">الهاتف</th>
-                        <th style="padding:8px">سبب الرفض</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($preview['invalid'] as $row)
-                    <tr style="border-bottom:1px solid var(--nd-border)">
-                        <td style="padding:8px">{{ $row['row'] }}</td>
-                        <td style="padding:8px;font-weight:700">{{ $row['data']['business_name'] ?? 'غير محدد' }}</td>
-                        <td style="padding:8px;direction:ltr;text-align:right">{{ $row['data']['phone'] ?? 'غير محدد' }}</td>
-                        <td style="padding:8px;color:var(--nd-danger)">{{ $row['reason'] }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
+    {{-- Preview Results Section --}}
+    @if(isset($preview))
+        <div class="p5-card">
+            <div class="p5-card-head">
+                <div>
+                    <h2 class="p5-card-title">نتائج فحص ومعاينة الملف</h2>
+                    <span class="p5-kpi-meta" style="display:block;margin-top:2px">إجمالي الصفوف المقروءة: {{ $preview['total'] }}</span>
+                </div>
+            </div>
+
+            {{-- Summary KPIs --}}
+            <div class="p5-kpis" style="margin-bottom:18px">
+                <div class="p5-kpi-card">
+                    <span class="p5-kpi-label">صفوف صالحة للاستيراد</span>
+                    <span class="p5-kpi-value is-success">{{ count($preview['valid']) }}</span>
+                    <span class="p5-kpi-meta">مستوفية للشروط وجاهزة للإدخال</span>
+                </div>
+                <div class="p5-kpi-card">
+                    <span class="p5-kpi-label">صفوف مكررة (مستبعدة)</span>
+                    <span class="p5-kpi-value is-warning">{{ count($preview['duplicates']) }}</span>
+                    <span class="p5-kpi-meta">موجودة مسبقاً أو مكررة بالملف</span>
+                </div>
+                <div class="p5-kpi-card">
+                    <span class="p5-kpi-label">صفوف غير مكتملة (مرفوضة)</span>
+                    <span class="p5-kpi-value is-danger">{{ count($preview['invalid']) }}</span>
+                    <span class="p5-kpi-meta">تنقصها حقول إلزامية أو رقم غير صالح</span>
+                </div>
+            </div>
+
+            {{-- 1. Valid Rows Table & Confirm Button --}}
+            @if(count($preview['valid']) > 0)
+                <div style="margin-bottom:20px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+                        <h3 style="font-size:15px;color:#16A34A;margin:0">الصفوف الصالحة ({{ count($preview['valid']) }})</h3>
+                        <form method="POST" action="{{ route('clients.import.confirm') }}">
+                            @csrf
+                            <button class="p5-btn p5-btn-primary" type="submit">✓ تأكيد استيراد الصفوف الصالحة ({{ count($preview['valid']) }})</button>
+                        </form>
+                    </div>
+                    <div class="p5-table-wrap">
+                        <table class="p5-table">
+                            <thead>
+                                <tr>
+                                    <th>السطر</th>
+                                    <th>اسم النشاط</th>
+                                    <th>الهاتف</th>
+                                    <th>المنطقة</th>
+                                    <th>الفئة</th>
+                                    <th>جهة الاتصال</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($preview['valid'] as $row)
+                                    <tr>
+                                        <td>{{ $row['row'] }}</td>
+                                        <td><strong>{{ $row['data']['business_name'] ?? '' }}</strong></td>
+                                        <td dir="ltr" style="text-align:right">{{ $row['data']['phone'] ?? '' }}</td>
+                                        <td>{{ $row['data']['city_area'] ?? '' }}</td>
+                                        <td>{{ $row['data']['business_category'] ?? '' }}</td>
+                                        <td>{{ $row['data']['contact_person'] ?? '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
+
+            {{-- 2. Duplicates Table --}}
+            @if(count($preview['duplicates']) > 0)
+                <div style="margin-bottom:20px">
+                    <h3 style="font-size:14px;color:#D97706;margin:0 0 10px">الصفوف المكررة المستبعدة ({{ count($preview['duplicates']) }})</h3>
+                    <div class="p5-table-wrap">
+                        <table class="p5-table">
+                            <thead>
+                                <tr>
+                                    <th>السطر</th>
+                                    <th>اسم النشاط</th>
+                                    <th>الهاتف</th>
+                                    <th>سبب الاستبعاد</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($preview['duplicates'] as $row)
+                                    <tr>
+                                        <td>{{ $row['row'] }}</td>
+                                        <td><strong>{{ $row['data']['business_name'] ?? '' }}</strong></td>
+                                        <td dir="ltr" style="text-align:right">{{ $row['data']['phone'] ?? '' }}</td>
+                                        <td><span class="p5-badge p5-badge-warning">{{ $row['reason'] }}</span></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
+
+            {{-- 3. Invalid Table --}}
+            @if(count($preview['invalid']) > 0)
+                <div>
+                    <h3 style="font-size:14px;color:#B42318;margin:0 0 10px">الصفوف غير المكتملة المرفوضة ({{ count($preview['invalid']) }})</h3>
+                    <div class="p5-table-wrap">
+                        <table class="p5-table">
+                            <thead>
+                                <tr>
+                                    <th>السطر</th>
+                                    <th>اسم النشاط</th>
+                                    <th>الهاتف</th>
+                                    <th>سبب الرفض</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($preview['invalid'] as $row)
+                                    <tr>
+                                        <td>{{ $row['row'] }}</td>
+                                        <td><strong>{{ $row['data']['business_name'] ?? 'غير محدد' }}</strong></td>
+                                        <td dir="ltr" style="text-align:right">{{ $row['data']['phone'] ?? 'غير محدد' }}</td>
+                                        <td><span class="p5-badge p5-badge-danger">{{ $row['reason'] }}</span></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
         </div>
-    </div>
     @endif
 </div>
-@endif
 @endsection

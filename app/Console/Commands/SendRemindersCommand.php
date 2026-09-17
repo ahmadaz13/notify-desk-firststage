@@ -19,22 +19,16 @@ class SendRemindersCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Scan upcoming appointments and payment schedules and generate in-app reminders';
+    protected $description = 'Generate due operational reminders and commercial finance alert notifications';
 
     /**
      * Execute the console command.
      */
     public function handle(NotificationService $notificationService): int
     {
-        $this->info('بدء فحص التذكيرات المجدولة...');
+        $this->info('بدء فحص التذكيرات والتنبيهات المجدولة...');
 
-        $appointmentNotifications = $notificationService->sendAppointmentReminders();
-        $this->info("تم إنشاء {$appointmentNotifications} إشعار لمواعيد قادمة.");
-
-        $paymentNotifications = $notificationService->sendPaymentReminders();
-        $this->info("تم إنشاء {$paymentNotifications} إشعار لمدفوعات مستحقة/متأخرة.");
-
-        $total = $appointmentNotifications + $paymentNotifications;
+        $total = $notificationService->sendScheduledAutomationNotifications();
         $this->info("اكتمل الفحص بنجاح. إجمالي الإشعارات المنشأة: {$total}");
 
         return Command::SUCCESS;

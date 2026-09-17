@@ -42,7 +42,7 @@ class FinancePhaseBTest extends TestCase
         $this->actingAs($admin)
             ->get(route('commercial-catalog.index'))
             ->assertOk()
-            ->assertSee('إدارة الباقات والأسعار');
+            ->assertSee('دليل الباقات والأسعار التجارية');
 
         $response = $this->actingAs($admin)->post(route('commercial-catalog.plans.store'), [
             'code' => 'custom_growth',

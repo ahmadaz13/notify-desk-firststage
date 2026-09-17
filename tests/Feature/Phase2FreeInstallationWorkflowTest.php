@@ -172,7 +172,7 @@ class Phase2FreeInstallationWorkflowTest extends TestCase
         $this->assertDatabaseCount('installations', 1);
     }
 
-    public function test_completion_without_precreated_appointment_can_skip_follow_up_with_reason(): void
+    public function test_completion_without_precreated_appointment_schedules_default_three_day_follow_up(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $client = $this->makeClient();
@@ -182,13 +182,16 @@ class Phase2FreeInstallationWorkflowTest extends TestCase
                 'installed_at' => now()->format('Y-m-d H:i:s'),
                 'installed_by' => $admin->id,
                 'custom_item_names' => 'إعداد شاشة الطلبات',
-                'no_follow_up' => '1',
-                'no_follow_up_reason' => 'العميل طلب التواصل لاحقاً بنفسه',
             ])
             ->assertRedirect();
 
         $this->assertDatabaseCount('installations', 1);
-        $this->assertDatabaseCount('follow_ups', 0);
+        $this->assertDatabaseCount('follow_ups', 1);
+        $this->assertDatabaseHas('follow_ups', [
+            'client_id' => $client->id,
+            'user_id' => $admin->id,
+            'reason' => 'متابعة ما بعد التركيب المجاني',
+        ]);
         $this->assertSame(ClientLifecycle::INSTALLED_FREE, $client->fresh()->stage);
     }
 

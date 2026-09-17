@@ -8,17 +8,24 @@ use App\Models\User;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
 use Carbon\Carbon;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class DailyOperationalService
 {
+    public function __construct(private readonly OperationalQueueService $queues)
+    {
+    }
+
     /**
      * Compute today's operational snapshot with 60-second caching per user.
      */
     public function getTodaySnapshot(User $user): array
     {
+        $this->assertInternalUser($user);
+
         $today = Carbon::today();
         $todayString = $today->toDateString();
         $cacheKey = "daily_snapshot_{$user->id}_{$todayString}";
@@ -26,9 +33,7 @@ class DailyOperationalService
         return Cache::remember($cacheKey, 60, function () use ($user, $today, $todayString) {
             // Appointments count: all for admin, or user-attended for non-admin
             $appointmentQuery = Appointment::whereDate('appointment_date', $today);
-            if ($user->isPartner()) {
-                $appointmentQuery->whereHas('client', fn ($q) => $q->where('partner_id', $user->partner_id));
-            } elseif (!$user->isAdmin()) {
+            if (!$user->isAdmin()) {
                 $appointmentQuery->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
             }
             $appointmentsCount = $appointmentQuery->count();
@@ -39,9 +44,6 @@ class DailyOperationalService
                 ->where('clients.status', '!=', 'archived')
                 ->whereDate('follow_ups.next_follow_up_date', '<=', $today);
 
-            if ($user->isPartner()) {
-                $followUpQuery->where('clients.partner_id', $user->partner_id);
-            }
             $pendingFollowUps = $followUpQuery->count();
 
             // Today's collections
@@ -49,9 +51,6 @@ class DailyOperationalService
                 ->join('clients', 'clients.id', '=', 'payments.client_id')
                 ->whereDate('payments.paid_at', $today);
 
-            if ($user->isPartner()) {
-                $paymentQuery->where('clients.partner_id', $user->partner_id);
-            }
             $todayCollections = (float) $paymentQuery->sum('payments.amount');
 
             // Today's expenses (visible to user; strictly 0 for partners)
@@ -61,11 +60,18 @@ class DailyOperationalService
 
             $todayNet = $todayCollections - $todayExpenses;
 
+            $queueSummary = $this->queues->summary($user, $today->copy()->endOfDay());
+
             return [
+                'new_prospects' => $queueSummary['new_prospects'] ?? 0,
+                'calls_due' => $queueSummary['active_contact_queue'] ?? 0,
+                'callbacks_due' => $queueSummary['callbacks_due'] ?? 0,
                 'appointments_count' => $appointmentsCount,
                 'installation_appointments_today' => $this->getTodayInstallationAppointments($user)->count(),
                 'installed_free_clients' => $this->getInstalledFreeClientsCount($user),
                 'decision_pending_clients' => $this->getDecisionPendingClientsCount($user),
+                'trial_followups_due' => $queueSummary['trial_followups_due'] ?? 0,
+                'pending_client_reviews' => $queueSummary['client_reviews_pending'] ?? 0,
                 'pending_follow_ups' => $pendingFollowUps,
                 'today_collections' => $todayCollections,
                 'today_expenses' => $todayExpenses,
@@ -79,6 +85,8 @@ class DailyOperationalService
      */
     public function getRecentExpenses(User $user, int $limit = 5): Collection
     {
+        $this->assertInternalUser($user);
+
         return Expense::visibleTo($user)
             ->with(['categoryModel', 'payer'])
             ->orderByDesc('date')
@@ -92,25 +100,21 @@ class DailyOperationalService
      */
     public function getTodayAppointments(User $user): Collection
     {
+        $this->assertInternalUser($user);
+
         $query = Appointment::with(['client', 'users'])
             ->whereDate('appointment_date', Carbon::today());
-
-        if ($user->isPartner()) {
-            $query->whereHas('client', fn ($q) => $q->where('partner_id', $user->partner_id));
-        }
 
         return $query->orderBy('appointment_time')->get();
     }
 
     public function getTodayInstallationAppointments(User $user): Collection
     {
+        $this->assertInternalUser($user);
+
         $query = Appointment::with(['client', 'users'])
             ->whereDate('appointment_date', Carbon::today())
             ->where('appointment_type', AppointmentTypes::INSTALLATION);
-
-        if ($user->isPartner()) {
-            $query->whereHas('client', fn ($q) => $q->where('partner_id', $user->partner_id));
-        }
 
         return $query->orderBy('appointment_time')->get();
     }
@@ -130,13 +134,11 @@ class DailyOperationalService
      */
     public function getPendingFollowUps(User $user, int $limit = 10): Collection
     {
+        $this->assertInternalUser($user);
+
         $query = DB::table('follow_ups')
             ->join('clients', 'clients.id', '=', 'follow_ups.client_id')
             ->whereDate('follow_ups.next_follow_up_date', '<=', Carbon::today());
-
-        if ($user->isPartner()) {
-            $query->where('clients.partner_id', $user->partner_id);
-        }
 
         return $query->select(
             'follow_ups.*',
@@ -162,10 +164,13 @@ class DailyOperationalService
     {
         $query = DB::table('clients')->where('stage', $stage);
 
-        if ($user->isPartner()) {
-            $query->where('partner_id', $user->partner_id);
-        }
-
         return $query->count();
+    }
+
+    private function assertInternalUser(User $user): void
+    {
+        if (!$user->isActiveApplicationUser()) {
+            throw new AuthorizationException('Daily operations are limited to internal Notify users.');
+        }
     }
 }

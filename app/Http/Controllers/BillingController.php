@@ -34,12 +34,28 @@ class BillingController extends Controller
             'discount_jod' => $this->nullableMoneyRules(),
             'discount_reason' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:1000',
+            'payment_terms' => ['nullable', Rule::in(['full', 'installments'])],
+            'installments_count' => 'nullable|integer|min:2|max:12',
+            'installment_due_day' => ['nullable', 'integer', Rule::in([1, 5, 15, 30])],
+            'preview_only' => 'nullable|boolean',
         ]);
 
         $price = $priceService->activeEffectivePrice((int) $validated['plan_price_id']);
-        $billingService->startPaidSubscription($client, $price, $validated, auth()->id());
+        if ($request->boolean('preview_only')) {
+            return back()
+                ->withInput()
+                ->with('billingTermsPreview', $billingService->previewPaidSubscriptionTerms($price, $validated));
+        }
 
-        return back()->with('success', 'تم بدء الاشتراك المدفوع وإنشاء الفاتورة الأولى بدون تسجيل أي دفعة.');
+        [, , $contractResult] = $billingService->startPaidSubscription($client, $price, $validated, auth()->id());
+
+        $response = back()->with('success', 'تم بدء الاشتراك المدفوع وإنشاء الفاتورة الأولى بدون تسجيل أي دفعة.');
+
+        if ($contractResult['status'] !== 'ready') {
+            $response->with('warning', 'تم حفظ الاشتراك والفاتورة، لكن مسودة العقد تحتاج إعادة توليد من قسم العقود دون إنشاء اشتراك أو فاتورة جديدة.');
+        }
+
+        return $response;
     }
 
     public function storeOneTimeInvoice(

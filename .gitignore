@@ -29,3 +29,6 @@ npm-debug.log
 yarn-error.log
 .phpactor.json
 auth.json
+
+# Local historical/reference source snapshot
+/phase3-source/

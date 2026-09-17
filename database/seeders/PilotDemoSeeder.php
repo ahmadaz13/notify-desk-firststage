@@ -87,21 +87,7 @@ class PilotDemoSeeder extends Seeder
             ]
         );
 
-        // 4. Partner user with known password for testing
-        $partnerUser = User::firstOrCreate(
-            ['email' => 'partner@demo.com'],
-            [
-                'name' => 'طارق - شريك الأفق',
-                'password' => Hash::make('password123'),
-                'role' => 'partner',
-                'partner_id' => $partner1->id,
-            ]
-        );
-        if ($partnerUser->partner_id !== $partner1->id || $partnerUser->role !== 'partner') {
-            $partnerUser->update(['role' => 'partner', 'partner_id' => $partner1->id]);
-        }
-
-        // 5. 15 Clients distributed across partners and admin
+        // 4. 15 Clients distributed across referral partners and internal owners
         $clientsData = [
             // 5 Direct clients (Admins)
             [

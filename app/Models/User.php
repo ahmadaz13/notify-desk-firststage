@@ -13,6 +13,22 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
+    public const ROLE_FOUNDER = 'founder';
+    public const ROLE_ADMIN = 'admin';
+    public const ROLE_STAFF = 'staff';
+    public const ROLE_EMPLOYEE = 'employee';
+    public const ROLE_PARTNER = 'partner';
+
+    public static function ownerLevelRoles(): array
+    {
+        return [self::ROLE_FOUNDER, self::ROLE_ADMIN];
+    }
+
+    public static function activeInternalRoles(): array
+    {
+        return [self::ROLE_FOUNDER, self::ROLE_ADMIN, self::ROLE_STAFF];
+    }
+
     /**
      * The attributes that are mass assignable.
      *
@@ -24,6 +40,7 @@ class User extends Authenticatable
         'password',
         'partner_id',
         'role',
+        'is_active',
         'first_login_at',
         'reset_expires_at',
     ];
@@ -48,6 +65,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
             'first_login_at' => 'datetime',
             'reset_expires_at' => 'datetime',
         ];
@@ -58,14 +76,53 @@ class User extends Authenticatable
         return $this->belongsTo(Partner::class);
     }
 
+    public function isFounder(): bool
+    {
+        return $this->role === self::ROLE_FOUNDER;
+    }
+
+    public function isOwnerLevelInternalUser(): bool
+    {
+        return empty($this->role) || in_array($this->role, [self::ROLE_FOUNDER, self::ROLE_ADMIN], true);
+    }
+
     public function isAdmin(): bool
     {
-        return empty($this->role) || $this->role === 'admin';
+        return $this->isOwnerLevelInternalUser();
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->role === self::ROLE_STAFF;
+    }
+
+    public function isEmployee(): bool
+    {
+        return $this->role === self::ROLE_EMPLOYEE;
+    }
+
+    public function isActiveApplicationUser(): bool
+    {
+        return $this->is_active !== false && ($this->isAdmin() || $this->isStaff());
     }
 
     public function isPartner(): bool
     {
-        return $this->role === 'partner';
+        return false;
+    }
+
+    public function hasLegacyPartnerRole(): bool
+    {
+        return $this->role === self::ROLE_PARTNER;
+    }
+
+    public function roleLabelKey(): string
+    {
+        return match ($this->role) {
+            self::ROLE_FOUNDER => 'notify.common.role_founder',
+            self::ROLE_STAFF => 'notify.common.role_staff',
+            default => 'notify.common.role_admin',
+        };
     }
 
     public function expenses(): \Illuminate\Database\Eloquent\Relations\HasMany

@@ -14,6 +14,9 @@ class Plan extends Model
 
     protected $fillable = [
         'code',
+        'product_id',
+        'tier',
+        'offer_type',
         'name_ar',
         'name_en',
         'description_ar',
@@ -26,7 +29,13 @@ class Plan extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'archived_at' => 'datetime',
+        'tier' => 'integer',
     ];
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
 
     public function services(): BelongsToMany
     {
@@ -54,6 +63,11 @@ class Plan extends Model
 
     public function scopeSellable($query)
     {
-        return $query->where('is_active', true)->whereNull('archived_at');
+        return $query->where('is_active', true)
+            ->whereNull('archived_at')
+            ->where(function ($inner) {
+                $inner->whereNull('product_id')
+                    ->orWhereHas('product', fn ($product) => $product->sellable());
+            });
     }
 }

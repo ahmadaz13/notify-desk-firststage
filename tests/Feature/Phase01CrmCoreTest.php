@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Appointment;
 use App\Models\Client;
+use App\Models\ClientReviewItem;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
@@ -63,7 +64,8 @@ class Phase01CrmCoreTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $client = $this->makeClient();
 
-        foreach (ClientLifecycle::STAGES as $stage) {
+        $manualStages = array_diff(ClientLifecycle::STAGES, [ClientLifecycle::SUBSCRIBER]);
+        foreach ($manualStages as $stage) {
             $this->actingAs($admin)
                 ->patch(route('clients.stage.update', $client->id), [
                     'stage' => $stage,
@@ -74,10 +76,26 @@ class Phase01CrmCoreTest extends TestCase
             $this->assertSame($stage, $client->fresh()->stage);
         }
 
-        $this->assertDatabaseCount('activity_logs', count(ClientLifecycle::STAGES));
+        $this->actingAs($admin)
+            ->from(route('clients.show', $client->id))
+            ->patch(route('clients.stage.update', $client->id), ['stage' => ClientLifecycle::SUBSCRIBER])
+            ->assertRedirect(route('clients.show', $client->id))
+            ->assertSessionHasErrors('stage');
+
+        $this->assertSame(
+            count($manualStages) - 2,
+            DB::table('activity_logs')
+                ->where('client_id', $client->id)
+                ->where('type', 'client_stage_changed')
+                ->count()
+        );
         $this->assertDatabaseHas('activity_logs', [
             'client_id' => $client->id,
             'type' => 'client_stage_changed',
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'client_id' => $client->id,
+            'type' => 'client_closed',
         ]);
     }
 
@@ -153,7 +171,7 @@ class Phase01CrmCoreTest extends TestCase
         $this->assertSame(ClientLifecycle::CONTACTING, $client->fresh()->stage);
         $this->assertDatabaseHas('contact_attempts', [
             'client_id' => $client->id,
-            'result' => 'call_later',
+            'result' => 'callback_later',
             'next_action' => 'إعادة الاتصال',
         ]);
         $this->assertDatabaseHas('follow_ups', [
@@ -162,7 +180,7 @@ class Phase01CrmCoreTest extends TestCase
         ]);
     }
 
-    public function test_not_interested_can_close_client_without_deleting_history(): void
+    public function test_not_interested_creates_review_without_deleting_or_closing_history(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $client = $this->makeClient();
@@ -213,14 +231,19 @@ class Phase01CrmCoreTest extends TestCase
             ->assertRedirect();
 
         $client->refresh();
-        $this->assertSame(ClientLifecycle::CLOSED, $client->stage);
-        $this->assertSame('archived', $client->status);
+        $this->assertSame(ClientLifecycle::CONTACTING, $client->stage);
+        $this->assertSame('prospect', $client->status);
         $this->assertNotNull(Client::find($client->id));
         $this->assertDatabaseHas('appointments', ['client_id' => $client->id]);
         $this->assertDatabaseHas('subscriptions', ['client_id' => $client->id]);
         $this->assertDatabaseHas('payments', ['client_id' => $client->id]);
         $this->assertDatabaseHas('activity_logs', ['client_id' => $client->id, 'type' => 'seeded_history']);
-        $this->assertDatabaseHas('activity_logs', ['client_id' => $client->id, 'type' => 'client_closed']);
+        $this->assertDatabaseHas('client_review_items', [
+            'client_id' => $client->id,
+            'type' => ClientReviewItem::TYPE_NOT_INTERESTED,
+            'status' => ClientReviewItem::STATUS_PENDING,
+        ]);
+        $this->assertDatabaseMissing('activity_logs', ['client_id' => $client->id, 'type' => 'client_closed']);
     }
 
     private function makeClient(array $overrides = []): Client

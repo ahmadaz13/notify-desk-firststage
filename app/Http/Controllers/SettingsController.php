@@ -71,23 +71,11 @@ class SettingsController extends Controller
         $this->checkAdmin();
 
         $validated = $request->validate([
-            'operational_cost_percentage' => 'required|numeric|min:0|max:100',
-            'market_valuation_multiplier' => 'required|numeric|min:0.1|max:100',
             'allow_auto_transfer_clients' => 'nullable',
             'annual_discount_percentage' => 'nullable|numeric|min:0|max:100',
             'sales_tax_percentage' => 'nullable|numeric|min:0|max:100',
             'monthly_due_day' => 'nullable|integer|in:1,5,15,30',
         ]);
-
-        Setting::updateOrCreate(
-            ['key' => 'operational_cost_percentage'],
-            ['value' => (string) $validated['operational_cost_percentage']]
-        );
-
-        Setting::updateOrCreate(
-            ['key' => 'market_valuation_multiplier'],
-            ['value' => (string) $validated['market_valuation_multiplier']]
-        );
 
         Setting::updateOrCreate(
             ['key' => 'allow_auto_transfer_clients'],

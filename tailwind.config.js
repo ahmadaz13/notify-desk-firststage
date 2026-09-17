@@ -13,16 +13,22 @@ export default {
         extend: {
             colors: {
                 notify: {
-                    primary: '#0C86ED',
-                    light: '#5AB2FF',
-                    dark: '#050B0D',
-                    charcoal: '#32383A',
-                    bg: '#F6F9FC',
+                    primary: '#0055CC',
+                    hover: '#0044AA',
+                    pressed: '#003388',
+                    canvas: '#F7F6F3',
                     surface: '#FFFFFF',
+                    text: '#0A1128',
+                    muted: '#475569',
+                    border: '#E2E8F0',
+                    success: '#16A34A',
+                    warning: '#F59E0B',
+                    danger: '#B42318',
+                    info: '#0284C7',
                 },
             },
             fontFamily: {
-                sans: ['Cairo', 'Inter', ...defaultTheme.fontFamily.sans],
+                sans: ['Inter', 'Cairo', ...defaultTheme.fontFamily.sans],
                 arabic: ['Cairo', 'sans-serif'],
                 english: ['Inter', 'sans-serif'],
             },

@@ -54,9 +54,70 @@ class Client extends Model
         return $this->hasOne(ClientContact::class)->where('is_primary', true);
     }
 
+    public function preferredOperationalContact(): array
+    {
+        $contacts = $this->relationLoaded('contacts')
+            ? $this->contacts
+            : $this->contacts()->get();
+
+        $contact = $contacts
+            ->sortBy(fn (ClientContact $contact) => [
+                $this->contactRolePriority($contact->role),
+                $contact->is_primary ? 0 : 1,
+                $contact->id,
+            ])
+            ->first(fn (ClientContact $contact) => filled($contact->primary_phone)
+                || filled($contact->secondary_phone)
+                || filled($contact->whatsapp_number))
+            ?? $contacts->firstWhere('is_primary', true)
+            ?? $contacts->first();
+
+        $contactPhone = $contact?->primary_phone
+            ?: $contact?->secondary_phone
+            ?: $contact?->whatsapp_number;
+        $legacyContactPhone = ($contact || filled($this->contact_person)) ? $this->phone : null;
+        $phone = $contactPhone ?: $legacyContactPhone ?: $this->business_phone ?: $this->phone;
+
+        return [
+            'contact' => $contact,
+            'name' => $contact?->name ?: $this->contact_person ?: $this->business_name,
+            'role' => $contact?->role,
+            'phone' => $phone,
+            'whatsapp_number' => $contact?->whatsapp_number ?: $phone,
+            'uses_business_fallback' => $contactPhone === null && $legacyContactPhone === null,
+        ];
+    }
+
+    private function contactRolePriority(?string $role): int
+    {
+        $role = mb_strtolower(trim((string) $role));
+
+        if ($role !== '' && collect(['owner', 'decision maker', 'decision_maker', 'مالك', 'صاحب', 'صاحب القرار'])
+            ->contains(fn (string $term) => str_contains($role, $term))) {
+            return 0;
+        }
+
+        if ($role !== '' && collect(['manager', 'مدير'])
+            ->contains(fn (string $term) => str_contains($role, $term))) {
+            return 1;
+        }
+
+        return 2;
+    }
+
     public function contactAttempts(): HasMany
     {
         return $this->hasMany(ContactAttempt::class)->orderByDesc('created_at');
+    }
+
+    public function partnerAttribution(): HasOne
+    {
+        return $this->hasOne(ClientPartnerAttribution::class);
+    }
+
+    public function reviewItems(): HasMany
+    {
+        return $this->hasMany(ClientReviewItem::class)->orderByDesc('created_at');
     }
 
     public function installations(): HasMany

@@ -149,13 +149,12 @@ class FinancePhaseF1Test extends TestCase
         $this->actingAs($admin)
             ->get(route('finance.index', $query))
             ->assertOk()
-            ->assertSee('Finance / Management Reporting')
-            ->assertSee('Profit &amp; Loss', false)
-            ->assertSee('Balance Sheet')
-            ->assertSee('Cash Flow')
-            ->assertSee('Reporting Reconciliation')
+            ->assertSee(__('notify.finance.title'))
+            ->assertSee(__('notify.finance.profit_loss'))
+            ->assertSee(__('notify.finance.balance_sheet'))
+            ->assertSee(__('notify.finance.cash_flow'))
             ->assertSee('ليست قوائم مالية نظامية مدققة')
-            ->assertSee('لا توجد MRR/ARR');
+            ->assertSee('لا توجد مقاييس اشتراكات تجارية (MRR/ARR)');
 
         $export = $this->actingAs($admin)->get(route('finance.export', ['report' => 'profit-and-loss'] + $query));
         $export->assertOk();

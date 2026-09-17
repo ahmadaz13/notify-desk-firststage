@@ -45,6 +45,11 @@ class MeetingOutcomeController extends Controller
             'next_action' => 'required|string|max:255',
             'next_follow_up_date' => 'nullable|date',
             'meeting_notes' => 'nullable|string',
+            'outcome_result' => 'nullable|in:installation_scheduled,follow_up_required,decision_pending,closed',
+            'installation_appointment_date' => 'nullable|date',
+            'installation_appointment_time' => 'nullable',
+            'closed_reason_code' => 'nullable|string|max:80',
+            'closed_reason' => 'nullable|string|max:1000',
         ]);
 
         $apt = DB::table('appointments')->where('id', $appointment)->first();

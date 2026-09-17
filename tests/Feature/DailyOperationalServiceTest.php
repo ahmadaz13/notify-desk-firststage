@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\DailyOperationalService;
 use Carbon\Carbon;
 use Database\Seeders\ExpenseCategorySeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -157,7 +158,7 @@ class DailyOperationalServiceTest extends TestCase
         $this->assertEquals(90.00, $khalidSnapshot['today_expenses']);
     }
 
-    public function test_today_snapshot_excludes_partner_data(): void
+    public function test_today_snapshot_is_internal_only_and_referral_data_is_visible_to_internal_users(): void
     {
         $partner = Partner::create([
             'company_name' => 'الشريك الذهبي',
@@ -223,11 +224,53 @@ class DailyOperationalServiceTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $snapshot = $this->service->getTodaySnapshot($partnerUser);
+        $this->expectException(AuthorizationException::class);
+        $this->service->getTodaySnapshot($partnerUser);
+    }
 
-        // Partner expenses MUST strictly be 0
-        $this->assertEquals(0.00, $snapshot['today_expenses']);
-        // Partner collections only include partner's client (80.00)
+    public function test_today_snapshot_includes_referral_attributed_clients_for_internal_users(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $partner = Partner::create([
+            'company_name' => 'الشريك الذهبي',
+            'email' => 'partner@gold.com',
+            'phone' => '0799999999',
+        ]);
+
+        $partnerClient = Client::create([
+            'business_name' => 'عميل إحالة',
+            'contact_person' => 'سالم',
+            'phone' => '0792222222',
+            'city_area' => 'اربد',
+            'business_category' => 'خدمات',
+            'lead_source' => 'شريك',
+            'status' => 'subscriber',
+            'partner_id' => $partner->id,
+        ]);
+        $subPartnerId = DB::table('subscriptions')->insertGetId([
+            'client_id' => $partnerClient->id,
+            'user_id' => $admin->id,
+            'billing_type' => 'monthly',
+            'total_price' => 80.00,
+            'start_date' => now()->toDateString(),
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('payments')->insert([
+            'client_id' => $partnerClient->id,
+            'subscription_id' => $subPartnerId,
+            'amount' => 80.00,
+            'paid_at' => Carbon::today(),
+            'payment_method' => 'cash',
+            'recorded_by' => $admin->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $snapshot = $this->service->getTodaySnapshot($admin);
+
         $this->assertEquals(80.00, $snapshot['today_collections']);
     }
 

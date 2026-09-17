@@ -345,8 +345,8 @@ class FinancePhaseC2BTest extends TestCase
         $this->assertSame(['credit_note', 'payment'], $credits->pluck('source_type')->sort()->values()->all());
         $this->actingAs($admin)->get(route('collections.index', ['client_id' => $client->id]))
             ->assertOk()
-            ->assertSee('payment credit')
-            ->assertSee('credit note');
+            ->assertSee(__('notify.client_workspace.payment_credit'))
+            ->assertSee(__('notify.client_workspace.credit_note_balance'));
     }
 
     public function test_partner_cannot_create_credit_notes_or_issue_refunds(): void

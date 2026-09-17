@@ -33,7 +33,7 @@ class FreeInstallationService
 
             $stage = ClientLifecycle::normalizeStage($client->stage, $client->status);
             if (!in_array($stage, [ClientLifecycle::SUBSCRIBER, ClientLifecycle::CLOSED], true)) {
-                $client->update(['stage' => ClientLifecycle::INSTALLATION_SCHEDULED]);
+                app(ClientOperationalWorkflowService::class)->transition($client, ClientLifecycle::INSTALLATION_SCHEDULED, $actor);
             }
 
             $this->log($client->id, $actor->id, 'installation_scheduled', 'تم جدولة تركيب مجاني للعميل', [
@@ -80,7 +80,7 @@ class FreeInstallationService
             if ($appointment->appointment_type === AppointmentTypes::INSTALLATION) {
                 $stage = ClientLifecycle::normalizeStage($client->stage, $client->status);
                 if (!in_array($stage, [ClientLifecycle::SUBSCRIBER, ClientLifecycle::CLOSED], true)) {
-                    $client->update(['stage' => ClientLifecycle::INSTALLATION_SCHEDULED]);
+                    app(ClientOperationalWorkflowService::class)->transition($client, ClientLifecycle::INSTALLATION_SCHEDULED, $actor);
                 }
             }
 
@@ -132,7 +132,7 @@ class FreeInstallationService
                     ]);
                 }
 
-                $client->update(['stage' => $nextStage]);
+                app(ClientOperationalWorkflowService::class)->transition($client, $nextStage, $actor);
             }
 
             $this->log($client->id, $actor->id, 'appointment_cancelled', 'تم إلغاء موعد التركيب المجاني', [
@@ -215,25 +215,28 @@ class FreeInstallationService
                 $appointment->update(['status' => 'completed']);
             }
 
-            $client->update(['stage' => ClientLifecycle::INSTALLED_FREE]);
+            app(ClientOperationalWorkflowService::class)->transition($client, ClientLifecycle::INSTALLED_FREE, $actor);
 
             $followUpId = null;
-            if (!empty($data['next_follow_up_date'])) {
-                $followUpId = DB::table('follow_ups')->insertGetId([
-                    'client_id' => $client->id,
-                    'installation_id' => $installation->id,
-                    'user_id' => $actor->id,
-                    'method' => 'phone',
-                    'reason' => 'متابعة ما بعد التركيب المجاني',
-                    'result' => null,
-                    'next_action' => $data['next_action'] ?? 'متابعة قرار العميل بعد التركيب',
-                    'next_follow_up_date' => Carbon::parse($data['next_follow_up_date'])->toDateString(),
-                    'follow_up_date_time' => Carbon::parse($data['next_follow_up_date'])->setTime(10, 0)->toDateTimeString(),
-                    'notes' => $data['follow_up_notes'] ?? null,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
+            $followUpAt = !empty($data['next_follow_up_date'])
+                ? Carbon::parse($data['next_follow_up_date'])
+                : Carbon::parse($installation->installed_at)->addDays(3)->setTime(10, 0);
+
+            $followUpId = app(ClientOperationalWorkflowService::class)->scheduleFollowUp($client, $actor, [
+                'installation_id' => $installation->id,
+                'user_id' => $installation->installed_by ?: $actor->id,
+                'method' => 'phone',
+                'reason' => 'متابعة ما بعد التركيب المجاني',
+                'next_action' => $data['next_action'] ?? 'متابعة قرار العميل بعد التركيب',
+                'follow_up_date_time' => $followUpAt->toDateTimeString(),
+                'notes' => $data['follow_up_notes'] ?? null,
+            ]);
+
+            $this->log($client->id, $actor->id, 'trial_followup_scheduled', 'تمت جدولة متابعة تجربة 3 أيام بعد التركيب المجاني', [
+                'installation_id' => $installation->id,
+                'follow_up_id' => $followUpId,
+                'follow_up_date_time' => $followUpAt->toDateTimeString(),
+            ]);
 
             $this->log($client->id, $actor->id, 'free_installation_completed', 'تم تسجيل اكتمال التركيب المجاني', [
                 'installation_id' => $installation->id,
@@ -242,9 +245,8 @@ class FreeInstallationService
                 'installed_at' => $installation->installed_at->toDateTimeString(),
                 'branch_name' => $installation->branch_name,
                 'installed_item_names' => $itemNames,
-                'post_install_follow_up_date' => $data['next_follow_up_date'] ?? null,
+                'post_install_follow_up_date' => $followUpAt->toDateString(),
                 'follow_up_id' => $followUpId,
-                'no_follow_up_reason' => $data['no_follow_up_reason'] ?? null,
             ]);
 
             return $installation->load(['items', 'installedBy', 'appointment']);

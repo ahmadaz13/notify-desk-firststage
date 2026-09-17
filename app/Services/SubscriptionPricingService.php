@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Setting;
 use InvalidArgumentException;
 
 class SubscriptionPricingService
@@ -15,8 +14,8 @@ class SubscriptionPricingService
      * @param float|string $baseSubtotal Base subtotal or service contributions total
      * @param string $billingType 'monthly' | 'annual' | 'installment'
      * @param float|string|null $setupFee One-time setup fee
-     * @param float|string|null $customAnnualDiscountPercentage Explicit discount percentage or null for global setting
-     * @param float|string|null $customTaxPercentage Explicit tax percentage or null for global setting
+     * @param float|string|null $customAnnualDiscountPercentage Explicit discount percentage. Null means no discount.
+     * @param float|string|null $customTaxPercentage Explicit tax percentage. Null means no tax.
      * @param int|null $installmentsCount Count of installments (2 to 12) if billingType is 'installment'
      * @param int|null $monthlyDueDay 1, 5, 15, or 30
      * @return array
@@ -40,15 +39,15 @@ class SubscriptionPricingService
             throw new InvalidArgumentException('Setup fee cannot be negative.');
         }
 
-        // 1. Discount calculation
-        // Annual billing applies annual_discount_percentage
+        // 1. Discount calculation. G1: V1 no longer reads the deprecated global
+        // annual discount setting; V2 annual prices must be explicit PlanPrice rows.
         $appliedDiscountRate = 0.0;
         $discountAmount = 0.000;
 
         if ($billingType === 'annual') {
             $appliedDiscountRate = $customAnnualDiscountPercentage !== null
                 ? (float) $customAnnualDiscountPercentage
-                : (float) Setting::get('annual_discount_percentage', 10.0);
+                : 0.0;
 
             if ($appliedDiscountRate > 0) {
                 // Discount is applied on base subtotal
@@ -62,10 +61,11 @@ class SubscriptionPricingService
         // Taxable base includes discounted subtotal + setup fee
         $taxableBase = round($discountedSubtotal + $fee, self::DEFAULT_PRECISION);
 
-        // 2. Sales tax calculation (Default 16.0% in Jordan)
+        // 2. Sales tax calculation. G1: global sales tax no longer silently
+        // applies to V2 pricing/invoice snapshots; callers must pass an explicit rate.
         $appliedTaxRate = $customTaxPercentage !== null
             ? (float) $customTaxPercentage
-            : (float) Setting::get('sales_tax_percentage', 16.0);
+            : 0.0;
 
         $taxAmount = 0.000;
         if ($appliedTaxRate > 0) {
@@ -77,7 +77,7 @@ class SubscriptionPricingService
 
         // 4. Monthly due day (1, 5, 15, 30)
         $allowedDueDays = [1, 5, 15, 30];
-        $selectedDueDay = $monthlyDueDay ?? (int) Setting::get('monthly_due_day', 1);
+        $selectedDueDay = $monthlyDueDay ?? 1;
         if (!in_array($selectedDueDay, $allowedDueDays, true)) {
             $selectedDueDay = 1;
         }

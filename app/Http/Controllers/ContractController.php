@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class ContractController extends Controller
 {
@@ -61,16 +62,8 @@ class ContractController extends Controller
     {
         Gate::authorize('download', $contract);
 
-        if (!Storage::disk('local')->exists($contract->private_file_path)) {
-            $htmlContent = view('contracts.template', [
-                'contract' => $contract,
-                'contractNumber' => $contract->contract_number,
-                'snapshot' => $contract->snapshot_data,
-                'issuedDate' => $contract->issued_at?->toDateString() ?? $contract->created_at->toDateString(),
-                'legalReviewStatus' => $contract->legal_review_status,
-                'autoPrint' => false,
-            ])->render();
-            Storage::disk('local')->put($contract->private_file_path, $htmlContent);
+        if (! $contract->private_file_path || ! Storage::disk('local')->exists($contract->private_file_path)) {
+            abort(409, 'ملف العقد غير متاح ويحتاج إعادة توليد صريحة من صفحة العميل.');
         }
 
         return Storage::disk('local')->download(
@@ -91,10 +84,20 @@ class ContractController extends Controller
             abort(404, 'Subscription does not belong to client');
         }
 
-        $contract = $this->contractService->createContract($client, $subscription, $request->user());
+        $contract = $this->contractService->ensureDraftContract($client, $subscription, $request->user());
 
-        return redirect()->route('clients.show', $client->id)
-            ->with('success', "تم إنشاء مسودة العقد رقم {$contract->contract_number} بنجاح.");
+        try {
+            $contract = $this->contractService->generateArtifact($contract);
+        } catch (Throwable) {
+            return redirect()->route('clients.show', $client->id)
+                ->with('warning', "مسودة العقد رقم {$contract->contract_number} محفوظة، لكن ملفها يحتاج إعادة توليد لاحقاً.");
+        }
+
+        $message = $contract->status === 'draft'
+            ? "مسودة العقد رقم {$contract->contract_number} جاهزة بنجاح."
+            : "العقد الحالي رقم {$contract->contract_number} جاهز بنجاح.";
+
+        return redirect()->route('clients.show', $client->id)->with('success', $message);
     }
 
     /**

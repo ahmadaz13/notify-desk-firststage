@@ -12,173 +12,84 @@ class PartnerPolicyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_partner_cannot_view_or_update_other_clients(): void
+    public function test_legacy_partner_user_cannot_view_or_update_any_clients(): void
     {
-        $partnerA = Partner::create([
-            'company_name' => 'الشريك أ',
-            'email' => 'partner_a@test.local',
-        ]);
-
-        $partnerB = Partner::create([
-            'company_name' => 'الشريك ب',
-            'email' => 'partner_b@test.local',
-        ]);
-
-        $partnerUserA = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partnerA->id,
-        ]);
-
-        // Client belonging to Partner B
-        $clientB = Client::create([
-            'business_name' => 'عميل الشريك ب',
+        $partner = Partner::create(['company_name' => 'الشريك أ', 'email' => 'partner_a@test.local']);
+        $partnerUser = User::factory()->create(['role' => 'partner', 'partner_id' => $partner->id]);
+        $client = Client::create([
+            'business_name' => 'عميل إحالة تاريخي',
             'phone' => '0791110000',
             'city_area' => 'عمان',
             'business_category' => 'خدمات',
-            'lead_source' => 'Partner',
-            'partner_id' => $partnerB->id,
+            'lead_source' => 'partner',
+            'partner_id' => $partner->id,
             'status' => 'prospect',
         ]);
 
-        // Client belonging to Admin (no partner)
-        $adminClient = Client::create([
-            'business_name' => 'عميل الإدارة المباشر',
-            'phone' => '0792220000',
-            'city_area' => 'عمان',
-            'business_category' => 'خدمات',
-            'lead_source' => 'Direct',
-            'partner_id' => null,
-            'status' => 'subscriber',
-        ]);
-
-        // Partner A cannot view Client B
-        $responseB = $this->actingAs($partnerUserA)->get(route('clients.show', $clientB->id));
-        $responseB->assertStatus(403);
-
-        // Partner A cannot view Admin's direct client
-        $responseAdmin = $this->actingAs($partnerUserA)->get(route('clients.show', $adminClient->id));
-        $responseAdmin->assertStatus(403);
-
-        // Partner A cannot update Client B
-        $responseUpdate = $this->actingAs($partnerUserA)->put(route('clients.update', $clientB->id), [
+        $this->actingAs($partnerUser)->get(route('clients.show', $client->id))->assertForbidden();
+        $this->actingAs($partnerUser)->put(route('clients.update', $client->id), [
             'business_name' => 'تعديل غير مصرح',
             'phone' => '0791110000',
             'city_area' => 'عمان',
             'business_category' => 'خدمات',
-            'lead_source' => 'Partner',
-        ]);
-        $responseUpdate->assertStatus(403);
+            'lead_source' => 'partner',
+        ])->assertForbidden();
     }
 
-    public function test_partner_can_view_and_update_own_clients(): void
+    public function test_internal_staff_can_view_partner_attributed_clients_without_partner_scope(): void
     {
-        $partner = Partner::create([
-            'company_name' => 'شريك معتمد',
-            'email' => 'approved@partner.local',
-        ]);
-
-        $partnerUser = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        $ownClient = Client::create([
-            'business_name' => 'عميل الشريك المعتمد',
-            'phone' => '0793330000',
-            'city_area' => 'عمان',
-            'business_category' => 'تقنية',
-            'lead_source' => 'Partner',
-            'partner_id' => $partner->id,
-            'status' => 'prospect',
-        ]);
-
-        // Can view own client
-        $response = $this->actingAs($partnerUser)->get(route('clients.show', $ownClient->id));
-        $response->assertOk();
-        $response->assertSee('عميل الشريك المعتمد');
-
-        // Can update own client
-        $updateResponse = $this->actingAs($partnerUser)->put(route('clients.update', $ownClient->id), [
-            'business_name' => 'عميل الشريك المعتمد المحدث',
-            'phone' => '0793330000',
-            'city_area' => 'عمان - الجبيهة',
-            'business_category' => 'تقنية',
-            'lead_source' => 'Partner',
-        ]);
-
-        $updateResponse->assertRedirect(route('clients.show', $ownClient->id));
-        $this->assertDatabaseHas('clients', [
-            'id' => $ownClient->id,
-            'business_name' => 'عميل الشريك المعتمد المحدث',
-            'city_area' => 'عمان - الجبيهة',
-            'partner_id' => $partner->id,
-        ]);
-    }
-
-    public function test_admin_can_view_all_clients(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-
-        $partner = Partner::create([
-            'company_name' => 'شريك فرعي',
-            'email' => 'sub@partner.local',
-        ]);
-
+        $staff = User::factory()->create(['role' => 'staff']);
+        $partner = Partner::create(['company_name' => 'شريك إحالة', 'email' => 'referrer@partner.local']);
         $partnerClient = Client::create([
-            'business_name' => 'عميل الشريك الفرعي',
+            'business_name' => 'عميل إحالة',
             'phone' => '0794440000',
             'city_area' => 'الزرقاء',
             'business_category' => 'خدمات',
-            'lead_source' => 'Partner',
+            'lead_source' => 'partner',
             'partner_id' => $partner->id,
-            'status' => 'subscriber',
+            'status' => 'prospect',
         ]);
-
         $directClient = Client::create([
-            'business_name' => 'عميل الإدارة',
+            'business_name' => 'عميل مباشر',
             'phone' => '0795550000',
             'city_area' => 'عمان',
             'business_category' => 'خدمات',
-            'lead_source' => 'Direct',
-            'partner_id' => null,
-            'status' => 'subscriber',
+            'lead_source' => 'direct',
+            'status' => 'prospect',
         ]);
 
-        // Admin can view both
-        $this->actingAs($admin)->get(route('clients.show', $partnerClient->id))->assertOk();
-        $this->actingAs($admin)->get(route('clients.show', $directClient->id))->assertOk();
+        $this->actingAs($staff)->get(route('clients.show', $partnerClient->id))->assertOk();
+        $this->actingAs($staff)->get(route('clients.show', $directClient->id))->assertOk();
+
+        $index = $this->actingAs($staff)->get(route('clients.index'));
+        $index->assertOk();
+        $index->assertSee('عميل إحالة');
+        $index->assertSee('عميل مباشر');
     }
 
-    public function test_partner_index_only_lists_their_own_clients(): void
+    public function test_staff_can_perform_normal_operational_update(): void
     {
-        $partnerA = Partner::create(['company_name' => 'أ', 'email' => 'a@p.local']);
-        $partnerB = Partner::create(['company_name' => 'ب', 'email' => 'b@p.local']);
-
-        $userA = User::factory()->create(['role' => 'partner', 'partner_id' => $partnerA->id]);
-
-        Client::create([
-            'business_name' => 'خاص بالشريك أ',
-            'phone' => '0791111111',
+        $staff = User::factory()->create(['role' => 'staff']);
+        $client = Client::create([
+            'business_name' => 'عميل تشغيل',
+            'phone' => '0793330000',
             'city_area' => 'عمان',
-            'business_category' => 'عام',
-            'lead_source' => 'Direct',
-            'partner_id' => $partnerA->id,
+            'business_category' => 'تقنية',
+            'lead_source' => 'direct',
             'status' => 'prospect',
         ]);
 
-        Client::create([
-            'business_name' => 'خاص بالشريك ب',
-            'phone' => '0792222222',
-            'city_area' => 'عمان',
-            'business_category' => 'عام',
-            'lead_source' => 'Direct',
-            'partner_id' => $partnerB->id,
-            'status' => 'prospect',
-        ]);
+        $this->actingAs($staff)->put(route('clients.update', $client->id), [
+            'business_name' => 'عميل تشغيل محدث',
+            'phone' => '0793330000',
+            'city_area' => 'عمان - الجبيهة',
+            'business_category' => 'تقنية',
+            'lead_source' => 'direct',
+        ])->assertRedirect(route('clients.show', $client->id));
 
-        $response = $this->actingAs($userA)->get(route('clients.index'));
-        $response->assertOk();
-        $response->assertSee('خاص بالشريك أ');
-        $response->assertDontSee('خاص بالشريك ب');
+        $this->assertDatabaseHas('clients', [
+            'id' => $client->id,
+            'business_name' => 'عميل تشغيل محدث',
+        ]);
     }
 }

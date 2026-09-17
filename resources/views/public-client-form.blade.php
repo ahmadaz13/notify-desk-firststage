@@ -72,7 +72,7 @@
         @csrf
 
         <div class="field" style="margin-bottom:16px">
-            <label style="font-size:13px;font-weight:700;color:var(--nd-ink)">رقم الهاتف *</label>
+            <label style="font-size:13px;font-weight:700;color:var(--nd-ink)">جوال المالك أو المدير، وهاتف النشاط عند عدم توفره *</label>
             <input class="touch-input" type="tel" name="phone" required placeholder="079XXXXXXXX أو +962..." style="direction:ltr;text-align:right" autocomplete="tel">
         </div>
 

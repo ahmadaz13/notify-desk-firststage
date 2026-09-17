@@ -9,31 +9,44 @@ use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Plan;
 use App\Models\Partner;
+use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\ReceivableService;
+use App\Services\ClientPartnerAttributionService;
+use App\Services\ClientOperationalWorkflowService;
+use App\Services\OperationalQueueService;
+use App\Services\PaymentScheduleService;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
 use App\Support\FinancialPermissions;
 use App\Support\PaymentMethods;
-use Carbon\Carbon;
+use App\ViewModels\ClientListViewModel;
+use App\ViewModels\ClientWorkspaceViewModel;
+use App\ViewModels\ContactOutcomeViewModel;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ClientController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, ?OperationalQueueService $operationalQueues = null): View
     {
         Gate::authorize('viewAny', Client::class);
+        $operationalQueues ??= app(OperationalQueueService::class);
 
-        $queryBuilder = Client::query()->with('primaryContact');
-
-        if (auth()->user()->isPartner()) {
-            $queryBuilder->where('partner_id', auth()->user()->partner_id);
-        }
+        $queryBuilder = Client::query()
+            ->with(['contacts', 'primaryContact', 'primaryOwner'])
+            ->select('clients.*')
+            ->selectSub(
+                DB::table('activity_logs')
+                    ->selectRaw('MAX(activity_logs.created_at)')
+                    ->whereColumn('activity_logs.client_id', 'clients.id'),
+                'last_activity_at'
+            );
 
         $search = trim((string) $request->get('q'));
         $query = $search;
@@ -66,20 +79,27 @@ class ClientController extends Controller
 
         $lifecycleStages = ClientLifecycle::STAGES;
         $lifecycleLabels = ClientLifecycle::labels();
+        $clientListViewModel = ClientListViewModel::make(
+            $clients,
+            ['q' => $query, 'status' => $status],
+            $lifecycleStages,
+            $lifecycleLabels,
+            $operationalQueues
+        );
 
-        return view('clients.index', compact('clients', 'search', 'query', 'status', 'lifecycleStages', 'lifecycleLabels'));
+        return view('clients.index', compact('clients', 'search', 'query', 'status', 'lifecycleStages', 'lifecycleLabels', 'clientListViewModel'));
     }
 
     public function create(): View
     {
         Gate::authorize('create', Client::class);
 
-        $partners = Partner::orderBy('company_name')->get();
+        $partners = Partner::where('status', 'active')->orderBy('company_name')->get();
 
         return view('clients.create', compact('partners'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, ClientPartnerAttributionService $attributions): RedirectResponse
     {
         Gate::authorize('create', Client::class);
 
@@ -100,9 +120,18 @@ class ClientController extends Controller
             'maps_url' => 'nullable|string|max:500',
             'location_text' => 'nullable|string|max:255',
             'contact_person' => 'nullable|string|max:120',
+            'primary_contact_role' => ['nullable', Rule::in(['owner', 'manager', 'other'])],
             'notes' => 'nullable|string',
-            'partner_id' => 'nullable|exists:partners,id',
+            'partner_id' => ['nullable', Rule::exists('partners', 'id')->where(fn ($query) => $query->where('status', 'active'))],
+            'partner_commission_percentage' => 'nullable|numeric|min:0|max:100',
+            'partner_attribution_notes' => 'nullable|string|max:1000',
         ]);
+
+        $partnerId = filled($data['partner_id'] ?? null) ? (int) $data['partner_id'] : null;
+        $commissionBps = $this->percentageToBps($data['partner_commission_percentage'] ?? null);
+        $attributionNotes = $data['partner_attribution_notes'] ?? null;
+        $primaryContactRole = $data['primary_contact_role'] ?? 'owner';
+        unset($data['partner_id'], $data['partner_commission_percentage'], $data['partner_attribution_notes'], $data['primary_contact_role']);
 
         $data['business_phone'] = $data['business_phone'] ?? $data['phone'];
         $data['business_type'] = $data['business_type'] ?? $data['business_category'];
@@ -111,15 +140,13 @@ class ClientController extends Controller
         $data['stage'] = ClientLifecycle::PROSPECT;
         $data['status'] = 'prospect';
 
-        if (auth()->user()->isPartner()) {
-            $data['partner_id'] = auth()->user()->partner_id;
-        } elseif (auth()->user()->isAdmin()) {
-            $data['partner_id'] = $request->filled('partner_id') ? (int) $request->partner_id : null;
-        }
-
         $data['primary_owner_id'] = auth()->id();
 
         $client = Client::create($data);
+
+        if ($partnerId !== null) {
+            $attributions->assign($client, Partner::findOrFail($partnerId), $commissionBps, $attributionNotes, auth()->id());
+        }
 
         DB::table('activity_logs')->insert([
             'client_id' => $client->id,
@@ -133,8 +160,8 @@ class ClientController extends Controller
         if (!empty($data['contact_person'])) {
             $client->contacts()->create([
                 'name' => $data['contact_person'],
-                'role' => null,
-                'primary_phone' => null,
+                'role' => $primaryContactRole,
+                'primary_phone' => $data['phone'],
                 'is_primary' => true,
             ]);
         }
@@ -142,13 +169,18 @@ class ClientController extends Controller
         return redirect()->route('clients.show', $client->id)->with('success', 'تم إنشاء العميل بنجاح.');
     }
 
-    public function show(int $id, ReceivableService $receivableService): View
+    public function show(
+        int $id,
+        ReceivableService $receivableService,
+        OperationalQueueService $operationalQueues,
+        PaymentScheduleService $paymentScheduleService
+    ): View
     {
         $clientModel = Client::findOrFail($id);
         Gate::authorize('view', $clientModel);
 
         $client = $clientModel;
-        $client->load(['contacts', 'primaryContact']);
+        $client->load(['contacts', 'primaryContact', 'partner', 'partnerAttribution.partner']);
         $timeline = DB::table('activity_logs')->where('client_id', $client->id)->orderByDesc('created_at')->get();
         $appointments = Appointment::where('client_id', $client->id)->with('users')->orderByDesc('appointment_date')->orderByDesc('appointment_time')->get();
         $payments = \App\Models\Payment::with(['reversal', 'allocations.invoice', 'allocations.reversal'])
@@ -172,6 +204,11 @@ class ClientController extends Controller
             ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->get();
+        $installmentScheduleProjections = $subscriptions
+            ->mapWithKeys(fn (Subscription $subscription) => [
+                $subscription->id => $paymentScheduleService->annualInstallmentProjection($subscription),
+            ])
+            ->filter();
         $invoices = Invoice::with('lines')
             ->where('client_id', $client->id)
             ->orderByDesc('issue_date')
@@ -187,10 +224,18 @@ class ClientController extends Controller
         $schedules = DB::table('payment_schedules')
             ->join('subscriptions', 'subscriptions.id', '=', 'payment_schedules.subscription_id')
             ->where('subscriptions.client_id', $client->id)
+            ->whereNull('payment_schedules.schedule_engine_version')
             ->select('payment_schedules.*')
             ->orderBy('payment_schedules.due_date')
             ->get();
-        $teamUsers = User::where('role', 'admin')->get();
+        $teamUsers = User::query()
+            ->where('is_active', true)
+            ->where(function ($query) {
+                $query->whereNull('role')
+                    ->orWhereIn('role', User::activeInternalRoles());
+            })
+            ->orderBy('name')
+            ->get();
         $catalogServices = \App\Models\Service::active()->get();
         $contracts = \App\Models\Contract::where('client_id', $client->id)->orderByDesc('id')->get();
         $contactAttempts = \App\Models\ContactAttempt::where('client_id', $client->id)->orderByDesc('created_at')->get();
@@ -212,6 +257,10 @@ class ClientController extends Controller
         $activeFinancialAccounts = \App\Models\FinancialAccount::where('is_active', true)
             ->whereNull('archived_at')
             ->orderBy('name_ar')
+            ->get();
+        $sellableProducts = Product::sellable()
+            ->with(['sellablePlans.services', 'sellablePlans.activePrices' => fn ($query) => $query->effective(now())->orderBy('billing_interval')])
+            ->orderBy('code')
             ->get();
         $sellablePlans = Plan::sellable()
             ->with(['services', 'activePrices' => fn ($query) => $query->effective(now())->orderBy('billing_interval')])
@@ -248,7 +297,24 @@ class ClientController extends Controller
                 ->values();
         }
 
-        return view('clients.show', compact('client', 'timeline', 'appointments', 'payments', 'creditNotes', 'refunds', 'offers', 'subscriptions', 'invoices', 'invoiceReceivables', 'paymentReceivables', 'creditNoteReceivables', 'availableCustomerCredits', 'receivableSummary', 'followUps', 'outcomes', 'schedules', 'teamUsers', 'catalogServices', 'contracts', 'contactAttempts', 'installations', 'installationAppointments', 'activeInstallationAppointments', 'appointmentTypeLabels', 'lifecycleStages', 'lifecycleLabels', 'contactOutcomes', 'paymentMethodOptions', 'activeFinancialAccounts', 'sellablePlans', 'accountingTrace'));
+        $clientWorkspaceViewModel = ClientWorkspaceViewModel::make(
+            $client,
+            $timeline,
+            $appointments,
+            $followUps,
+            $outcomes,
+            $payments,
+            $subscriptions,
+            $contracts,
+            $offers,
+            $contactAttempts,
+            $installations,
+            $lifecycleLabels,
+            $operationalQueues
+        );
+        $contactOutcomeViewModel = ContactOutcomeViewModel::make($appointmentTypeLabels);
+
+        return view('clients.show', compact('client', 'timeline', 'appointments', 'payments', 'creditNotes', 'refunds', 'offers', 'subscriptions', 'installmentScheduleProjections', 'invoices', 'invoiceReceivables', 'paymentReceivables', 'creditNoteReceivables', 'availableCustomerCredits', 'receivableSummary', 'followUps', 'outcomes', 'schedules', 'teamUsers', 'catalogServices', 'contracts', 'contactAttempts', 'installations', 'installationAppointments', 'activeInstallationAppointments', 'appointmentTypeLabels', 'lifecycleStages', 'lifecycleLabels', 'contactOutcomes', 'paymentMethodOptions', 'activeFinancialAccounts', 'sellableProducts', 'sellablePlans', 'accountingTrace', 'clientWorkspaceViewModel', 'contactOutcomeViewModel'));
     }
 
     public function edit(int $id): View
@@ -256,12 +322,17 @@ class ClientController extends Controller
         $client = Client::findOrFail($id);
         Gate::authorize('update', $client);
 
-        $partners = Partner::orderBy('company_name')->get();
+        $client->load(['partnerAttribution', 'contacts']);
+        $partners = Partner::query()
+            ->where('status', 'active')
+            ->when($client->partner_id, fn ($query) => $query->orWhereKey($client->partner_id))
+            ->orderBy('company_name')
+            ->get();
 
         return view('clients.edit', compact('client', 'partners'));
     }
 
-    public function update(Request $request, int $id): RedirectResponse
+    public function update(Request $request, int $id, ClientPartnerAttributionService $attributions): RedirectResponse
     {
         $client = Client::findOrFail($id);
         Gate::authorize('update', $client);
@@ -283,22 +354,66 @@ class ClientController extends Controller
             'maps_url' => 'nullable|string|max:500',
             'location_text' => 'nullable|string|max:255',
             'contact_person' => 'nullable|string|max:120',
+            'primary_contact_role' => ['nullable', Rule::in(['owner', 'manager', 'other'])],
             'notes' => 'nullable|string',
-            'partner_id' => 'nullable|exists:partners,id',
+            'partner_id' => [
+                'nullable',
+                Rule::exists('partners', 'id')->where(function ($query) use ($client) {
+                    $query->where('status', 'active');
+                    if ($client->partner_id !== null) {
+                        $query->orWhere('id', $client->partner_id);
+                    }
+                }),
+            ],
+            'partner_commission_percentage' => 'nullable|numeric|min:0|max:100',
+            'partner_attribution_notes' => 'nullable|string|max:1000',
         ]);
+
+        $partnerId = filled($data['partner_id'] ?? null) ? (int) $data['partner_id'] : null;
+        $commissionBps = $this->percentageToBps($data['partner_commission_percentage'] ?? null);
+        $attributionNotes = $data['partner_attribution_notes'] ?? null;
+        $primaryContactRole = $data['primary_contact_role'] ?? null;
+        unset($data['partner_id'], $data['partner_commission_percentage'], $data['partner_attribution_notes'], $data['primary_contact_role']);
 
         $data['business_phone'] = $data['business_phone'] ?? $data['phone'];
         $data['business_type'] = $data['business_type'] ?? $data['business_category'];
         $data['city'] = $data['city'] ?? $data['city_area'];
         $data['number_of_branches'] = $data['number_of_branches'] ?? 1;
 
-        if (auth()->user()->isPartner()) {
-            $data['partner_id'] = auth()->user()->partner_id;
-        } elseif (auth()->user()->isAdmin()) {
-            $data['partner_id'] = $request->filled('partner_id') ? (int) $request->partner_id : null;
+        $client->update($data);
+
+        if (filled($data['contact_person'] ?? null)) {
+            $primaryContact = $client->primaryContact()->first();
+            if ($primaryContact) {
+                $primaryContact->update([
+                    'name' => $data['contact_person'],
+                    'role' => $primaryContactRole ?: $primaryContact->role,
+                    'primary_phone' => $data['phone'],
+                ]);
+            } else {
+                $client->contacts()->create([
+                    'name' => $data['contact_person'],
+                    'role' => $primaryContactRole ?: 'owner',
+                    'primary_phone' => $data['phone'],
+                    'is_primary' => true,
+                ]);
+            }
         }
 
-        $client->update($data);
+        if ($partnerId === null) {
+            $attributions->clear($client);
+        } else {
+            $existing = $client->partnerAttribution;
+            $partner = Partner::findOrFail($partnerId);
+            $preservingArchivedAttribution = (int) $client->partner_id === $partnerId && ! $partner->isActive();
+            if (! $preservingArchivedAttribution) {
+                $snapshotBps = $commissionBps;
+                if ($snapshotBps === null && $existing && (int) $existing->partner_id === $partnerId) {
+                    $snapshotBps = $existing->commission_bps_snapshot;
+                }
+                $attributions->assign($client, $partner, $snapshotBps, $attributionNotes, auth()->id());
+            }
+        }
 
         DB::table('activity_logs')->insert([
             'client_id' => $client->id,
@@ -312,28 +427,12 @@ class ClientController extends Controller
         return redirect()->route('clients.show', $client->id)->with('success', 'تم تحديث بيانات العميل بنجاح.');
     }
 
-    public function destroy(int $id): RedirectResponse
+    public function destroy(int $id, ClientOperationalWorkflowService $workflow): RedirectResponse
     {
         $client = Client::findOrFail($id);
         Gate::authorize('delete', $client);
 
-        DB::transaction(function () use ($client) {
-            $client->update([
-                'stage' => ClientLifecycle::CLOSED,
-                'status' => 'archived',
-                'closed_at' => now(),
-                'closed_reason' => 'إغلاق تشغيلي بدلاً من الحذف الدائم',
-            ]);
-
-            DB::table('activity_logs')->insert([
-                'client_id' => $client->id,
-                'user_id' => auth()->id(),
-                'type' => 'client_closed',
-                'description' => 'تم إغلاق ملف العميل مع الحفاظ على السجل بدلاً من الحذف الدائم',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        });
+        $workflow->closeClient($client, auth()->user(), 'other', 'إغلاق تشغيلي بدلاً من الحذف الدائم');
 
         return redirect()->route('clients.index')->with('success', 'تم إغلاق ملف العميل مع الحفاظ على سجله.');
     }
@@ -345,91 +444,15 @@ class ClientController extends Controller
         $clientModel = Client::findOrFail($client);
         Gate::authorize('update', $clientModel);
 
-        $data = $request->validate([
-            'billing_type' => 'required|in:monthly,annual,installment',
-            'total_price' => 'nullable|numeric|min:0.01',
-            'setup_fee' => 'nullable|numeric|min:0',
-            'start_date' => 'required|date',
-            'installments_count' => 'nullable|integer|min:2|max:12',
-            'monthly_due_day' => 'nullable|integer|in:1,5,15,30',
-            'services' => 'nullable|array',
-            'services.*' => 'exists:services,id',
-        ]);
+        abort(410, 'Legacy subscription conversion is deprecated. Use the V2 paid-subscription workflow with an explicit PlanPrice.');
+    }
 
-        $pricingService = app(\App\Services\SubscriptionPricingService::class);
-        $scheduleService = app(\App\Services\PaymentScheduleService::class);
+    private function percentageToBps(mixed $percentage): ?int
+    {
+        if ($percentage === null || $percentage === '') {
+            return null;
+        }
 
-        DB::transaction(function () use ($data, $client, $pricingService, $scheduleService) {
-            $selectedServices = [];
-            $servicesTotal = 0.000;
-
-            if (!empty($data['services'])) {
-                $selectedServices = \App\Models\Service::whereIn('id', $data['services'])->get();
-                $servicesTotal = (float) $selectedServices->sum('default_price');
-            }
-
-            $baseSubtotal = (!empty($data['total_price']) && (float)$data['total_price'] > 0)
-                ? (float) $data['total_price']
-                : ($servicesTotal > 0 ? $servicesTotal : 100.000);
-
-            $pricing = $pricingService->calculate(
-                $baseSubtotal,
-                $data['billing_type'],
-                $data['setup_fee'] ?? 0.000,
-                null, // Use global annual discount setting
-                null, // Use global sales tax setting
-                isset($data['installments_count']) ? (int) $data['installments_count'] : null,
-                isset($data['monthly_due_day']) ? (int) $data['monthly_due_day'] : null
-            );
-
-            $subscription = \App\Models\Subscription::create([
-                'client_id' => $client,
-                'user_id' => auth()->id(),
-                'billing_type' => $data['billing_type'],
-                'total_price' => $pricing['grand_total'],
-                'setup_fee' => $pricing['setup_fee'],
-                'base_subtotal' => $pricing['base_subtotal'],
-                'annual_discount_percentage' => $pricing['annual_discount_percentage'],
-                'discount_amount' => $pricing['discount_amount'],
-                'tax_percentage' => $pricing['tax_percentage'],
-                'tax_amount' => $pricing['tax_amount'],
-                'grand_total' => $pricing['grand_total'],
-                'monthly_due_day' => $pricing['monthly_due_day'],
-                'start_date' => $data['start_date'],
-                'renewal_date' => Carbon::parse($data['start_date'])->addYear()->toDateString(),
-                'installments_count' => $pricing['installments_count'],
-                'status' => 'active',
-                'version' => 1,
-            ]);
-
-            // Snapshot selected services
-            foreach ($selectedServices as $svc) {
-                DB::table('subscription_service')->insert([
-                    'subscription_id' => $subscription->id,
-                    'service_id' => $svc->id,
-                    'service_key' => $svc->key,
-                    'service_name_ar' => $svc->name_ar,
-                    'service_name_en' => $svc->name_en,
-                    'price_contribution' => $svc->default_price,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-
-            // Generate deterministic payment schedules
-            $scheduleService->generateSchedules($subscription, $pricing, $data['start_date']);
-
-            DB::table('clients')->where('id', $client)->update(['status' => 'subscriber', 'stage' => ClientLifecycle::SUBSCRIBER, 'closed_at' => null, 'closed_reason' => null, 'updated_at' => now()]);
-            DB::table('activity_logs')->insert([
-                'client_id' => $client,
-                'user_id' => auth()->id(),
-                'type' => 'converted',
-                'description' => 'تم تحويل العميل إلى مشترك وإنشاء جدول الدفعات وفق محرك التسعير المعتمد',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        });
-
-        return back()->with('success', 'تم التحويل وإنشاء جدول الدفعات بنجاح.');
+        return (int) round(((float) $percentage) * 100);
     }
 }

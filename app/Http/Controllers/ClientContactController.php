@@ -55,6 +55,8 @@ class ClientContactController extends Controller
             $isPrimary = (bool) ($validated['is_primary'] ?? false);
             if ($isPrimary) {
                 $client->contacts()->where('id', '!=', $contact->id)->update(['is_primary' => false]);
+            } elseif (! $client->contacts()->where('id', '!=', $contact->id)->where('is_primary', true)->exists()) {
+                $isPrimary = true;
             }
 
             $contact->update(array_merge($validated, [

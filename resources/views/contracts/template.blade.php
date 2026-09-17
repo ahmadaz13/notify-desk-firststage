@@ -243,6 +243,12 @@
     </style>
 </head>
 <body>
+    @php
+        $productSnapshot = $snapshot['product'] ?? [];
+        $packageSnapshot = $snapshot['package'] ?? [];
+        $pricingSnapshot = $snapshot['pricing'] ?? [];
+        $billingInterval = $pricingSnapshot['billing_interval'] ?? ($snapshot['subscription']['billing_type'] ?? null);
+    @endphp
 
     {{-- Printable Action Bar (Hidden when printed) --}}
     <div class="no-print" style="position:sticky;top:0;z-index:9999;background:#050B0D;color:#fff;padding:12px 24px;box-shadow:0 4px 15px rgba(0,0,0,0.25);display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -253,7 +259,7 @@
                 @if(isset($contract) && $contract->isIssued())
                     <span style="color:#10b981;font-weight:700">● معتمد ورسمي</span>
                 @elseif(isset($contract) && $contract->isVoided())
-                    <span style="color:#ef4444;font-weight:700">● ملغي (Void)</span>
+                    <span style="color:#ef4444;font-weight:700">{{ __('notify.contracts.void') }}</span>
                 @else
                     <span style="color:#f59e0b;font-weight:700">● مسودة تشغيلية للمراجعة القانونية</span>
                 @endif
@@ -322,9 +328,26 @@
 
                 <div style="margin-top:25px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:16px">
                     <h4 style="margin:0 0 8px 0;color:#0369a1;font-size:11pt">ملخص الخدمات والباقة المعتمدة في العقد:</h4>
+                    @if(!empty($productSnapshot['name_ar']) || !empty($packageSnapshot['name_ar']))
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;font-size:10.5pt">
+                            <div><strong>المنتج / النظام:</strong> {{ $productSnapshot['name_ar'] ?? '—' }} @if(!empty($productSnapshot['name_en'])) ({{ $productSnapshot['name_en'] }}) @endif</div>
+                            <div><strong>الباقة:</strong> {{ $packageSnapshot['name_ar'] ?? '—' }} @if(!empty($packageSnapshot['name_en'])) ({{ $packageSnapshot['name_en'] }}) @endif</div>
+                            <div><strong>دورية الفوترة:</strong> <span class="ltr">{{ $billingInterval ?: '—' }}</span></div>
+                            @if(($snapshot['subscription']['payment_terms'] ?? 'full') === 'installments')
+                                <div><strong>طريقة السداد:</strong> {{ $snapshot['subscription']['installments_count'] }} أقساط ضمن التزام سنوي واحد</div>
+                            @endif
+                            <div><strong>القيمة المعتمدة:</strong> <span class="ltr">{{ number_format($snapshot['financial']['grand_total'], 3) }}</span> {{ $snapshot['financial']['currency_ar'] }}</div>
+                        </div>
+                    @endif
                     <ul style="margin:0;padding-right:20px;font-size:10.5pt">
                         @foreach($snapshot['services'] as $svc)
-                            <li><strong>{{ $svc['name_ar'] }} ({{ $svc['name_en'] }})</strong> — مساهمة القيمة: <span class="ltr">{{ number_format($svc['price_contribution'], 3) }}</span> د.أ</li>
+                            <li>
+                                <strong>{{ $svc['name_ar'] }} @if(!empty($svc['name_en'])) ({{ $svc['name_en'] }}) @endif</strong>
+                                @if(($svc['price_contribution'] ?? null) !== null)
+                                    — مساهمة القيمة: <span class="ltr">{{ number_format($svc['price_contribution'], 3) }}</span> د.أ
+                                @endif
+                                @if(!empty($svc['notes'])) — {{ $svc['notes'] }} @endif
+                            </li>
                         @endforeach
                         @if(empty($snapshot['services']))
                             <li>الباقة المخصصة للمنشأة — إجمالي القيمة: <span class="ltr">{{ number_format($snapshot['financial']['grand_total'], 3) }}</span> د.أ</li>
@@ -334,7 +357,7 @@
             </div>
 
             <div style="text-align:center;color:#64748b;font-size:9.5pt;border-top:1px solid #e2e8f0;padding-top:10px">
-                جميع الحقوق محفوظة لمنظومة Notify © {{ date('Y') }} — وثيقة إلكترونية رسمية غير قابلة للتحوير
+                جميع الحقوق محفوظة لمنظومة Notify © {{ now()->year }} — وثيقة إلكترونية رسمية غير قابلة للتحوير
             </div>
         </div>
     </div>
@@ -352,7 +375,10 @@
         {{-- البند 2 --}}
         <div class="clause-item">
             <div class="section-heading">2. تفاصيل الخدمة والباقة المختارة</div>
-            تشمل الخدمات المشمولة بالترخيص كلاً من: 
+            @if(!empty($productSnapshot['name_ar']) || !empty($packageSnapshot['name_ar']))
+                المنتج / النظام: <strong>{{ $productSnapshot['name_ar'] ?? '—' }}</strong>، الباقة: <strong>{{ $packageSnapshot['name_ar'] ?? '—' }}</strong>، دورية الفوترة: <strong class="ltr">{{ $billingInterval ?: '—' }}</strong>.<br>
+            @endif
+            تشمل الخدمات المشمولة بالترخيص كلاً من:
             @foreach($snapshot['services'] as $s) {{ $s['name_ar'] }}، @endforeach
             وذلك وفق حدود الاستخدام القياسية ومستوى الأداء التقني المعلن لمنظومة Notify.
         </div>
@@ -360,7 +386,11 @@
         {{-- البند 3 --}}
         <div class="clause-item">
             <div class="section-heading">3. مدة الاشتراك وسريان العقد</div>
-            يبدأ سريان هذا العقد اعتباراً من تاريخ تفعيل الحساب في <span class="ltr">{{ $snapshot['subscription']['start_date'] }}</span> ولمدة سنة تعاقدية كاملة، ويتجدد تلقائياً لمدد مماثلة ما لم يخطر أحد الطرفين الآخر خطياً بعدم الرغبة في التجديد قبل 30 يوماً من انتهاء المدة.
+            يبدأ سريان هذا العقد اعتباراً من تاريخ تفعيل الحساب في <span class="ltr">{{ $snapshot['subscription']['start_date'] }}</span>
+            @if(!empty($snapshot['subscription']['current_period_end']))
+                وتنتهي فترة الخدمة الحالية في <span class="ltr">{{ $snapshot['subscription']['current_period_end'] }}</span>
+            @endif
+            وفق دورية الفوترة المحددة أعلاه، ويتجدد تلقائياً لمدد مماثلة ما لم يخطر أحد الطرفين الآخر خطياً بعدم الرغبة في التجديد قبل 30 يوماً من انتهاء المدة.
         </div>
 
         {{-- البند 4 --}}
@@ -484,6 +514,12 @@
     {{-- PAGE 4: SIGNATURES & FINANCIAL SCHEDULE --}}
     <div class="page">
         <h3 style="color:#0C86ED;border-bottom:2px solid #0C86ED;padding-bottom:6px">جدول الأقساط والدفعات المالية المعتمدة</h3>
+        @if(($snapshot['subscription']['payment_terms'] ?? 'full') === 'installments')
+            <p style="font-size:10pt;color:#334155">
+                إجمالي الالتزام السنوي: <strong class="ltr">{{ number_format($snapshot['financial']['grand_total'], 3) }} {{ $snapshot['financial']['currency_ar'] }}</strong>.
+                يوضح الجدول مواعيد التحصيل فقط ولا يغير مدة الاشتراك السنوية أو قيمته الإجمالية.
+            </p>
+        @endif
         <table>
             <thead>
                 <tr>
@@ -589,7 +625,7 @@
         </div>
 
         <div style="margin-top:30px;text-align:center;font-size:10pt;color:#64748b">
-            نهاية وثيقة العقد المعتمدة — منظومة Notify © {{ date('Y') }}
+            نهاية وثيقة العقد المعتمدة — منظومة Notify © {{ now()->year }}
         </div>
     </div>
     </div> {{-- end page-container --}}

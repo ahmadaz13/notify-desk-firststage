@@ -190,14 +190,14 @@ class Phase3VerificationTest extends TestCase
         $this->assertTrue($voided->isVoided());
     }
 
-    public function test_contract_authorization_and_partner_isolation(): void
+    public function test_contract_authorization_and_legacy_partner_blocking(): void
     {
         $service = app(ContractService::class);
-        // Client owned by Partner A
+        // Client attributed to Partner A
         [$clientA, $subscriptionA] = $this->createClientAndSubscription($this->partnerA->id);
         $contractA = $service->createContract($clientA, $subscriptionA, $this->admin);
 
-        // Client owned by Partner B
+        // Client attributed to Partner B
         [$clientB, $subscriptionB] = $this->createClientAndSubscription($this->partnerB->id);
         $contractB = $service->createContract($clientB, $subscriptionB, $this->admin);
 
@@ -206,11 +206,9 @@ class Phase3VerificationTest extends TestCase
         $this->actingAs($this->admin)->get(route('contracts.download', $contractA->id))->assertOk();
         $this->actingAs($this->admin)->get(route('contracts.preview', $contractB->id))->assertOk();
 
-        // Partner A can preview and download their own contract
-        $this->actingAs($this->partnerUserA)->get(route('contracts.preview', $contractA->id))->assertOk();
-        $this->actingAs($this->partnerUserA)->get(route('contracts.download', $contractA->id))->assertOk();
-
-        // Partner A CANNOT view or download Partner B's contract (Forbidden 403)
+        // Legacy partner-role users are not active application users in G3.
+        $this->actingAs($this->partnerUserA)->get(route('contracts.preview', $contractA->id))->assertForbidden();
+        $this->actingAs($this->partnerUserA)->get(route('contracts.download', $contractA->id))->assertForbidden();
         $this->actingAs($this->partnerUserA)->get(route('contracts.preview', $contractB->id))->assertForbidden();
         $this->actingAs($this->partnerUserA)->get(route('contracts.download', $contractB->id))->assertForbidden();
 

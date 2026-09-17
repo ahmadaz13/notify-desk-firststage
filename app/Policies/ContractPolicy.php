@@ -12,7 +12,7 @@ class ContractPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->isPartner();
+        return $user->isActiveApplicationUser();
     }
 
     /**
@@ -20,12 +20,8 @@ class ContractPolicy
      */
     public function view(User $user, Contract $contract): bool
     {
-        if ($user->isAdmin()) {
+        if ($user->isActiveApplicationUser()) {
             return true;
-        }
-
-        if ($user->isPartner()) {
-            return $user->partner_id !== null && (int) $user->partner_id === (int) $contract->client->partner_id;
         }
 
         return false;

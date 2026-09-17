@@ -88,6 +88,29 @@ class Phase2VerificationTest extends TestCase
         $this->assertEquals(1, $result['installments_count']);
     }
 
+    public function test_pricing_service_does_not_apply_global_discount_or_tax_when_not_explicit(): void
+    {
+        Setting::set('annual_discount_percentage', '75.0');
+        Setting::set('sales_tax_percentage', '99.0');
+
+        $result = app(SubscriptionPricingService::class)->calculate(
+            baseSubtotal: 1000.000,
+            billingType: 'annual',
+            setupFee: 0.000,
+            customAnnualDiscountPercentage: null,
+            customTaxPercentage: null,
+            installmentsCount: null,
+            monthlyDueDay: null
+        );
+
+        $this->assertEquals(0.0, $result['annual_discount_percentage']);
+        $this->assertEquals(0.000, $result['discount_amount']);
+        $this->assertEquals(0.0, $result['tax_percentage']);
+        $this->assertEquals(0.000, $result['tax_amount']);
+        $this->assertEquals(1000.000, $result['grand_total']);
+        $this->assertEquals(1, $result['monthly_due_day']);
+    }
+
     public function test_pricing_service_three_decimal_precision_rounding_boundary(): void
     {
         $pricingService = app(SubscriptionPricingService::class);
@@ -408,7 +431,7 @@ class Phase2VerificationTest extends TestCase
     /**
      * 7. End-to-End Client Conversion and Payment Methods
      */
-    public function test_client_convert_action_with_services_and_payment_methods(): void
+    public function test_legacy_client_convert_action_is_deprecated_and_payment_methods_remain_supported(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $client = Client::create([
@@ -431,17 +454,32 @@ class Phase2VerificationTest extends TestCase
             'services' => [$pos->id, $menu->id],
         ]);
 
-        $response->assertRedirect();
+        $response->assertStatus(410);
         $client->refresh();
-        $this->assertEquals('subscriber', $client->status);
+        $this->assertEquals('prospect', $client->status);
 
         $subscription = Subscription::where('client_id', $client->id)->first();
-        $this->assertNotNull($subscription);
-        $this->assertEquals(25.000, $subscription->setup_fee);
-        $this->assertCount(2, $subscription->services);
-        $this->assertCount(12, $subscription->paymentSchedules);
+        $this->assertNull($subscription);
 
-        // Record payment with new payment methods (cliq, zain_cash, orange_money)
+        // Legacy top-level payment writes are deprecated; V2 collections remains authoritative.
+        $pricing = app(SubscriptionPricingService::class)->calculate(
+            baseSubtotal: 100.000,
+            billingType: 'monthly',
+            setupFee: 0.000,
+            customAnnualDiscountPercentage: 0.0,
+            customTaxPercentage: 0.0,
+            installmentsCount: null,
+            monthlyDueDay: 1
+        );
+        $subscription = Subscription::create([
+            'client_id' => $client->id,
+            'user_id' => $admin->id,
+            'billing_type' => 'monthly',
+            'total_price' => $pricing['grand_total'],
+            'start_date' => now()->toDateString(),
+            'status' => 'active',
+        ]);
+
         $payResponse = $this->actingAs($admin)->post(route('payments.store'), [
             'client_id' => $client->id,
             'amount' => 50.000,
@@ -449,9 +487,10 @@ class Phase2VerificationTest extends TestCase
             'paid_at' => now()->format('Y-m-d H:i:s'),
         ]);
 
-        $payResponse->assertRedirect();
-        $this->assertDatabaseHas('payments', [
+        $payResponse->assertStatus(410);
+        $this->assertDatabaseMissing('payments', [
             'client_id' => $client->id,
+            'subscription_id' => $subscription->id,
             'payment_method' => 'zain_cash',
             'amount' => 50.000,
         ]);

@@ -3,11 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Partner;
-use App\Models\User;
+use App\Services\PartnerCommissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -42,56 +41,43 @@ class PartnerController extends Controller
 
         $validated = $request->validate([
             'company_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:partners,email|unique:users,email',
+            'contact_name' => 'nullable|string|max:255',
+            'email' => 'required|email|max:255|unique:partners,email',
             'phone' => 'nullable|string|max:50',
             'profit_share_percentage' => 'nullable|numeric|min:0|max:100',
-            'deduction_percentage' => 'nullable|numeric|min:0|max:100',
-            'password' => 'nullable|string|min:6',
+            'default_commission_percentage' => 'nullable|numeric|min:0|max:100',
+            'notes' => 'nullable|string|max:2000',
         ]);
 
         $uuid = (string) Str::uuid();
-        $rawPassword = !empty($validated['password']) ? $validated['password'] : Str::random(10);
+        $commissionBps = $this->percentageToBps($validated['default_commission_percentage'] ?? $validated['profit_share_percentage'] ?? null);
 
         $partner = Partner::create([
             'company_name' => $validated['company_name'],
+            'contact_name' => $validated['contact_name'] ?? null,
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
-            'profit_share_percentage' => $validated['profit_share_percentage'] ?? null,
-            'deduction_percentage' => $validated['deduction_percentage'] ?? 20.00,
+            'profit_share_percentage' => $commissionBps === null ? null : number_format($commissionBps / 100, 2, '.', ''),
+            'default_commission_bps' => $commissionBps,
             'public_uuid' => $uuid,
             'status' => 'active',
-        ]);
-
-        User::create([
-            'name' => $partner->company_name,
-            'email' => $partner->email,
-            'password' => Hash::make($rawPassword),
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-            'first_login_at' => null,
+            'notes' => $validated['notes'] ?? null,
+            'created_by' => auth()->id(),
         ]);
 
         DB::table('activity_logs')->insert([
             'client_id' => null,
             'user_id' => auth()->id(),
-            'type' => 'partner_created',
-            'description' => "تم إنشاء الشريك {$partner->company_name} وحساب الدخول بواسطة " . auth()->user()->name,
+            'type' => 'partner_referrer_created',
+            'description' => "تم إنشاء مرجع شريك {$partner->company_name} بدون حساب دخول بواسطة " . auth()->user()->name,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
         $delegateLink = url('/p/' . $partner->public_uuid . '/client/create');
-        $credentials = [
-            'company_name' => $partner->company_name,
-            'email' => $partner->email,
-            'password' => $rawPassword,
-            'login_url' => url('/login'),
-            'delegate_link' => $delegateLink,
-        ];
 
         return redirect()->route('partners.index')
-            ->with('success', 'تم إنشاء الشريك وحساب الدخول بنجاح.')
-            ->with('new_partner_credentials', $credentials)
+            ->with('success', 'تم إنشاء مرجع الشريك بدون حساب دخول.')
             ->with('new_delegate_link', $delegateLink);
     }
 
@@ -104,6 +90,16 @@ class PartnerController extends Controller
         return view('partners.edit', compact('partner'));
     }
 
+    public function show(int $id, PartnerCommissionService $commissions): View
+    {
+        $this->checkAdmin();
+
+        $partner = Partner::findOrFail($id);
+        $partnerSummary = $commissions->summary($partner);
+
+        return view('partners.show', compact('partner', 'partnerSummary'));
+    }
+
     public function update(Request $request, int $id): RedirectResponse
     {
         $this->checkAdmin();
@@ -112,22 +108,26 @@ class PartnerController extends Controller
 
         $validated = $request->validate([
             'company_name' => 'required|string|max:255',
+            'contact_name' => 'nullable|string|max:255',
             'email' => 'required|email|max:255|unique:partners,email,' . $partner->id,
             'phone' => 'nullable|string|max:50',
             'status' => 'nullable|string|in:active,suspended',
             'profit_share_percentage' => 'nullable|numeric|min:0|max:100',
-            'deduction_percentage' => 'nullable|numeric|min:0|max:100',
+            'default_commission_percentage' => 'nullable|numeric|min:0|max:100',
+            'notes' => 'nullable|string|max:2000',
         ]);
 
-        $oldEmail = $partner->email;
-        $partner->update($validated);
-
-        if ($oldEmail !== $partner->email) {
-            User::where('partner_id', $partner->id)->update([
-                'email' => $partner->email,
-                'name' => $partner->company_name,
-            ]);
-        }
+        $commissionBps = $this->percentageToBps($validated['default_commission_percentage'] ?? $validated['profit_share_percentage'] ?? null);
+        $partner->update([
+            'company_name' => $validated['company_name'],
+            'contact_name' => $validated['contact_name'] ?? null,
+            'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+            'status' => $validated['status'] ?? $partner->status,
+            'profit_share_percentage' => $commissionBps === null ? null : number_format($commissionBps / 100, 2, '.', ''),
+            'default_commission_bps' => $commissionBps,
+            'notes' => $validated['notes'] ?? null,
+        ]);
 
         return redirect()->route('partners.index')->with('success', 'تم تحديث بيانات الشريك بنجاح.');
     }
@@ -136,37 +136,7 @@ class PartnerController extends Controller
     {
         $this->checkAdmin();
 
-        $partner = Partner::findOrFail($id);
-        $user = User::where('partner_id', $partner->id)->firstOrFail();
-
-        $newPassword = Str::random(10);
-        $user->update([
-            'password' => Hash::make($newPassword),
-            'remember_token' => null,
-            'reset_expires_at' => now()->addHours(48),
-        ]);
-
-        DB::table('activity_logs')->insert([
-            'client_id' => null,
-            'user_id' => auth()->id(),
-            'type' => 'partner_password_reset',
-            'description' => "تمت إعادة تعيين كلمة مرور الشريك {$partner->company_name} بواسطة " . auth()->user()->name,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $delegateLink = url('/p/' . $partner->public_uuid . '/client/create');
-        $credentials = [
-            'company_name' => $partner->company_name,
-            'email' => $user->email,
-            'password' => $newPassword,
-            'login_url' => url('/login'),
-            'delegate_link' => $delegateLink,
-        ];
-
-        return redirect()->route('partners.index')
-            ->with('success', 'تمت إعادة تعيين كلمة مرور الشريك بنجاح.')
-            ->with('reset_partner_credentials', $credentials);
+        abort(410, 'Partner login credentials are retired. Partner records are referral/history only.');
     }
 
     public function destroy(int $id): RedirectResponse
@@ -175,9 +145,17 @@ class PartnerController extends Controller
 
         $partner = Partner::findOrFail($id);
 
-        User::where('partner_id', $partner->id)->delete();
-        $partner->delete();
+        $partner->update(['status' => 'suspended']);
 
-        return redirect()->route('partners.index')->with('success', 'تم حذف الشريك وحسابه بنجاح.');
+        return redirect()->route('partners.index')->with('success', 'تم أرشفة مرجع الشريك مع الحفاظ على السجل.');
+    }
+
+    private function percentageToBps(mixed $percentage): ?int
+    {
+        if ($percentage === null || $percentage === '') {
+            return null;
+        }
+
+        return (int) round(((float) $percentage) * 100);
     }
 }

@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\ConflictDetected;
 use App\Support\ClientLifecycle;
+use App\Services\ClientPartnerAttributionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,14 +40,14 @@ class PublicClientController extends Controller
 
     public function create(string $uuid): View
     {
-        $partner = Partner::where('public_uuid', $uuid)->firstOrFail();
+        $partner = Partner::where('public_uuid', $uuid)->where('status', 'active')->firstOrFail();
 
         return view('public-client-form', compact('partner', 'uuid'));
     }
 
-    public function store(Request $request, string $uuid): RedirectResponse
+    public function store(Request $request, string $uuid, ClientPartnerAttributionService $attributions): RedirectResponse
     {
-        $partner = Partner::where('public_uuid', $uuid)->firstOrFail();
+        $partner = Partner::where('public_uuid', $uuid)->where('status', 'active')->firstOrFail();
 
         $validated = $request->validate([
             'phone' => 'required|string|max:50',
@@ -69,7 +70,6 @@ class PublicClientController extends Controller
         if (!$foundClient) {
             // Case A: Client NOT found
             $client = Client::create([
-                'partner_id' => $partner->id,
                 'phone' => $normalizedPhone,
                 'business_phone' => $normalizedPhone,
                 'business_name' => $validated['name'],
@@ -81,6 +81,7 @@ class PublicClientController extends Controller
                 'status' => 'prospect',
                 'stage' => ClientLifecycle::PROSPECT,
             ]);
+            $attributions->assign($client, $partner);
 
             DB::table('activity_logs')->insert([
                 'client_id' => $client->id,
@@ -100,9 +101,7 @@ class PublicClientController extends Controller
         $autoTransfer = filter_var($autoTransferSetting, FILTER_VALIDATE_BOOLEAN) || $autoTransferSetting === '1';
 
         if ($autoTransfer) {
-            $foundClient->update([
-                'partner_id' => $partner->id,
-            ]);
+            $attributions->assign($foundClient, $partner);
 
             DB::table('activity_logs')->insert([
                 'client_id' => $foundClient->id,
@@ -129,7 +128,13 @@ class PublicClientController extends Controller
         ]);
 
         // Send Notification to Admins
-        $admins = User::where('role', 'admin')->get();
+        $admins = User::query()
+            ->where('is_active', true)
+            ->where(function ($query) {
+                $query->whereNull('role')
+                    ->orWhereIn('role', User::ownerLevelRoles());
+            })
+            ->get();
         $message = "طلب ربط عميل [{$normalizedPhone}] من الشريك [{$partner->company_name}]. هذا الرقم مسجل مسبقاً. يرجى المراجعة.";
 
         foreach ($admins as $admin) {

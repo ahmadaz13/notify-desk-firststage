@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Models\User;
 use App\Services\FreeInstallationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class FreeInstallationController extends Controller
 {
@@ -19,7 +20,11 @@ class FreeInstallationController extends Controller
             'appointment_date' => 'required|date',
             'appointment_time' => 'required',
             'attendees' => 'nullable|array',
-            'attendees.*' => 'exists:users,id',
+            'attendees.*' => [
+                Rule::exists('users', 'id')->where(fn ($query) => $query
+                    ->where('is_active', true)
+                    ->where(fn ($inner) => $inner->whereNull('role')->orWhereIn('role', User::activeInternalRoles()))),
+            ],
             'location' => 'nullable|string|max:255',
             'branch_name' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
@@ -37,7 +42,12 @@ class FreeInstallationController extends Controller
         $data = $request->validate([
             'appointment_id' => 'nullable|exists:appointments,id',
             'installed_at' => 'required|date',
-            'installed_by' => 'nullable|exists:users,id',
+            'installed_by' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(fn ($query) => $query
+                    ->where('is_active', true)
+                    ->where(fn ($inner) => $inner->whereNull('role')->orWhereIn('role', User::activeInternalRoles()))),
+            ],
             'branch_name' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
             'service_ids' => 'nullable|array',
@@ -50,22 +60,7 @@ class FreeInstallationController extends Controller
             'no_follow_up_reason' => 'nullable|string|max:255',
         ]);
 
-        if (empty($data['next_follow_up_date']) && empty($data['no_follow_up'])) {
-            throw ValidationException::withMessages([
-                'next_follow_up_date' => 'اختر تاريخ متابعة بعد التركيب أو سجل سبب عدم المتابعة.',
-            ]);
-        }
-
-        if (!empty($data['no_follow_up']) && empty($data['no_follow_up_reason'])) {
-            throw ValidationException::withMessages([
-                'no_follow_up_reason' => 'سبب عدم جدولة متابعة مطلوب.',
-            ]);
-        }
-
         $data['installed_by'] = $data['installed_by'] ?? $request->user()->id;
-        if (!empty($data['no_follow_up'])) {
-            $data['next_follow_up_date'] = null;
-        }
 
         $service->completeInstallation($client, $request->user(), $data);
 

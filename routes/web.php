@@ -8,6 +8,7 @@ use App\Http\Controllers\CapitalManagementController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientContactController;
+use App\Http\Controllers\ClientReviewItemController;
 use App\Http\Controllers\ClientStageController;
 use App\Http\Controllers\CommercialCatalogController;
 use App\Http\Controllers\CollectionsController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\FreeInstallationController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\InvestmentController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MeetingOutcomeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperatingExpenseController;
@@ -36,6 +38,7 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SaasMetricsController;
 use App\Http\Controllers\SubscriptionBillingController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Middleware\EnsureActiveInternalUser;
 use Illuminate\Support\Facades\Route;
 
 // Health Check (Public, Rate Limited)
@@ -50,8 +53,9 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/p/{uuid}/client/create', [PublicClientController::class, 'create'])->name('public.client.create');
 Route::post('/p/{uuid}/client', [PublicClientController::class, 'store'])->name('public.client.store');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
 
     // Daily Notes
     Route::put('/daily-notes', [DailyNoteController::class, 'save'])->name('daily-notes.save');
@@ -70,6 +74,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/clients/{client}/collections/payments', [CollectionsController::class, 'storePayment'])->name('clients.collections.payments.store');
     Route::post('/clients/{client}/credit-notes', [CollectionsController::class, 'storeCreditNote'])->name('clients.credit-notes.store');
     Route::patch('/clients/{client}/stage', [ClientStageController::class, 'update'])->name('clients.stage.update');
+    Route::post('/clients/{client}/reopen', [ClientStageController::class, 'reopen'])->name('clients.reopen');
+    Route::post('/client-review-items/{reviewItem}/resolve', [ClientReviewItemController::class, 'resolve'])->name('client-review-items.resolve');
+    Route::post('/client-review-items/{reviewItem}/dismiss', [ClientReviewItemController::class, 'dismiss'])->name('client-review-items.dismiss');
     Route::post('/clients/{client}/contacts', [ClientContactController::class, 'store'])->name('clients.contacts.store');
     Route::patch('/clients/{client}/contacts/{contact}', [ClientContactController::class, 'update'])->name('clients.contacts.update');
     Route::post('/clients/{client}/contact-attempts', [ContactAttemptController::class, 'store'])->name('clients.contact-attempts.store');
@@ -138,6 +145,9 @@ Route::middleware('auth')->group(function () {
 
     // Admin Settings & Control Center
     Route::get('/commercial-catalog', [CommercialCatalogController::class, 'index'])->name('commercial-catalog.index');
+    Route::post('/commercial-catalog/products', [CommercialCatalogController::class, 'storeProduct'])->name('commercial-catalog.products.store');
+    Route::patch('/commercial-catalog/products/{product}', [CommercialCatalogController::class, 'updateProduct'])->name('commercial-catalog.products.update');
+    Route::post('/commercial-catalog/products/{product}/archive', [CommercialCatalogController::class, 'archiveProduct'])->name('commercial-catalog.products.archive');
     Route::post('/commercial-catalog/plans', [CommercialCatalogController::class, 'storePlan'])->name('commercial-catalog.plans.store');
     Route::patch('/commercial-catalog/plans/{plan}', [CommercialCatalogController::class, 'updatePlan'])->name('commercial-catalog.plans.update');
     Route::post('/commercial-catalog/plans/{plan}/archive', [CommercialCatalogController::class, 'archivePlan'])->name('commercial-catalog.plans.archive');

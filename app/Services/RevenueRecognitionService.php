@@ -191,7 +191,8 @@ class RevenueRecognitionService
                             $this->recognizePeriod($period);
                         }
                         $counts['recognized']++;
-                    } catch (\Throwable) {
+                    } catch (\Throwable $exception) {
+                        report($exception);
                         $counts['ambiguous']++;
                     }
                 }
@@ -395,6 +396,11 @@ class RevenueRecognitionService
             ->whereDate('period_end', '<=', now()->toDateString())
             ->count();
 
+        $schedules = RevenueRecognitionSchedule::with(['invoice', 'invoiceLine', 'revenueAccount', 'periods', 'adjustments'])
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
         return [
             'schedule_count' => RevenueRecognitionSchedule::count(),
             'due_period_count' => $due,
@@ -402,15 +408,35 @@ class RevenueRecognitionService
             'recognized_saas_mtd_minor' => $this->recognizedForAccountMonthToDate('saas_subscription_revenue'),
             'recognized_one_time_mtd_minor' => $this->recognizedForAccountMonthToDate('one_time_service_revenue'),
             'deferred_remaining_minor' => $this->operationalDeferredRevenueMinor(),
-            'schedules' => RevenueRecognitionSchedule::with(['invoice', 'invoiceLine', 'revenueAccount', 'periods', 'adjustments'])
-                ->orderByDesc('id')
-                ->limit(20)
-                ->get(),
+            'schedule_rows' => $schedules->map(fn (RevenueRecognitionSchedule $schedule) => $this->dashboardScheduleRow($schedule)),
             'review_queue' => RevenueRecognitionSchedule::with(['invoice', 'invoiceLine', 'revenueAccount'])
                 ->where('status', RevenueRecognitionSchedule::STATUS_NEEDS_REVIEW)
                 ->orderBy('id')
                 ->limit(20)
                 ->get(),
+        ];
+    }
+
+    private function dashboardScheduleRow(RevenueRecognitionSchedule $schedule): array
+    {
+        $schedule->loadMissing(['invoice', 'revenueAccount', 'periods', 'adjustments']);
+
+        return [
+            'schedule' => $schedule,
+            'invoice_number' => $schedule->invoice?->invoice_number,
+            'invoice_line_id' => $schedule->invoice_line_id,
+            'policy' => $schedule->policy,
+            'original_recognizable_minor' => (int) $schedule->original_recognizable_minor,
+            'recognized_minor' => (int) $schedule->periods->sum('recognized_minor'),
+            'future_deferred_minor' => $this->scheduleRemainingDeferredMinor($schedule),
+            'adjustments_minor' => (int) $schedule->adjustments->sum('amount_minor'),
+            'next_recognition_date' => $schedule->periods
+                ->where('status', RevenueRecognitionPeriod::STATUS_PENDING)
+                ->sortBy('period_end')
+                ->first()?->period_end,
+            'status' => $schedule->status,
+            'revenue_account_code' => $schedule->revenueAccount?->code,
+            'revenue_account_name_ar' => $schedule->revenueAccount?->name_ar,
         ];
     }
 

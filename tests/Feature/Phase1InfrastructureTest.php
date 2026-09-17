@@ -84,7 +84,9 @@ class Phase1InfrastructureTest extends TestCase
         $this->assertFalse($admin->isPartner());
 
         $this->assertFalse($partnerUser->isAdmin());
-        $this->assertTrue($partnerUser->isPartner());
+        $this->assertFalse($partnerUser->isPartner());
+        $this->assertTrue($partnerUser->hasLegacyPartnerRole());
+        $this->assertFalse($partnerUser->isActiveApplicationUser());
         $this->assertEquals($partner->id, $partnerUser->partner->id);
     }
 

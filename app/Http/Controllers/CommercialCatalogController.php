@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Plan;
+use App\Models\Product;
 use App\Models\Service;
 use App\Services\PlanPriceService;
 use App\Support\FinancialPermissions;
@@ -19,10 +20,81 @@ class CommercialCatalogController extends Controller
     {
         Gate::authorize(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG);
 
-        $plans = Plan::with(['services', 'prices.creator'])->orderBy('code')->get();
+        $products = Product::with(['plans.services', 'plans.prices.creator'])
+            ->orderBy('archived_at')
+            ->orderBy('code')
+            ->get();
+        $unassignedPlans = Plan::with(['services', 'prices.creator'])
+            ->whereNull('product_id')
+            ->orderBy('code')
+            ->get();
         $services = Service::active()->get();
 
-        return view('commercial-catalog.index', compact('plans', 'services'));
+        return view('commercial-catalog.index', compact('products', 'unassignedPlans', 'services'));
+    }
+
+    public function storeProduct(Request $request): RedirectResponse
+    {
+        Gate::authorize(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG);
+
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:80', 'regex:/^[a-z0-9_\\-]+$/', 'unique:products,code'],
+            'name_ar' => 'required|string|max:255',
+            'name_en' => 'nullable|string|max:255',
+            'description_ar' => 'nullable|string',
+            'description_en' => 'nullable|string',
+        ]);
+
+        $product = Product::create([
+            'code' => $validated['code'],
+            'name_ar' => $validated['name_ar'],
+            'name_en' => $validated['name_en'] ?? null,
+            'description_ar' => $validated['description_ar'] ?? null,
+            'description_en' => $validated['description_en'] ?? null,
+            'is_active' => true,
+            'created_by' => auth()->id(),
+        ]);
+
+        $this->log(null, 'product_created', 'تم إنشاء نظام تجاري جديد: '.$product->name_ar, ['product_id' => $product->id]);
+
+        return back()->with('success', 'تم إنشاء النظام التجاري بنجاح.');
+    }
+
+    public function updateProduct(Request $request, Product $product): RedirectResponse
+    {
+        Gate::authorize(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG);
+
+        $validated = $request->validate([
+            'name_ar' => 'required|string|max:255',
+            'name_en' => 'nullable|string|max:255',
+            'description_ar' => 'nullable|string',
+            'description_en' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $product->update([
+            'name_ar' => $validated['name_ar'],
+            'name_en' => $validated['name_en'] ?? null,
+            'description_ar' => $validated['description_ar'] ?? null,
+            'description_en' => $validated['description_en'] ?? null,
+            'is_active' => $request->boolean('is_active'),
+        ]);
+
+        return back()->with('success', 'تم تحديث النظام التجاري.');
+    }
+
+    public function archiveProduct(Product $product): RedirectResponse
+    {
+        Gate::authorize(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG);
+
+        $product->update([
+            'is_active' => false,
+            'archived_at' => now(),
+        ]);
+
+        $this->log(null, 'product_archived', 'تمت أرشفة النظام التجاري: '.$product->name_ar, ['product_id' => $product->id]);
+
+        return back()->with('success', 'تمت أرشفة النظام مع الحفاظ على الباقات والسجل التاريخي.');
     }
 
     public function storePlan(Request $request): RedirectResponse
@@ -31,6 +103,9 @@ class CommercialCatalogController extends Controller
 
         $validated = $request->validate([
             'code' => ['required', 'string', 'max:80', 'regex:/^[a-z0-9_\\-]+$/', 'unique:plans,code'],
+            'product_id' => 'nullable|exists:products,id',
+            'tier' => 'nullable|integer|min:0|max:255',
+            'offer_type' => ['nullable', Rule::in(['package', 'standalone'])],
             'name_ar' => 'required|string|max:255',
             'name_en' => 'nullable|string|max:255',
             'description_ar' => 'nullable|string',
@@ -41,6 +116,9 @@ class CommercialCatalogController extends Controller
 
         $plan = Plan::create([
             'code' => $validated['code'],
+            'product_id' => $validated['product_id'] ?? null,
+            'tier' => $validated['tier'] ?? null,
+            'offer_type' => $validated['offer_type'] ?? 'package',
             'name_ar' => $validated['name_ar'],
             'name_en' => $validated['name_en'] ?? null,
             'description_ar' => $validated['description_ar'] ?? null,
@@ -61,6 +139,9 @@ class CommercialCatalogController extends Controller
 
         $validated = $request->validate([
             'name_ar' => 'required|string|max:255',
+            'product_id' => 'nullable|exists:products,id',
+            'tier' => 'nullable|integer|min:0|max:255',
+            'offer_type' => ['nullable', Rule::in(['package', 'standalone'])],
             'name_en' => 'nullable|string|max:255',
             'description_ar' => 'nullable|string',
             'description_en' => 'nullable|string',
@@ -71,6 +152,9 @@ class CommercialCatalogController extends Controller
 
         $plan->update([
             'name_ar' => $validated['name_ar'],
+            'product_id' => $validated['product_id'] ?? null,
+            'tier' => $validated['tier'] ?? null,
+            'offer_type' => $validated['offer_type'] ?? 'package',
             'name_en' => $validated['name_en'] ?? null,
             'description_ar' => $validated['description_ar'] ?? null,
             'description_en' => $validated['description_en'] ?? null,

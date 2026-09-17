@@ -29,10 +29,10 @@ class SettingsTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('مركز التحكم والإعدادات');
-        $response->assertSee('الإعدادات المالية');
-        $response->assertSee('إدارة الشركاء');
+        $response->assertSee('المحددات المالية والتشغيلية');
+        $response->assertSee('مراجع الشركاء وروابط الإحالة');
         $response->assertSee('سجل النشاطات');
-        $response->assertSee('تصدير البيانات');
+        $response->assertSee('تصدير التقرير المالي الشامل');
         $response->assertSee('شركة الأفق الرقمي');
     }
 
@@ -52,7 +52,7 @@ class SettingsTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_admin_can_update_financial_settings(): void
+    public function test_admin_can_update_review_settings_but_not_deprecated_financial_authority_settings(): void
     {
         $this->seed(SettingsSeeder::class);
         $admin = User::factory()->create(['role' => 'admin']);
@@ -61,6 +61,9 @@ class SettingsTest extends TestCase
             'operational_cost_percentage' => 25.5,
             'market_valuation_multiplier' => 6.0,
             'allow_auto_transfer_clients' => '1',
+            'annual_discount_percentage' => 12.5,
+            'sales_tax_percentage' => 17.0,
+            'monthly_due_day' => 15,
         ];
 
         $response = $this->actingAs($admin)->post(route('settings.update'), $data);
@@ -68,9 +71,12 @@ class SettingsTest extends TestCase
         $response->assertRedirect(route('settings.index'));
         $response->assertSessionHas('success', 'تم حفظ الإعدادات المالية بنجاح.');
 
-        $this->assertEquals('25.5', Setting::get('operational_cost_percentage'));
-        $this->assertEquals('6', Setting::get('market_valuation_multiplier'));
+        $this->assertEquals('20', Setting::get('operational_cost_percentage'));
+        $this->assertEquals('5', Setting::get('market_valuation_multiplier'));
         $this->assertEquals('1', Setting::get('allow_auto_transfer_clients'));
+        $this->assertEquals('12.5', Setting::get('annual_discount_percentage'));
+        $this->assertEquals('17', Setting::get('sales_tax_percentage'));
+        $this->assertEquals('15', Setting::get('monthly_due_day'));
     }
 
     public function test_activity_log_displays_recent_entries(): void
@@ -126,5 +132,6 @@ class SettingsTest extends TestCase
 
         $response->assertOk();
         $response->assertDownload('financial_report.xlsx');
+        $this->assertStringContainsString('FinancialStatementService', $response->streamedContent());
     }
 }

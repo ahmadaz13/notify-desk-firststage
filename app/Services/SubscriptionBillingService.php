@@ -8,11 +8,13 @@ use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Models\SubscriptionBillingPeriod;
 use App\Models\SubscriptionEvent;
+use App\Models\User;
 use App\Support\ClientLifecycle;
 use App\Support\Money;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -21,8 +23,38 @@ class SubscriptionBillingService
     public function __construct(
         private readonly CommercialPricingService $pricingService,
         private readonly InvoiceService $invoiceService,
-        private readonly SaasMetricEventService $saasMetricEvents
+        private readonly SaasMetricEventService $saasMetricEvents,
+        private readonly ContractService $contractService,
+        private readonly PaymentScheduleService $paymentSchedules
     ) {
+    }
+
+    public function previewPaidSubscriptionTerms(PlanPrice $price, array $data): array
+    {
+        $this->assertSellablePlan($price);
+        $paymentTerms = $this->paymentTerms($price, $data);
+        $pricing = $this->pricingService->calculateSubscription(
+            $price,
+            (int) $data['quantity'],
+            $data['discount_jod'] ?? null
+        );
+
+        $schedule = $paymentTerms['installments_count'] > 1
+            ? $this->paymentSchedules->previewAnnualInstallments(
+                $pricing['total_minor'],
+                $paymentTerms['installments_count'],
+                $data['start_date'],
+                $paymentTerms['due_day']
+            )
+            : [];
+
+        return [
+            'plan_name' => $price->plan->name_ar,
+            'billing_interval' => $price->billing_interval,
+            'payment_terms' => $paymentTerms['type'],
+            'total_minor' => $pricing['total_minor'],
+            'schedule' => $schedule,
+        ];
     }
 
     public function startPaidSubscription(Client $client, PlanPrice $price, array $data, ?int $userId): array
@@ -32,22 +64,17 @@ class SubscriptionBillingService
             throw ValidationException::withMessages(['client_id' => 'لا يمكن بدء اشتراك مدفوع لعميل مغلق قبل إعادة فتحه.']);
         }
 
-        $activeDuplicate = Subscription::where('client_id', $client->id)
-            ->where('plan_id', $price->plan_id)
-            ->where('billing_engine_version', 'v2')
-            ->where('status', 'active')
-            ->exists();
-
-        if ($activeDuplicate) {
-            throw ValidationException::withMessages(['plan_price_id' => 'يوجد اشتراك V2 نشط لهذه الباقة بالفعل.']);
-        }
-
         $start = Carbon::parse($data['start_date'])->startOfDay();
         $periodEnd = $this->periodEnd($start, $price->billing_interval);
         $nextBilling = $this->nextPeriodStart($start, $price->billing_interval);
-        $pricing = $this->pricingService->calculateSubscription($price->loadMissing('plan'), (int) $data['quantity'], $data['discount_jod'] ?? null);
+        $this->assertSellablePlan($price);
+        $paymentTerms = $this->paymentTerms($price, $data);
+        $pricing = $this->pricingService->calculateSubscription($price, (int) $data['quantity'], $data['discount_jod'] ?? null);
 
-        return DB::transaction(function () use ($client, $price, $data, $userId, $start, $periodEnd, $nextBilling, $pricing) {
+        [$subscription, $invoice] = DB::transaction(function () use ($client, $price, $data, $userId, $start, $periodEnd, $nextBilling, $pricing, $paymentTerms) {
+            Client::whereKey($client->id)->lockForUpdate()->firstOrFail();
+            $this->assertNoActiveSubscriptionConflict($client->id, $price);
+
             $subscription = Subscription::create($this->subscriptionSnapshotAttributes(
                 client: $client,
                 price: $price,
@@ -57,7 +84,9 @@ class SubscriptionBillingService
                 nextBilling: $nextBilling,
                 userId: $userId,
                 status: 'active',
-                version: 1
+                version: 1,
+                installmentsCount: $paymentTerms['installments_count'],
+                monthlyDueDay: $paymentTerms['due_day']
             ));
 
             $invoice = $this->invoiceService->createIssuedForSubscription(
@@ -69,6 +98,15 @@ class SubscriptionBillingService
                 $data['notes'] ?? null,
                 $userId
             );
+
+            if ($paymentTerms['installments_count'] > 1) {
+                $this->paymentSchedules->ensureAnnualInstallmentSchedule(
+                    $subscription->fresh(),
+                    $invoice,
+                    $paymentTerms['installments_count'],
+                    $paymentTerms['due_day']
+                );
+            }
 
             $period = $this->createOrLinkPeriod($subscription->fresh(), $price, $pricing, $start, $periodEnd, $invoice, 1);
             $event = $this->recordEvent($subscription, SubscriptionEvent::TYPE_STARTED, $start, [
@@ -98,6 +136,10 @@ class SubscriptionBillingService
 
             return [$subscription->fresh(['billingPeriods', 'lifecycleEvents']), $invoice];
         });
+
+        $contractResult = $this->createInitialContractDraft($client->fresh(), $subscription, $userId);
+
+        return [$subscription, $invoice, $contractResult];
     }
 
     public function generateRenewals(Carbon|string|null $through = null, bool $dryRun = false, ?int $userId = null): array
@@ -231,30 +273,35 @@ class SubscriptionBillingService
         if ($subscription->status !== 'active') {
             throw ValidationException::withMessages(['subscription_id' => 'يمكن جدولة تغيير خطة لاشتراك نشط فقط.']);
         }
-        $price->loadMissing('plan');
+        $this->assertSellablePlan($price);
         $effectiveAt = $subscription->next_billing_date ?: $this->nextPeriodStart($subscription->current_period_start ?: now(), $price->billing_interval);
 
-        $subscription->update([
-            'pending_plan_id' => $price->plan_id,
-            'pending_plan_price_id' => $price->id,
-            'pending_quantity' => max(1, $quantity),
-            'pending_change_effective_at' => Carbon::parse($effectiveAt)->startOfDay(),
-        ]);
+        DB::transaction(function () use ($subscription, $price, $quantity, $userId, $effectiveAt) {
+            Client::whereKey($subscription->client_id)->lockForUpdate()->firstOrFail();
+            $this->assertNoActiveSubscriptionConflict($subscription->client_id, $price, $subscription->id);
 
-        $this->recordEvent($subscription, SubscriptionEvent::TYPE_PLAN_CHANGE_SCHEDULED, Carbon::parse($effectiveAt), [
-            'from_plan_id' => $subscription->plan_id,
-            'to_plan_id' => $price->plan_id,
-            'from_price_minor' => $subscription->unit_price_minor,
-            'to_price_minor' => $price->amount_minor,
-            'billing_interval' => $price->billing_interval,
-            'quantity' => max(1, $quantity),
-            'created_by' => $userId,
-        ]);
+            $subscription->update([
+                'pending_plan_id' => $price->plan_id,
+                'pending_plan_price_id' => $price->id,
+                'pending_quantity' => max(1, $quantity),
+                'pending_change_effective_at' => Carbon::parse($effectiveAt)->startOfDay(),
+            ]);
 
-        $this->log($subscription->client_id, $userId, 'subscription_plan_change_scheduled', 'تمت جدولة تغيير خطة الاشتراك عند حد الفترة القادمة', [
-            'subscription_id' => $subscription->id,
-            'pending_plan_price_id' => $price->id,
-        ]);
+            $this->recordEvent($subscription, SubscriptionEvent::TYPE_PLAN_CHANGE_SCHEDULED, Carbon::parse($effectiveAt), [
+                'from_plan_id' => $subscription->plan_id,
+                'to_plan_id' => $price->plan_id,
+                'from_price_minor' => $subscription->unit_price_minor,
+                'to_price_minor' => $price->amount_minor,
+                'billing_interval' => $price->billing_interval,
+                'quantity' => max(1, $quantity),
+                'created_by' => $userId,
+            ]);
+
+            $this->log($subscription->client_id, $userId, 'subscription_plan_change_scheduled', 'تمت جدولة تغيير خطة الاشتراك عند حد الفترة القادمة', [
+                'subscription_id' => $subscription->id,
+                'pending_plan_price_id' => $price->id,
+            ]);
+        });
 
         return $subscription->fresh(['pendingPlanPrice']);
     }
@@ -326,11 +373,21 @@ class SubscriptionBillingService
         $start = Carbon::parse($data['start_date'] ?? now())->startOfDay();
         $periodEnd = $this->periodEnd($start, $price->billing_interval);
         $nextBilling = $this->nextPeriodStart($start, $price->billing_interval);
-        $pricing = $this->pricingService->calculateSubscription($price->loadMissing('plan'), (int) ($data['quantity'] ?? 1), null);
+        $this->assertSellablePlan($price);
+        $pricing = $this->pricingService->calculateSubscription($price, (int) ($data['quantity'] ?? 1), null);
 
         return DB::transaction(function () use ($subscription, $price, $pricing, $start, $periodEnd, $nextBilling, $userId) {
+            Client::whereKey($subscription->client_id)->lockForUpdate()->firstOrFail();
+            $this->assertNoActiveSubscriptionConflict($subscription->client_id, $price, $subscription->id);
+
+            $installmentsCount = $price->billing_interval === PlanPrice::ANNUAL
+                ? max(1, (int) $subscription->installments_count)
+                : 1;
+            $dueDay = (int) ($subscription->monthly_due_day ?: 1);
             $subscription->update($this->subscriptionUpdateSnapshot($price, $pricing, $start, $periodEnd, $nextBilling) + [
                 'status' => 'active',
+                'installments_count' => $installmentsCount,
+                'monthly_due_day' => $dueDay,
                 'cancel_at_period_end' => false,
                 'cancellation_requested_at' => null,
                 'cancelled_at' => null,
@@ -349,6 +406,9 @@ class SubscriptionBillingService
                 'Subscription reactivation',
                 $userId
             );
+            if ($installmentsCount > 1) {
+                $this->paymentSchedules->ensureAnnualInstallmentSchedule($subscription->fresh(), $invoice, $installmentsCount, $dueDay);
+            }
             $period = $this->createOrLinkPeriod($subscription->fresh(), $price, $pricing, $start, $periodEnd, $invoice, $this->nextPeriodNumber($subscription));
             $event = $this->recordEvent($subscription, SubscriptionEvent::TYPE_REACTIVATED, $start, [
                 'to_plan_id' => $price->plan_id,
@@ -443,9 +503,13 @@ class SubscriptionBillingService
         }
 
         return DB::transaction(function () use ($subscription, $price, $start, $periodEnd, $existing, $userId) {
+            Client::whereKey($subscription->client_id)->lockForUpdate()->firstOrFail();
             $subscription = Subscription::whereKey($subscription->id)->lockForUpdate()->firstOrFail();
             if ($subscription->next_billing_date === null || ! $subscription->next_billing_date->isSameDay($start)) {
                 return 'already_processed';
+            }
+            if ($subscription->pending_plan_price_id && $this->hasActiveSubscriptionConflict($subscription->client_id, $price, $subscription->id)) {
+                return 'review';
             }
 
             $oldPlanId = $subscription->plan_id;
@@ -455,7 +519,13 @@ class SubscriptionBillingService
             $nextBilling = $this->nextPeriodStart($start, $price->billing_interval);
             $hadPlanChange = $subscription->pending_plan_price_id !== null;
 
+            $installmentsCount = $price->billing_interval === PlanPrice::ANNUAL
+                ? max(1, (int) $subscription->installments_count)
+                : 1;
+            $dueDay = (int) ($subscription->monthly_due_day ?: 1);
             $subscription->update($this->subscriptionUpdateSnapshot($price, $pricing, $start, $periodEnd, $nextBilling) + [
+                'installments_count' => $installmentsCount,
+                'monthly_due_day' => $dueDay,
                 'pending_plan_id' => null,
                 'pending_plan_price_id' => null,
                 'pending_quantity' => null,
@@ -473,6 +543,9 @@ class SubscriptionBillingService
                 'Subscription renewal',
                 $userId
             );
+            if ($installmentsCount > 1) {
+                $this->paymentSchedules->ensureAnnualInstallmentSchedule($subscription->fresh(), $invoice, $installmentsCount, $dueDay);
+            }
 
             $period = $existing ?: $this->createOrLinkPeriod($subscription->fresh(), $price, $pricing, $start, $periodEnd, null, $this->nextPeriodNumber($subscription));
             $period->update([
@@ -585,6 +658,59 @@ class SubscriptionBillingService
         return $price;
     }
 
+    private function assertSellablePlan(PlanPrice $price): void
+    {
+        $price->loadMissing('plan.product');
+        $plan = $price->plan;
+
+        if (
+            ! $plan
+            || ! $plan->is_active
+            || $plan->archived_at !== null
+            || ($plan->product && (! $plan->product->is_active || $plan->product->archived_at !== null))
+        ) {
+            throw ValidationException::withMessages([
+                'plan_price_id' => 'السعر المختار غير فعال أو غير متاح للبيع حالياً.',
+            ]);
+        }
+    }
+
+    private function assertNoActiveSubscriptionConflict(int $clientId, PlanPrice $price, ?int $exceptSubscriptionId = null): void
+    {
+        if ($this->hasActiveSubscriptionConflict($clientId, $price, $exceptSubscriptionId)) {
+            throw ValidationException::withMessages([
+                'plan_price_id' => $price->plan->product_id
+                    ? 'يوجد اشتراك V2 نشط أو تغيير خطة مجدول لهذا المنتج بالفعل.'
+                    : 'يوجد اشتراك V2 نشط لهذه الباقة بالفعل.',
+            ]);
+        }
+    }
+
+    private function hasActiveSubscriptionConflict(int $clientId, PlanPrice $price, ?int $exceptSubscriptionId = null): bool
+    {
+        $price->loadMissing('plan');
+        $query = Subscription::query()
+            ->where('client_id', $clientId)
+            ->where('billing_engine_version', 'v2')
+            ->where('status', 'active');
+
+        if ($exceptSubscriptionId !== null) {
+            $query->whereKeyNot($exceptSubscriptionId);
+        }
+
+        if ($price->plan->product_id === null) {
+            return $query->where('plan_id', $price->plan_id)->exists();
+        }
+
+        $productId = $price->plan->product_id;
+
+        return $query->where(function ($subscriptions) use ($productId) {
+            $subscriptions
+                ->whereHas('plan', fn ($plan) => $plan->where('product_id', $productId))
+                ->orWhereHas('pendingPlan', fn ($plan) => $plan->where('product_id', $productId));
+        })->exists();
+    }
+
     private function createOrLinkPeriod(Subscription $subscription, PlanPrice $price, array $pricing, Carbon|string $start, Carbon|string $end, ?Invoice $invoice, int $periodNumber): SubscriptionBillingPeriod
     {
         $start = Carbon::parse($start)->startOfDay();
@@ -647,7 +773,19 @@ class SubscriptionBillingService
         ]);
     }
 
-    private function subscriptionSnapshotAttributes(Client $client, PlanPrice $price, array $pricing, Carbon $start, Carbon $end, Carbon $nextBilling, ?int $userId, string $status, int $version): array
+    private function subscriptionSnapshotAttributes(
+        Client $client,
+        PlanPrice $price,
+        array $pricing,
+        Carbon $start,
+        Carbon $end,
+        Carbon $nextBilling,
+        ?int $userId,
+        string $status,
+        int $version,
+        int $installmentsCount = 1,
+        int $monthlyDueDay = 1
+    ): array
     {
         return [
             'client_id' => $client->id,
@@ -676,10 +814,95 @@ class SubscriptionBillingService
             'setup_fee' => Money::fromMinorUnits($pricing['setup_fee_minor'])->format(),
             'start_date' => $start->toDateString(),
             'renewal_date' => $nextBilling->toDateString(),
-            'installments_count' => 1,
+            'monthly_due_day' => $monthlyDueDay,
+            'installments_count' => $installmentsCount,
             'status' => $status,
             'version' => $version,
         ];
+    }
+
+    private function createInitialContractDraft(Client $client, Subscription $subscription, ?int $userId): array
+    {
+        $author = $userId ? User::find($userId) : null;
+        if (! $author) {
+            Log::warning('Paid subscription committed without a contract draft because no author was available.', [
+                'subscription_id' => $subscription->id,
+            ]);
+
+            return ['status' => 'failed', 'contract_id' => null, 'artifact_ready' => false];
+        }
+
+        $contract = null;
+
+        try {
+            $contract = $this->contractService->ensureDraftContract($client, $subscription, $author);
+            $contract = $this->contractService->generateArtifact($contract);
+
+            return ['status' => 'ready', 'contract_id' => $contract->id, 'artifact_ready' => true];
+        } catch (Throwable $exception) {
+            Log::error('Paid subscription committed but its contract draft or artifact needs recovery.', [
+                'subscription_id' => $subscription->id,
+                'contract_id' => $contract?->id,
+                'exception' => $exception,
+            ]);
+
+            try {
+                app(NotificationService::class)->createNotification(
+                    $author->id,
+                    'contract_draft_recovery_required',
+                    'مسودة العقد تحتاج مراجعة',
+                    'تم إنشاء الاشتراك والفاتورة بنجاح، لكن مسودة العقد أو ملفها يحتاج إعادة توليد من صفحة العميل.',
+                    route('clients.show', $client->id, false),
+                    'subscription',
+                    $subscription->id,
+                    'contract-draft-recovery'
+                );
+            } catch (Throwable $notificationException) {
+                Log::error('Unable to notify the subscription author about contract recovery.', [
+                    'subscription_id' => $subscription->id,
+                    'exception' => $notificationException,
+                ]);
+            }
+
+            return [
+                'status' => 'failed',
+                'contract_id' => $contract?->id,
+                'artifact_ready' => false,
+            ];
+        }
+    }
+
+    private function paymentTerms(PlanPrice $price, array $data): array
+    {
+        $terms = $data['payment_terms'] ?? 'full';
+        if ($price->billing_interval !== PlanPrice::ANNUAL) {
+            if ($terms === 'installments') {
+                throw ValidationException::withMessages([
+                    'payment_terms' => 'الأقساط متاحة للاشتراك السنوي فقط.',
+                ]);
+            }
+
+            return ['type' => 'full', 'installments_count' => 1, 'due_day' => 1];
+        }
+
+        if ($terms !== 'installments') {
+            return ['type' => 'full', 'installments_count' => 1, 'due_day' => 1];
+        }
+
+        $count = (int) ($data['installments_count'] ?? 0);
+        $dueDay = (int) ($data['installment_due_day'] ?? 0);
+        if ($count < 2 || $count > 12) {
+            throw ValidationException::withMessages([
+                'installments_count' => 'عدد الأقساط السنوية يجب أن يكون بين 2 و12.',
+            ]);
+        }
+        if (! in_array($dueDay, [1, 5, 15, 30], true)) {
+            throw ValidationException::withMessages([
+                'installment_due_day' => 'يوم استحقاق الأقساط غير صالح.',
+            ]);
+        }
+
+        return ['type' => 'installments', 'installments_count' => $count, 'due_day' => $dueDay];
     }
 
     private function subscriptionUpdateSnapshot(PlanPrice $price, array $pricing, Carbon $start, Carbon $end, Carbon $nextBilling): array
@@ -712,14 +935,14 @@ class SubscriptionBillingService
     private function periodEnd(Carbon $start, string $interval): Carbon
     {
         return $interval === PlanPrice::ANNUAL
-            ? $start->copy()->addYear()->subDay()
+            ? $start->copy()->addYearNoOverflow()->subDay()
             : $start->copy()->addMonthNoOverflow()->subDay();
     }
 
     private function nextPeriodStart(Carbon $start, string $interval): Carbon
     {
         return $interval === PlanPrice::ANNUAL
-            ? $start->copy()->addYear()
+            ? $start->copy()->addYearNoOverflow()
             : $start->copy()->addMonthNoOverflow();
     }
 

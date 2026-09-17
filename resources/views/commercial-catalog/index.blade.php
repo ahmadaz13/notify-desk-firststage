@@ -1,184 +1,183 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="page-head">
-    <div>
-        <div class="eyebrow">Commercial Catalog</div>
-        <h1 class="page-title">إدارة الباقات والأسعار</h1>
-    </div>
-    <a class="btn btn-ghost" href="{{ route('settings.index') }}">العودة للإعدادات</a>
-</div>
+@php
+    $productOptions = $products;
+@endphp
 
-<div class="grid grid-2" style="align-items:start">
-    <div class="card form-card">
-        <h2 style="margin-top:0">إنشاء باقة جديدة</h2>
-        <form method="POST" action="{{ route('commercial-catalog.plans.store') }}">
-            @csrf
-            <div class="form-grid">
-                <div class="field">
-                    <label>رمز الباقة *</label>
-                    <input name="code" required placeholder="restaurant_package_custom">
-                </div>
-                <div class="field">
-                    <label>اسم الباقة بالعربية *</label>
-                    <input name="name_ar" required placeholder="باقة المطاعم المتقدمة">
-                </div>
-                <div class="field">
-                    <label>اسم الباقة بالإنجليزية</label>
-                    <input name="name_en" placeholder="Restaurant Advanced">
-                </div>
-                <div class="field full">
-                    <label>الخدمات المشمولة</label>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">
-                        @foreach($services as $service)
-                            <label style="display:flex;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--nd-border);border-radius:8px;padding:8px">
-                                <input type="checkbox" name="services[]" value="{{ $service->id }}">
-                                <span>{{ $service->name_ar }}</span>
-                            </label>
-                        @endforeach
+<div class="p5-wrap">
+    <header class="p5-header">
+        <div class="p5-header-main">
+            <div class="p5-eyebrow">Commercial Catalog</div>
+            <h1 class="p5-title">{{ __('notify.catalog.title') }}</h1>
+            <p class="p5-subtitle">إدارة الأنظمة البرمجية، الباقات التابعة لها، الخدمات المشمولة، وإصدارات الأسعار المعتمدة من PlanPrice.</p>
+        </div>
+        <div class="p5-header-actions">
+            <a class="p5-btn p5-btn-ghost" href="{{ route('settings.index') }}">العودة للإعدادات</a>
+        </div>
+    </header>
+
+    <div class="p5-grid-2" style="margin-bottom:16px">
+        <x-notify.collapsible-section title="إنشاء نظام / منتج" subtitle="النظام البرمجي التجاري الذي تباع تحته الباقات" icon="box" :open="false">
+            <form method="POST" action="{{ route('commercial-catalog.products.store') }}">
+                @csrf
+                <div class="p5-form-grid">
+                    <div class="p5-field">
+                        <label>رمز النظام *</label>
+                        <input name="code" required placeholder="restaurant_system" class="p5-input">
+                    </div>
+                    <div class="p5-field">
+                        <label>اسم النظام بالعربية *</label>
+                        <input name="name_ar" required placeholder="نظام المطاعم" class="p5-input">
+                    </div>
+                    <div class="p5-field">
+                        <label>اسم النظام بالإنجليزية</label>
+                        <input name="name_en" placeholder="Restaurant System" class="p5-input">
+                    </div>
+                    <div class="p5-field" style="grid-column:1 / -1">
+                        <label>وصف عربي</label>
+                        <textarea name="description_ar" rows="2" class="p5-textarea" placeholder="وصف مختصر للنظام"></textarea>
                     </div>
                 </div>
-                <div class="field full">
-                    <label>وصف عربي</label>
-                    <textarea name="description_ar" rows="2"></textarea>
+                <div style="display:flex;justify-content:flex-end;margin-top:14px">
+                    <button class="p5-btn p5-btn-primary" type="submit">إنشاء النظام</button>
+                </div>
+            </form>
+        </x-notify.collapsible-section>
+
+        <x-notify.collapsible-section :title="__('notify.catalog.create_plan')" subtitle="تعريف باقة وربطها بنظام وخدمات مشمولة" icon="plus-circle" :open="false">
+            <form method="POST" action="{{ route('commercial-catalog.plans.store') }}">
+                @csrf
+                <div class="p5-form-grid">
+                    <div class="p5-field">
+                        <label>النظام / المنتج</label>
+                        <select name="product_id" class="p5-select">
+                            <option value="">بدون نظام محدد</option>
+                            @foreach($productOptions as $product)
+                                <option value="{{ $product->id }}">{{ $product->name_ar }} · {{ $product->code }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="p5-field">
+                        <label>رمز الباقة *</label>
+                        <input name="code" required placeholder="restaurant_advanced" class="p5-input">
+                    </div>
+                    <div class="p5-field">
+                        <label>اسم الباقة بالعربية *</label>
+                        <input name="name_ar" required placeholder="باقة المطاعم المتقدمة" class="p5-input">
+                    </div>
+                    <div class="p5-field">
+                        <label>اسم الباقة بالإنجليزية</label>
+                        <input name="name_en" placeholder="Restaurant Advanced" class="p5-input">
+                    </div>
+                    <div class="p5-field">
+                        <label>ترتيب تجاري</label>
+                        <input type="number" name="tier" min="0" max="255" placeholder="2" class="p5-input">
+                    </div>
+                    <div class="p5-field">
+                        <label>نوع العرض</label>
+                        <select name="offer_type" class="p5-select">
+                            <option value="package">باقة</option>
+                            <option value="standalone">مستقل</option>
+                        </select>
+                    </div>
+                    <div class="p5-field" style="grid-column:1 / -1">
+                        <label>{{ __('notify.catalog.included_services') }}</label>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">
+                            @foreach($services as $service)
+                                <label style="display:flex;gap:8px;align-items:center;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px;cursor:pointer">
+                                    <input type="checkbox" name="services[]" value="{{ $service->id }}" style="accent-color:#0055CC">
+                                    <span style="font-size:13px;color:#0A1128">{{ $service->name_ar }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="p5-field" style="grid-column:1 / -1">
+                        <label>وصف عربي</label>
+                        <textarea name="description_ar" rows="2" class="p5-textarea" placeholder="وصف مميزات الباقة"></textarea>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:14px">
+                    <button class="p5-btn p5-btn-primary" type="submit">إنشاء الباقة</button>
+                </div>
+            </form>
+        </x-notify.collapsible-section>
+
+        <x-notify.collapsible-section title="مبادئ تسعير V2 المعتمدة" subtitle="قواعد الفوترة والدقة بالفلس" icon="info" :open="false">
+            <div class="p5-list">
+                <div class="p5-list-item">
+                    <strong style="font-size:13px;color:#0A1128">PlanPrice هو مصدر السعر الوحيد.</strong>
+                    <span class="p5-kpi-meta" style="margin-top:4px">النظام والباقة ينظمان الكتالوج فقط، ولا يغيران حسابات السعر أو الفواتير.</span>
+                </div>
+                <div class="p5-list-item">
+                    <strong style="font-size:13px;color:#0A1128">الخدمات تبقى مرتبطة بالباقات.</strong>
+                    <span class="p5-kpi-meta" style="margin-top:4px">علاقة plan_service الحالية محفوظة كما هي.</span>
                 </div>
             </div>
-            <button class="btn btn-primary" style="margin-top:12px" type="submit">إنشاء الباقة</button>
-        </form>
+        </x-notify.collapsible-section>
     </div>
 
-    <div class="card">
-        <h2 style="margin-top:0">مبادئ الأسعار الجديدة</h2>
-        <div class="list">
-            <div class="list-row"><span class="badge blue">JOD</span><div class="list-main">كل الأسعار الجديدة محفوظة بالفلس كأرقام صحيحة.</div></div>
-            <div class="list-row"><span class="badge gold">History</span><div class="list-main">إنشاء سعر جديد ينهي السعر السابق ولا يغيّر الاشتراكات أو الفواتير التاريخية.</div></div>
-            <div class="list-row"><span class="badge green">Invoice</span><div class="list-main">الفواتير تحفظ لقطات السطور والمبالغ وقت الإصدار.</div></div>
-        </div>
-    </div>
-</div>
-
-<div style="display:flex;flex-direction:column;gap:18px;margin-top:18px">
-@foreach($plans as $plan)
-    <div class="card" style="border-right:4px solid {{ $plan->archived_at ? 'var(--nd-danger)' : 'var(--nd-primary)' }}">
-        <div class="section-head" style="margin-top:0">
-            <div>
-                <h2 style="margin:0">{{ $plan->name_ar }}</h2>
-                <div class="muted ltr" style="direction:ltr;text-align:right">{{ $plan->code }}</div>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <span class="badge {{ $plan->is_active && !$plan->archived_at ? 'green' : 'red' }}">
-                    {{ $plan->is_active && !$plan->archived_at ? 'فعالة' : 'مؤرشفة/معطلة' }}
-                </span>
-                @if(!$plan->archived_at)
-                    <form method="POST" action="{{ route('commercial-catalog.plans.archive', $plan) }}" onsubmit="return confirm('أرشفة الباقة؟ ستبقى الفواتير والاشتراكات التاريخية قابلة للقراءة.')">
+    <div style="display:flex;flex-direction:column;gap:18px">
+        @foreach($products as $product)
+            <x-notify.collapsible-section
+                :title="$product->name_ar"
+                :subtitle="$product->code"
+                :badge="$product->is_active && !$product->archived_at ? 'نظام فعال' : 'نظام مؤرشف'"
+                :badgeVariant="$product->is_active && !$product->archived_at ? 'success' : 'danger'"
+                icon="box"
+                :open="$loop->first && !$product->archived_at"
+            >
+                <div class="p5-grid-2" style="margin-bottom:16px">
+                    <form method="POST" action="{{ route('commercial-catalog.products.update', $product) }}">
                         @csrf
-                        <button class="btn btn-ghost" type="submit">أرشفة</button>
-                    </form>
-                @endif
-            </div>
-        </div>
-
-        <div class="grid grid-2" style="align-items:start">
-            <div>
-                <form method="POST" action="{{ route('commercial-catalog.plans.update', $plan) }}">
-                    @csrf
-                    @method('PATCH')
-                    <div class="form-grid">
-                        <div class="field">
-                            <label>اسم عربي</label>
-                            <input name="name_ar" value="{{ $plan->name_ar }}" required>
-                        </div>
-                        <div class="field">
-                            <label>اسم إنجليزي</label>
-                            <input name="name_en" value="{{ $plan->name_en }}">
-                        </div>
-                        <div class="field">
-                            <label>الحالة</label>
-                            <select name="is_active">
-                                <option value="1" {{ $plan->is_active ? 'selected' : '' }}>فعالة</option>
-                                <option value="0" {{ !$plan->is_active ? 'selected' : '' }}>معطلة</option>
-                            </select>
-                        </div>
-                        <div class="field full">
-                            <label>الخدمات المشمولة</label>
-                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">
-                                @foreach($services as $service)
-                                    <label style="display:flex;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--nd-border);border-radius:8px;padding:8px">
-                                        <input type="checkbox" name="services[]" value="{{ $service->id }}" {{ $plan->services->contains('id', $service->id) ? 'checked' : '' }}>
-                                        <span>{{ $service->name_ar }}</span>
-                                    </label>
-                                @endforeach
+                        @method('PATCH')
+                        <div class="p5-form-grid">
+                            <div class="p5-field">
+                                <label>اسم النظام بالعربية *</label>
+                                <input name="name_ar" value="{{ $product->name_ar }}" required class="p5-input">
+                            </div>
+                            <div class="p5-field">
+                                <label>اسم النظام بالإنجليزية</label>
+                                <input name="name_en" value="{{ $product->name_en }}" class="p5-input">
+                            </div>
+                            <div class="p5-field">
+                                <label>{{ __('notify.common.status') }}</label>
+                                <select name="is_active" class="p5-select">
+                                    <option value="1" {{ $product->is_active ? 'selected' : '' }}>{{ __('notify.statuses.active') }}</option>
+                                    <option value="0" {{ !$product->is_active ? 'selected' : '' }}>{{ __('notify.statuses.inactive') }}</option>
+                                </select>
+                            </div>
+                            <div class="p5-field" style="grid-column:1 / -1">
+                                <label>وصف عربي</label>
+                                <textarea name="description_ar" rows="2" class="p5-textarea">{{ $product->description_ar }}</textarea>
                             </div>
                         </div>
-                    </div>
-                    <button class="btn btn-primary" style="margin-top:12px" type="submit">حفظ وصف الباقة</button>
-                </form>
-            </div>
+                        <div style="display:flex;justify-content:flex-end;margin-top:10px">
+                            <button class="p5-btn p5-btn-soft p5-btn-sm" type="submit">حفظ النظام</button>
+                        </div>
+                    </form>
 
-            <div>
-                <h3 style="margin-top:0">إضافة نسخة سعر</h3>
-                <form method="POST" action="{{ route('commercial-catalog.prices.store', $plan) }}">
-                    @csrf
-                    <div class="form-grid">
-                        <div class="field">
-                            <label>نوع الفوترة</label>
-                            <select name="billing_interval" required>
-                                <option value="monthly">شهري</option>
-                                <option value="annual">سنوي</option>
-                            </select>
-                        </div>
-                        <div class="field">
-                            <label>السعر (د.أ)</label>
-                            <input name="amount_jod" required placeholder="15.000">
-                        </div>
-                        <div class="field">
-                            <label>رسوم تأسيس (د.أ)</label>
-                            <input name="setup_fee_jod" placeholder="0.000">
-                        </div>
-                        <div class="field">
-                            <label>الفروع المشمولة</label>
-                            <input type="number" name="included_branch_quantity" min="1" value="1" required>
-                        </div>
-                        <div class="field">
-                            <label>سعر الفرع الإضافي (د.أ)</label>
-                            <input name="additional_branch_price_jod" placeholder="5.000">
-                        </div>
-                        <div class="field">
-                            <label>الضريبة بالنقاط الأساسية</label>
-                            <input type="number" name="default_tax_rate_bps" min="0" max="10000" placeholder="1600">
-                        </div>
-                        <div class="field full">
-                            <label>تاريخ الفعالية</label>
-                            <input type="datetime-local" name="effective_from" value="{{ now()->format('Y-m-d\\TH:i') }}" required>
-                        </div>
+                    <div class="p5-list-item">
+                        <strong style="font-size:13px;color:#0A1128">الباقات التابعة: {{ $product->plans->count() }}</strong>
+                        <span class="p5-kpi-meta" style="margin-top:4px">أرشفة النظام تمنعه من الظهور في اختيار الاشتراكات الجديدة، مع بقاء السجل التاريخي قابلاً للقراءة.</span>
+                        @if(!$product->archived_at)
+                            <form method="POST" action="{{ route('commercial-catalog.products.archive', $product) }}" onsubmit="return confirm('أرشفة النظام؟ ستبقى الباقات والأسعار والفواتير التاريخية قابلة للقراءة.')" style="margin-top:10px">
+                                @csrf
+                                <button class="p5-btn p5-btn-ghost p5-btn-sm" type="submit">أرشفة النظام</button>
+                            </form>
+                        @endif
                     </div>
-                    <button class="btn btn-primary" style="margin-top:12px" type="submit">إضافة السعر</button>
-                </form>
-            </div>
-        </div>
+                </div>
 
-        <div style="margin-top:16px">
-            <h3>سجل الأسعار</h3>
-            <div class="list">
-                @forelse($plan->prices as $price)
-                    <div class="list-row">
-                        <span class="badge {{ $price->is_active ? 'green' : 'gray' }}">{{ $price->billing_interval }}</span>
-                        <div class="list-main">
-                            <strong>{{ \App\Support\Money::fromMinorUnits($price->amount_minor)->format() }} د.أ</strong>
-                            <small class="muted">
-                                من {{ $price->effective_from?->format('Y-m-d H:i') }}
-                                @if($price->effective_until) حتى {{ $price->effective_until->format('Y-m-d H:i') }} @endif
-                                · رسوم تأسيس {{ \App\Support\Money::fromMinorUnits($price->setup_fee_minor)->format() }} د.أ
-                                @if($price->default_tax_rate_bps !== null) · ضريبة {{ $price->default_tax_rate_bps }} bps @endif
-                            </small>
-                        </div>
-                    </div>
-                @empty
-                    <div class="muted">لا توجد أسعار بعد.</div>
-                @endforelse
-            </div>
-        </div>
+                @include('commercial-catalog.partials.plan-list', ['plans' => $product->plans, 'services' => $services, 'productOptions' => $productOptions])
+            </x-notify.collapsible-section>
+        @endforeach
+
+        @if($unassignedPlans->isNotEmpty())
+            <x-notify.collapsible-section title="باقات غير مرتبطة بنظام" subtitle="باقات تاريخية أو انتقالية تحتاج ربطاً تجارياً" badge="مراجعة" badgeVariant="warning" icon="package" :open="true">
+                @include('commercial-catalog.partials.plan-list', ['plans' => $unassignedPlans, 'services' => $services, 'productOptions' => $productOptions])
+            </x-notify.collapsible-section>
+        @endif
     </div>
-@endforeach
 </div>
 @endsection

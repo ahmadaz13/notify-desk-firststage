@@ -39,7 +39,11 @@ class CapitalManagementController extends Controller
             'fixedAssets' => FixedAsset::with(['category', 'vendor', 'financialAccount', 'personalPayer', 'acquisitionReversal'])->orderByDesc('acquired_at')->orderByDesc('id')->limit(40)->get(),
             'activeFinancialAccounts' => FinancialAccount::where('is_active', true)->whereNull('archived_at')->orderBy('name_ar')->get(),
             'activeVendors' => Vendor::active()->get(),
-            'internalUsers' => User::where('role', '!=', 'partner')->orWhereNull('role')->orderBy('name')->get(),
+            'internalUsers' => User::query()
+                ->where('is_active', true)
+                ->where(fn ($query) => $query->whereNull('role')->orWhereIn('role', User::activeInternalRoles()))
+                ->orderBy('name')
+                ->get(),
             'legacyInvestments' => Investment::orderByDesc('entry_date')->limit(10)->get(),
             'legacyCapitalExpenses' => CapitalExpense::orderByDesc('expense_date')->limit(10)->get(),
         ]);

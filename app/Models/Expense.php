@@ -109,8 +109,7 @@ class Expense extends Model
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        // Partners are strictly excluded from internal business operational expenses
-        if ($user->isPartner()) {
+        if (!$user->isActiveApplicationUser()) {
             return $query->whereRaw('1 = 0');
         }
 

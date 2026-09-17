@@ -12,7 +12,7 @@ class ClientPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->isActiveApplicationUser();
     }
 
     /**
@@ -20,12 +20,8 @@ class ClientPolicy
      */
     public function view(User $user, Client $client): bool
     {
-        if ($user->isAdmin()) {
+        if ($user->isActiveApplicationUser()) {
             return true;
-        }
-
-        if ($user->isPartner()) {
-            return $user->partner_id !== null && (int) $user->partner_id === (int) $client->partner_id;
         }
 
         return false;
@@ -36,7 +32,7 @@ class ClientPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->isActiveApplicationUser();
     }
 
     /**

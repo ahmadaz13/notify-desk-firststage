@@ -25,7 +25,7 @@
     {{-- Old Data (Current Client in System) --}}
     <div class="card" style="border:1.5px solid var(--nd-border)">
         <div style="border-bottom:1px solid var(--nd-border);padding-bottom:12px;margin-bottom:16px">
-            <h3 style="margin:0;font-size:17px;color:var(--nd-ink)">📌 البيانات الحالية في النظام (Old Data)</h3>
+            <h3 style="margin:0;font-size:17px;color:var(--nd-ink)">📌 {{ __('notify.conflicts.current_system_data') }}</h3>
             <div class="muted">البيانات المسجلة مسبقاً لهذا الرقم</div>
         </div>
 
@@ -49,7 +49,7 @@
                 </div>
                 <div>
                     <span class="muted" style="display:block;font-size:12px">الشريك الحالي:</span>
-                    <span>{{ $conflict->client->partner ? $conflict->client->partner->company_name : 'لا يوجد (مباشر للمكتب)' }}</span>
+                    <span>{{ $conflict->client->partner ? $conflict->client->partner->company_name : 'مباشر للمكتب' }}</span>
                 </div>
                 <div>
                     <span class="muted" style="display:block;font-size:12px">الحالة الحالية:</span>
@@ -64,7 +64,7 @@
     {{-- New Data (Submitted by Partner Delegate) --}}
     <div class="card" style="border:1.5px solid var(--nd-accent);background:#fbfefe">
         <div style="border-bottom:1px solid rgba(15,118,110,.2);padding-bottom:12px;margin-bottom:16px">
-            <h3 style="margin:0;font-size:17px;color:var(--nd-accent)">✨ البيانات الجديدة المرسلة من الشريك (New Data)</h3>
+            <h3 style="margin:0;font-size:17px;color:var(--nd-accent)">✨ {{ __('notify.conflicts.new_partner_data') }}</h3>
             <div class="muted">أدخلت بواسطة مندوب {{ $conflict->partner?->company_name }}</div>
         </div>
 
@@ -103,17 +103,17 @@
         
         {{-- Transfer Button --}}
         <button type="submit" name="action" value="transfer" class="btn btn-primary touch-btn" style="min-height:48px;font-size:14px" onclick="return confirm('تأكيد: سيتم نقل تبعية العميل إلى الشريك مع تحديث البيانات.')">
-            🤝 نقل العميل للشريك وتحديث البيانات (Transfer)
+            🤝 {{ __('notify.conflicts.transfer_client') }}
         </button>
 
         {{-- Update Only Button --}}
         <button type="submit" name="action" value="update" class="btn btn-soft touch-btn" style="min-height:48px;font-size:14px" onclick="return confirm('تأكيد: سيتم تحديث بيانات العميل فقط دون نقل الشريك.')">
-            ✏️ تحديث البيانات فقط دون نقل الملكية (Update Only)
+            ✏️ {{ __('notify.conflicts.update_only') }}
         </button>
 
         {{-- Reject Button --}}
         <button type="submit" name="action" value="reject" class="btn btn-danger touch-btn" style="min-height:48px;font-size:14px" onclick="return confirm('تأكيد: هل أنت متأكد من رفض هذا الطلب؟')">
-            ✕ رفض الطلب بالكامل (Reject)
+            🚫 {{ __('notify.conflicts.reject') }}
         </button>
     </form>
 </div>

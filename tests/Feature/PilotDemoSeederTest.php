@@ -30,11 +30,8 @@ class PilotDemoSeederTest extends TestCase
         $this->assertDatabaseHas('partners', ['profit_share_percentage' => 25.00]);
         $this->assertDatabaseHas('partners', ['profit_share_percentage' => 30.00]);
 
-        // 1 Partner User with known email
-        $partnerUser = User::where('email', 'partner@demo.com')->first();
-        $this->assertNotNull($partnerUser);
-        $this->assertEquals('partner', $partnerUser->role);
-        $this->assertNotNull($partnerUser->partner_id);
+        // No active partner login account is seeded in G3.
+        $this->assertDatabaseMissing('users', ['role' => 'partner']);
 
         // 15 Clients
         $this->assertEquals(15, Client::count());

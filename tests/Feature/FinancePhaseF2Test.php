@@ -189,8 +189,8 @@ class FinancePhaseF2Test extends TestCase
         $this->artisan('finance:backfill-saas-metrics')->assertExitCode(0);
         $this->assertSame(1, SubscriptionMetricEvent::count());
 
-        $this->actingAs($admin)->get(route('saas-metrics.index'))->assertOk()->assertSee('MRR, ARR, Movements and Retention');
-        $this->actingAs($admin)->get(route('executive.index'))->assertOk()->assertSee('Executive Finance and SaaS Dashboard');
+        $this->actingAs($admin)->get(route('saas-metrics.index'))->assertOk()->assertSee('مقاييس الاشتراكات والاحتفاظ (SaaS Metrics)');
+        $this->actingAs($admin)->get(route('executive.index'))->assertOk()->assertSee('لوحة القيادة التنفيذية');
         $export = $this->actingAs($admin)->get(route('saas-metrics.export', ['report' => 'summary']));
         $export->assertOk();
         $export->assertDownload('saas-summary.csv');

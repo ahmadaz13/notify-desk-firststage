@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\Partner;
 use App\Models\User;
@@ -21,7 +20,7 @@ class QuickExpenseFABTest extends TestCase
         $this->seed(ExpenseCategorySeeder::class);
     }
 
-    public function test_fab_expense_creation_returns_json(): void
+    public function test_legacy_quick_expense_endpoint_is_deprecated(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'name' => 'Ahmad']);
         $cat = ExpenseCategory::where('key', 'fuel')->first();
@@ -39,24 +38,12 @@ class QuickExpenseFABTest extends TestCase
         $response = $this->actingAs($admin)
             ->postJson(route('expenses.store'), $payload);
 
-        $response->assertStatus(201)
-            ->assertJson([
-                'success' => true,
-                'message' => 'تم تسجيل المصروف بنجاح.',
-            ])
-            ->assertJsonPath('expense.amount', '22.50')
-            ->assertJsonPath('expense.description', 'بنزين جولة المبيعات الصباحية');
+        $response->assertStatus(410);
 
-        $this->assertDatabaseHas('expenses', [
-            'amount' => 22.50,
-            'category_id' => $cat->id,
-            'description' => 'بنزين جولة المبيعات الصباحية',
-            'paid_by' => $admin->id,
-            'visibility' => 'shared',
-        ]);
+        $this->assertDatabaseCount('expenses', 0);
     }
 
-    public function test_fab_expense_validation_rejects_empty_amount(): void
+    public function test_legacy_quick_expense_endpoint_does_not_validate_before_deprecation(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $cat = ExpenseCategory::first();
@@ -71,8 +58,7 @@ class QuickExpenseFABTest extends TestCase
         $response = $this->actingAs($admin)
             ->postJson(route('expenses.store'), $payload);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['amount']);
+        $response->assertStatus(410);
 
         $this->assertDatabaseCount('expenses', 0);
     }

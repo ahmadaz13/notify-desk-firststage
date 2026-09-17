@@ -1,156 +1,121 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="page-head">
-    <div>
-        <div class="eyebrow">لوحة الإدارة والمزيد</div>
-        <h1 class="page-title">مركز التحكم والإعدادات (Admin Control Center)</h1>
-    </div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <a class="btn btn-primary touch-btn" href="{{ route('settings.export') }}">
-            📊 تصدير التقرير المالي
-        </a>
-    </div>
-</div>
-
-<div style="display:flex;flex-direction:column;gap:24px;margin-top:10px">
-
-    {{-- 1. Financial Settings Section --}}
-    <div class="card" style="padding:22px">
-        <div class="section-head" style="margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--nd-border)">
-            <div>
-                <h2 style="font-size:18px;font-weight:800;color:var(--nd-ink);margin:0">الإعدادات المالية (Financial Settings)</h2>
-                <div class="muted" style="margin-top:4px">تحديد نسب التشغيل العامة ومضاعف التقييم المالي المعتمد في لوحة المؤشرات</div>
-            </div>
+<div class="p5-wrap">
+    {{-- Header --}}
+    <header class="p5-header">
+        <div class="p5-header-main">
+            <div class="p5-eyebrow">Administration &amp; Configuration</div>
+            <h1 class="p5-title">{{ __('notify.settings.title') }}</h1>
+            <p class="p5-subtitle">إدارة المحددات التشغيلية، مراجع الشركاء التاريخية، سجل الأنشطة والتدقيق، وتصدير التقارير الإدارية المعتمدة.</p>
         </div>
+        <div class="p5-header-actions">
+            <a class="p5-btn p5-btn-primary" href="{{ route('settings.export') }}">{{ __('notify.settings.export_financial_excel') }}</a>
+        </div>
+    </header>
 
+    {{-- 1. Financial Configuration --}}
+    <x-notify.collapsible-section
+        :title="__('notify.settings.parameters_title')"
+        subtitle="القيم الافتراضية المعتمدة لجدولة الفواتير والضرائب العامة"
+        icon="sliders"
+        :open="true"
+    >
         <form method="POST" action="{{ route('settings.update') }}">
             @csrf
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:18px">
-                <div class="field">
-                    <label style="font-weight:700">نسبة تكلفة التشغيل (%) *</label>
-                    <input class="touch-input" type="number" step="0.1" min="0" max="100" name="operational_cost_percentage" value="{{ old('operational_cost_percentage', $operationalCostPercentage) }}" required placeholder="20">
-                    <small class="muted" style="display:block;margin-top:4px">تُستخدم لحساب التكلفة النظرية للتشغيل من الإيرادات</small>
-                    @error('operational_cost_percentage') <span class="error">{{ $message }}</span> @enderror
+            <div class="p5-form-grid">
+                <div class="p5-field">
+                    <label>نسبة تكلفة التشغيل القديمة</label>
+                    <input type="text" value="{{ $operationalCostPercentage }}%" disabled class="p5-input" style="background:#F8FAFC;color:#64748B">
+                    <span class="p5-kpi-meta">Deprecated: لا تؤثر على P&amp;L أو Finance أو Executive</span>
                 </div>
 
-                <div class="field">
-                    <label style="font-weight:700">مضاعف القيمة السوقية *</label>
-                    <input class="touch-input" type="number" step="0.1" min="0.1" max="100" name="market_valuation_multiplier" value="{{ old('market_valuation_multiplier', $marketValuationMultiplier) }}" required placeholder="5">
-                    <small class="muted" style="display:block;margin-top:4px">يُضرب في ARR الفعلي لحساب القيمة السوقية التقديرية</small>
-                    @error('market_valuation_multiplier') <span class="error">{{ $message }}</span> @enderror
+                <div class="p5-field">
+                    <label>مضاعف القيمة السوقية القديم</label>
+                    <input type="text" value="{{ $marketValuationMultiplier }}" disabled class="p5-input" style="background:#F8FAFC;color:#64748B">
+                    <span class="p5-kpi-meta">Deprecated: لا توجد قيمة سوقية تقديرية في V1</span>
                 </div>
 
-                <div class="field">
-                    <label style="font-weight:700">خصم الدفع السنوي الافتراضي (%)</label>
-                    <input class="touch-input" type="number" step="0.5" min="0" max="100" name="annual_discount_percentage" value="{{ old('annual_discount_percentage', $annualDiscountPercentage) }}" placeholder="10.0">
-                    <small class="muted" style="display:block;margin-top:4px">نسبة الخصم التشجيعي المطبقة على الاشتراكات السنوية (افتراضياً 10%)</small>
-                    @error('annual_discount_percentage') <span class="error">{{ $message }}</span> @enderror
+                <div class="p5-field">
+                    <label>خصم الدفع السنوي الافتراضي (%)</label>
+                    <input type="number" step="0.5" min="0" max="100" name="annual_discount_percentage" value="{{ old('annual_discount_percentage', $annualDiscountPercentage) }}" placeholder="10.0" class="p5-input">
+                    <span class="p5-kpi-meta">الأسعار السنوية المعتمدة في V2 هي PlanPrice صريحة</span>
+                    @error('annual_discount_percentage') <span style="color:#B42318;font-size:12px">{{ $message }}</span> @enderror
                 </div>
 
-                <div class="field">
-                    <label style="font-weight:700">ضريبة المبيعات العامة (%)</label>
-                    <input class="touch-input" type="number" step="0.1" min="0" max="100" name="sales_tax_percentage" value="{{ old('sales_tax_percentage', $salesTaxPercentage) }}" placeholder="16.0">
-                    <small class="muted" style="display:block;margin-top:4px">الضريبة المعتمدة على الاشتراكات والخدمات في الأردن (16%)</small>
-                    @error('sales_tax_percentage') <span class="error">{{ $message }}</span> @enderror
+                <div class="p5-field">
+                    <label>ضريبة المبيعات العامة (%)</label>
+                    <input type="number" step="0.1" min="0" max="100" name="sales_tax_percentage" value="{{ old('sales_tax_percentage', $salesTaxPercentage) }}" placeholder="16.0" class="p5-input">
+                    <span class="p5-kpi-meta">Review only: لا تتجاوز لقطة الضريبة على PlanPrice</span>
+                    @error('sales_tax_percentage') <span style="color:#B42318;font-size:12px">{{ $message }}</span> @enderror
                 </div>
 
-                <div class="field">
-                    <label style="font-weight:700">يوم استحقاق الأقساط الشهرية الافتراضي</label>
-                    <select class="touch-input" name="monthly_due_day">
+                <div class="p5-field">
+                    <label>يوم استحقاق الأقساط الشهرية الافتراضي *</label>
+                    <select name="monthly_due_day" class="p5-select">
                         <option value="1" {{ old('monthly_due_day', $monthlyDueDay) == 1 ? 'selected' : '' }}>1 من كل شهر (موصى به)</option>
                         <option value="5" {{ old('monthly_due_day', $monthlyDueDay) == 5 ? 'selected' : '' }}>5 من كل شهر</option>
                         <option value="15" {{ old('monthly_due_day', $monthlyDueDay) == 15 ? 'selected' : '' }}>15 من كل شهر</option>
                         <option value="30" {{ old('monthly_due_day', $monthlyDueDay) == 30 ? 'selected' : '' }}>30 من كل شهر (نهاية الشهر)</option>
                     </select>
-                    <small class="muted" style="display:block;margin-top:4px">اليوم المعتمد لجدولة التنبيهات والأقساط الشهرية للعملاء</small>
-                    @error('monthly_due_day') <span class="error">{{ $message }}</span> @enderror
+                    <span class="p5-kpi-meta">اليوم المعتمد لجدولة تنبيهات الأقساط الشهرية</span>
+                    @error('monthly_due_day') <span style="color:#B42318;font-size:12px">{{ $message }}</span> @enderror
                 </div>
             </div>
 
-            <div style="margin-top:16px;padding:12px 16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0">
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;color:var(--nd-ink)">
-                    <input type="checkbox" name="allow_auto_transfer_clients" value="1" {{ $allowAutoTransferClients ? 'checked' : '' }} style="width:18px;height:18px;accent-color:var(--nd-primary)">
+            <div style="margin-top:14px;padding:12px 14px;background:#F8FAFC;border-radius:8px;border:1px solid #E2E8F0">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:700;color:#0A1128">
+                    <input type="checkbox" name="allow_auto_transfer_clients" value="1" {{ $allowAutoTransferClients ? 'checked' : '' }} style="accent-color:#0055CC;width:16px;height:16px">
                     <span>السماح بنقل العملاء بين الشركاء تلقائياً</span>
                 </label>
-                <small class="muted" style="display:block;margin-top:4px;margin-right:28px">عند تفعيل هذا الخيار، يتم قبول طلبات المندوبين دون إنشاء تعارض يدوي يتطلب المراجعة</small>
+                <span class="p5-kpi-meta" style="margin-top:4px;display:block">عند التفعيل، يتم قبول طلبات المندوبين دون إنشاء تعارض يدوي يتطلب مراجعة المشرفين.</span>
             </div>
 
-            <div style="margin-top:20px;display:flex;justify-content:flex-end">
-                <button type="submit" class="btn btn-primary touch-btn" style="min-height:44px;padding:10px 24px">
-                    حفظ الإعدادات
-                </button>
+            <div style="display:flex;justify-content:flex-end;margin-top:14px">
+                <button type="submit" class="p5-btn p5-btn-primary">حفظ الإعدادات</button>
             </div>
         </form>
+    </x-notify.collapsible-section>
+
+    {{-- Authoritative Source Notice --}}
+    <div class="p5-list-item" style="border-inline-start:4px solid #0055CC;background:#EFF8FF;margin-block-end:16px">
+        <strong style="font-size:13px;color:#0055CC">المصادر المالية المعتمدة في النظام:</strong>
+        <span class="p5-kpi-meta" style="color:#1E3A8A">
+            تم استبدال سلاسل المعادلات القديمة بالخدمات التخصصية المعتمدة:
+            <a href="{{ route('finance.index') }}" style="color:#0055CC;font-weight:700">Finance</a> للقوائم الإدارية والإيراد المعترف به،
+            <a href="{{ route('saas-metrics.index') }}" style="color:#0055CC;font-weight:700">SaaS Metrics</a> لمقاييس MRR و ARR،
+            <a href="{{ route('capital-management.index') }}" style="color:#0055CC;font-weight:700">Capital Management</a> للتمويل والأصول،
+            و <a href="{{ route('commercial-catalog.index') }}" style="color:#0055CC;font-weight:700">Commercial Catalog</a> للباقات وإصدارات الأسعار.
+        </span>
     </div>
 
-    {{-- Formula Chain Informational Card --}}
-    <div class="card" style="padding:22px;background:#f8fafc;border-right:4px solid var(--nd-primary)">
-        <div style="margin-bottom:12px">
-            <h3 style="font-size:16px;font-weight:800;color:var(--nd-ink);margin:0">سلسلة المعادلات المالية الذكية (Financial Formula Chain)</h3>
-            <div class="muted" style="margin-top:4px;font-size:13px">
-                Gross → Operating Cost → Net Operating Revenue → Net Profit → ARR → Market Value
-            </div>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;margin-top:14px">
-            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
-                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">1. الإيرادات الخام (Gross Revenue)</div>
-                <div class="muted" style="font-size:12px">إجمالي كافة الدفعات والمقبوضات المحصلة والمسجلة في النظام.</div>
-            </div>
-            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
-                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">2. تكلفة التشغيل (Operating Cost)</div>
-                <div class="muted" style="font-size:12px">الإيراد الخام × نسبة التشغيل المعيارية ({{ $operationalCostPercentage }}%).</div>
-            </div>
-            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
-                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">3. صافي الإيراد التشغيلي (Net Revenue)</div>
-                <div class="muted" style="font-size:12px">الإيراد الخام - التكلفة التشغيلية المعيارية.</div>
-            </div>
-            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
-                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">4. صافي الربح الفعلي (Net Profit)</div>
-                <div class="muted" style="font-size:12px">صافي الإيراد التشغيلي - المصاريف التشغيلية الفعلية المسجلة.</div>
-            </div>
-            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
-                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">5. الإيراد السنوي المتكرر (ARR)</div>
-                <div class="muted" style="font-size:12px">(الاشتراكات الشهرية النشطة × 12) + (الاشتراكات السنوية النشطة).</div>
-            </div>
-            <div style="background:#fff;padding:12px 14px;border-radius:10px;border:1px solid var(--nd-border)">
-                <div style="font-weight:700;color:var(--nd-ink);margin-bottom:4px">6. القيمة السوقية التقديرية (Market Value)</div>
-                <div class="muted" style="font-size:12px">ARR الفعلي × مضاعف القيمة السوقية ({{ $marketValuationMultiplier }}).</div>
-            </div>
-        </div>
-        <div style="margin-top:14px;background:#eff6ff;padding:10px 14px;border-radius:8px;border:1px solid #bfdbfe;font-size:12px;color:#1e40af">
-            <strong>رصيد السيولة (Liquidity):</strong> (الاستثمارات + التحصيلات الفعلية) - (المصاريف الرأسمالية + المصاريف التشغيلية الفعلية).
-        </div>
-    </div>
-
-    {{-- 2. Partner Management Section --}}
-    <div class="card" style="padding:22px">
-        <div class="section-head" style="margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--nd-border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-            <div>
-                <h2 style="font-size:18px;font-weight:800;color:var(--nd-ink);margin:0">إدارة الشركاء (Partner Management)</h2>
-                <div class="muted" style="margin-top:4px">التحكم في الشركاء، نسب الأرباح، وروابط تسجيل العملاء الخاصة بالمندوبين</div>
-            </div>
-            <a href="{{ route('partners.create') }}" class="btn btn-primary touch-btn" style="display:inline-flex;align-items:center;gap:6px">
-                <span>＋</span>
-                <span>إضافة شريك جديد</span>
-            </a>
+    {{-- 2. Partner Management --}}
+    <x-notify.collapsible-section
+        :title="__('notify.settings.partners_title')"
+        subtitle="بيانات إحالة وتاريخ فقط؛ لا توجد حسابات دخول أو صلاحيات شريك نشطة في V1"
+        :badge="$partners->count()"
+        icon="users"
+        :open="true"
+    >
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+            <a href="{{ Route::has('partners.create') ? route('partners.create') : '#' }}" class="p5-btn p5-btn-primary p5-btn-sm">＋ {{ __('notify.settings.add_partner') }}</a>
         </div>
 
         @if($partners->isEmpty())
-            <div class="muted" style="padding:24px;text-align:center;background:#f8fafc;border-radius:12px;border:1px dashed var(--nd-border)">
-                لا يوجد شركاء مسجلين حالياً في النظام. <a href="{{ route('partners.create') }}" style="color:var(--nd-primary);font-weight:700">أضف شريكاً جديداً الآن ←</a>
+            <div class="p5-kpi-meta" style="padding:20px;text-align:center">
+                {{ __('notify.settings.no_partners') }} <a href="{{ Route::has('partners.create') ? route('partners.create') : '#' }}" style="color:#0055CC;font-weight:700">إضافة شريك جديد ←</a>
             </div>
         @else
-            <div class="table-wrap" style="overflow-x:auto">
-                <table style="width:100%;border-collapse:collapse;text-align:right">
+            <div class="p5-table-wrap">
+                <table class="p5-table">
                     <thead>
-                        <tr style="border-bottom:2px solid var(--nd-border);color:var(--nd-ink);font-size:13px">
-                            <th style="padding:10px 12px">الشركة / الشريك</th>
-                            <th style="padding:10px 12px">البريد الإلكتروني</th>
-                            <th style="padding:10px 12px">نسبة الأرباح</th>
-                            <th style="padding:10px 12px">عدد العملاء</th>
-                            <th style="padding:10px 12px">رابط المندوب</th>
-                            <th style="padding:10px 12px;text-align:center">الإجراءات</th>
+                        <tr>
+                            <th>{{ __('notify.settings.company_or_partner') }}</th>
+                            <th>{{ __('notify.settings.email') }}</th>
+                            <th>{{ __('notify.settings.profit_share') }}</th>
+                            <th>{{ __('notify.settings.clients_count') }}</th>
+                            <th>{{ __('notify.settings.delegate_link') }}</th>
+                            <th style="text-align:center">{{ __('notify.common.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -158,43 +123,33 @@
                             @php
                                 $delegateLink = url('/p/' . $partner->public_uuid . '/client/create');
                             @endphp
-                            <tr style="border-bottom:1px solid var(--nd-border);font-size:14px">
-                                <td style="padding:12px">
-                                    <strong style="color:var(--nd-ink)">{{ $partner->company_name }}</strong>
-                                    @if($partner->phone)<div class="muted" style="font-size:12px">{{ $partner->phone }}</div>@endif
+                            <tr>
+                                <td>
+                                    <strong>{{ $partner->company_name }}</strong>
+                                    @if($partner->phone)<span class="p5-kpi-meta">{{ $partner->phone }}</span>@endif
                                 </td>
-                                <td style="padding:12px;direction:ltr;text-align:right">{{ $partner->email }}</td>
-                                <td style="padding:12px">
+                                <td dir="ltr" style="text-align:right">{{ $partner->email }}</td>
+                                <td>
                                     @if($partner->profit_share_percentage !== null)
-                                        <span class="badge" style="background:#ede9fe;color:#6d28d9;font-weight:700">
-                                            {{ number_format($partner->profit_share_percentage, 1) }}%
-                                        </span>
+                                        <span class="p5-badge p5-badge-primary">{{ number_format($partner->profit_share_percentage, 1) }}%</span>
                                     @else
-                                        <span class="muted" style="font-size:12px">غير محدد</span>
+                                        <span class="p5-kpi-meta">غير محدد</span>
                                     @endif
                                 </td>
-                                <td style="padding:12px">
-                                    <span class="badge blue">{{ $partner->clients_count ?? $partner->clients()->count() }}</span>
-                                </td>
-                                <td style="padding:12px">
-                                    <div style="display:flex;align-items:center;gap:6px;max-width:280px">
-                                        <input class="touch-input" type="text" readonly value="{{ $delegateLink }}" id="link-{{ $partner->id }}" style="font-size:11px;padding:4px 8px;direction:ltr;height:32px;background:#f1f5f9">
-                                        <button type="button" class="btn btn-soft" style="padding:4px 8px;font-size:12px;height:32px;white-space:nowrap" onclick="navigator.clipboard.writeText('{{ $delegateLink }}'); alert('تم نسخ رابط المندوب بنجاح');">
-                                            نسخ
-                                        </button>
+                                <td><span class="p5-badge p5-badge-neutral">{{ $partner->clients_count ?? $partner->clients()->count() }}</span></td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:6px;max-width:260px">
+                                        <input type="text" readonly value="{{ $delegateLink }}" class="p5-input" style="font-size:11px;padding:4px 6px;direction:ltr;background:#F1F5F9">
+                                        <button type="button" class="p5-btn p5-btn-soft p5-btn-sm" style="white-space:nowrap" onclick="navigator.clipboard.writeText('{{ $delegateLink }}'); alert('تم نسخ رابط المندوب بنجاح');">{{ __('notify.actions.copy') }}</button>
                                     </div>
                                 </td>
-                                <td style="padding:12px;text-align:center">
+                                <td style="text-align:center">
                                     <div style="display:flex;gap:6px;justify-content:center">
-                                        <a href="{{ route('partners.edit', $partner->id) }}" class="btn btn-soft" style="padding:4px 10px;font-size:12px">
-                                            تعديل
-                                        </a>
-                                        <form method="POST" action="{{ route('partners.destroy', $partner->id) }}" onsubmit="return confirm('هل أنت متأكد من حذف هذا الشريك والحساب المرتبط به؟')">
+                                        <a href="{{ Route::has('partners.edit') ? route('partners.edit', $partner->id) : '#' }}" class="p5-btn p5-btn-ghost p5-btn-sm">{{ __('notify.actions.edit') }}</a>
+                                        <form method="POST" action="{{ Route::has('partners.destroy') ? route('partners.destroy', $partner->id) : '#' }}" onsubmit="return confirm('هل أنت متأكد من أرشفة مرجع الشريك؟ سيبقى السجل التاريخي محفوظاً.')">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="btn btn-ghost" style="padding:4px 8px;font-size:12px;color:var(--nd-danger)">
-                                                حذف
-                                            </button>
+                                            <button type="submit" class="p5-btn p5-btn-danger p5-btn-sm">{{ __('notify.actions.archive') }}</button>
                                         </form>
                                     </div>
                                 </td>
@@ -204,69 +159,65 @@
                 </table>
             </div>
         @endif
-    </div>
+    </x-notify.collapsible-section>
 
-    {{-- 3. Activity Log Section --}}
-    <div class="card" style="padding:22px">
-        <div class="section-head" style="margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--nd-border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-            <div>
-                <h2 style="font-size:18px;font-weight:800;color:var(--nd-ink);margin:0">سجل النشاطات (Activity Log)</h2>
-                <div class="muted" style="margin-top:4px">عرض أحدث 50 حركة ونشاط مسجل في النظام مع إمكانية التصفية حسب النوع</div>
-            </div>
-
-            {{-- Filter Dropdown --}}
+    {{-- 3. Activity Log --}}
+    <x-notify.collapsible-section
+        :title="__('notify.settings.activity_log_title')"
+        :subtitle="__('notify.settings.activity_log_subtitle')"
+        :badge="$activityLogs->count()"
+        icon="file-text"
+        :open="$selectedType !== 'all'"
+    >
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
             <form method="GET" action="{{ route('settings.index') }}" style="display:flex;align-items:center;gap:8px">
-                <label style="font-size:13px;font-weight:600;white-space:nowrap">تصفية حسب النوع:</label>
-                <select name="type" class="touch-input" onchange="this.form.submit()" style="height:36px;padding:4px 10px;font-size:13px">
-                    <option value="all" {{ $selectedType === 'all' ? 'selected' : '' }}>جميع النشاطات</option>
+                <label style="font-size:12px;font-weight:700;color:#0A1128">{{ __('notify.settings.filter_activity') }}</label>
+                <select name="type" class="p5-select" onchange="this.form.submit()" style="padding:4px 8px;font-size:12px;min-width:140px">
+                    <option value="all" {{ $selectedType === 'all' ? 'selected' : '' }}>{{ __('notify.settings.all_activities') }}</option>
                     @foreach($activityTypes as $t)
                         <option value="{{ $t }}" {{ $selectedType === $t ? 'selected' : '' }}>{{ $t }}</option>
                     @endforeach
                 </select>
                 @if($selectedType !== 'all')
-                    <a href="{{ route('settings.index') }}" class="btn btn-ghost" style="font-size:12px;padding:4px 8px">إلغاء</a>
+                    <a href="{{ route('settings.index') }}" class="p5-btn p5-btn-ghost p5-btn-sm">{{ __('notify.actions.cancel') }}</a>
                 @endif
             </form>
         </div>
 
         @if($activityLogs->isEmpty())
-            <div class="muted" style="padding:24px;text-align:center;background:#f8fafc;border-radius:12px;border:1px dashed var(--nd-border)">
-                لا توجد سجلات لعرضها
-            </div>
+            <div class="p5-kpi-meta" style="padding:20px;text-align:center">{{ __('notify.settings.no_activity_logs') }}</div>
         @else
-            <div class="table-wrap" style="overflow-x:auto">
-                <table style="width:100%;border-collapse:collapse;text-align:right">
+            <div class="p5-table-wrap">
+                <table class="p5-table">
                     <thead>
-                        <tr style="border-bottom:2px solid var(--nd-border);color:var(--nd-ink);font-size:13px">
-                            <th style="padding:10px 12px;width:160px">الوقت</th>
-                            <th style="padding:10px 12px;width:180px">النوع</th>
-                            <th style="padding:10px 12px">الوصف</th>
-                            <th style="padding:10px 12px">المستخدم / العميل</th>
+                        <tr>
+                            <th style="width:140px">{{ __('notify.common.time') }}</th>
+                            <th style="width:150px">{{ __('notify.common.description') }}</th>
+                            <th>{{ __('notify.common.description') }}</th>
+                            <th>{{ __('notify.settings.user_or_client') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($activityLogs as $log)
-                            <tr style="border-bottom:1px solid var(--nd-border);font-size:13px">
-                                <td style="padding:10px 12px;white-space:nowrap;color:var(--nd-muted)">
+                            <tr>
+                                <td style="white-space:nowrap;color:#64748B;font-size:12px">
                                     {{ \Carbon\Carbon::parse($log->created_at)->format('Y-m-d H:i') }}
                                 </td>
-                                <td style="padding:10px 12px">
-                                    <span class="badge {{ str_contains($log->type, 'conflict') ? 'red' : (str_contains($log->type, 'delegate') ? 'blue' : (str_contains($log->type, 'transferred') ? 'gold' : 'gray')) }}" style="font-size:11px">
+                                <td>
+                                    <span class="p5-badge {{ str_contains($log->type, 'conflict') ? 'p5-badge-danger' : (str_contains($log->type, 'delegate') ? 'p5-badge-primary' : (str_contains($log->type, 'transferred') ? 'p5-badge-warning' : 'p5-badge-neutral')) }}">
                                         {{ $log->type }}
                                     </span>
                                 </td>
-                                <td style="padding:10px 12px;color:var(--nd-ink)">
-                                    {{ $log->description ?: '—' }}
-                                </td>
-                                <td style="padding:10px 12px;color:var(--nd-ink)">
+                                <td>{{ $log->description ?: '—' }}</td>
+                                <td>
                                     @if(!empty($log->user_name))
                                         <div>👤 {{ $log->user_name }}</div>
                                     @endif
                                     @if(!empty($log->client_name))
-                                        <div class="muted" style="font-size:11px">🏢 {{ $log->client_name }}</div>
+                                        <span class="p5-kpi-meta">🏢 {{ $log->client_name }}</span>
                                     @endif
                                     @if(empty($log->user_name) && empty($log->client_name))
-                                        <span class="muted">—</span>
+                                        <span class="p5-kpi-meta">—</span>
                                     @endif
                                 </td>
                             </tr>
@@ -275,32 +226,6 @@
                 </table>
             </div>
         @endif
-    </div>
-
-    {{-- 4. Data Export Section --}}
-    <div class="card" style="padding:22px;background:linear-gradient(to left, #f8fafc 0%, #ffffff 100%)">
-        <div class="section-head" style="margin-bottom:12px">
-            <div>
-                <h2 style="font-size:18px;font-weight:800;color:var(--nd-ink);margin:0">تصدير البيانات (Export Data)</h2>
-                <div class="muted" style="margin-top:4px">تصدير كشوفات المؤشرات المالية بصيغة جدول Excel معتمد</div>
-            </div>
-        </div>
-
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;background:#f1f5f9;padding:18px 20px;border-radius:12px;border:1px solid var(--nd-border)">
-            <div>
-                <div style="font-weight:700;color:var(--nd-ink);font-size:15px">الملخص المالي الشامل (Excel Report)</div>
-                <div class="muted" style="font-size:13px;margin-top:4px">
-                    يحتوي التقرير على: إجمالي المقبوضات، إجمالي المصروفات، الاستثمارات، المصروفات الرأسمالية، صافي الإيراد التشغيلي، ورصيد السيولة النقدية.
-                </div>
-            </div>
-            <div>
-                <a href="{{ route('settings.export') }}" class="btn btn-primary touch-btn" style="min-height:44px;padding:10px 22px;display:inline-flex;align-items:center;gap:8px">
-                    <span>📥</span>
-                    <span>تصدير التقرير المالي</span>
-                </a>
-            </div>
-        </div>
-    </div>
-
+    </x-notify.collapsible-section>
 </div>
 @endsection

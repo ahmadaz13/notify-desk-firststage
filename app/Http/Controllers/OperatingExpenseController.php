@@ -74,7 +74,11 @@ class OperatingExpenseController extends Controller
             'activeCategories' => ExpenseCategory::active()->get(),
             'activeVendors' => Vendor::active()->get(),
             'activeFinancialAccounts' => FinancialAccount::where('is_active', true)->whereNull('archived_at')->orderBy('name_ar')->get(),
-            'internalUsers' => User::where('role', '!=', 'partner')->orWhereNull('role')->orderBy('name')->get(),
+            'internalUsers' => User::query()
+                ->where('is_active', true)
+                ->where(fn ($query) => $query->whereNull('role')->orWhereIn('role', User::activeInternalRoles()))
+                ->orderBy('name')
+                ->get(),
         ]);
     }
 

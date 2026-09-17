@@ -16,6 +16,12 @@ class RecognizeRevenueCommand extends Command
         $counts = $recognition->recognizeDue($this->option('through') ?: null, (bool) $this->option('dry-run'));
         $this->line(json_encode($counts));
 
+        if ((int) ($counts['ambiguous'] ?? 0) > 0) {
+            $this->error('Revenue recognition completed with ambiguous failures; inspect application logs before retrying.');
+
+            return self::FAILURE;
+        }
+
         return self::SUCCESS;
     }
 }

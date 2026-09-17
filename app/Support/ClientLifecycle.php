@@ -25,6 +25,11 @@ class ClientLifecycle
     ];
 
     public const CONTACT_OUTCOMES = [
+        'appointment',
+        'no_contact',
+        'callback_later',
+        'no_answer_busy',
+        'wrong_invalid',
         'answered',
         'no_answer',
         'busy',

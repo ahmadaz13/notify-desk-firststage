@@ -12,10 +12,15 @@ class PaymentSchedule extends Model
 {
     use HasFactory;
 
+    public const ENGINE_V2 = 'v2';
+
     protected $fillable = [
         'subscription_id',
+        'schedule_engine_version',
+        'invoice_id',
         'sequence',
         'amount_due',
+        'amount_due_minor',
         'subtotal',
         'discount_amount',
         'setup_fee_amount',
@@ -30,6 +35,7 @@ class PaymentSchedule extends Model
 
     protected $casts = [
         'sequence' => 'integer',
+        'amount_due_minor' => 'integer',
         'amount_due' => 'decimal:3',
         'subtotal' => 'decimal:3',
         'discount_amount' => 'decimal:3',
@@ -44,6 +50,11 @@ class PaymentSchedule extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);
+    }
+
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
     }
 
     public function payments(): HasMany

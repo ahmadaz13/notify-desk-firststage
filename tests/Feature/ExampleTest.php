@@ -28,7 +28,7 @@ class ExampleTest extends TestCase
             ->assertSee('استيراد CSV');
     }
 
-    public function test_authenticated_user_can_view_client_detail_with_tabs(): void
+    public function test_authenticated_user_can_view_client_detail_workspace(): void
     {
         $user = User::factory()->create();
 
@@ -47,10 +47,13 @@ class ExampleTest extends TestCase
             ->get(route('clients.show', $clientId))
             ->assertOk()
             ->assertSee('مطعم الأهرام')
-            ->assertSee('نظرة عامة والخط الزمني')
+            ->assertSee('notify-client-workspace', false)
+            ->assertSee('نظرة عامة')
+            ->assertSee('جهات الاتصال')
+            ->assertSee('الخط الزمني')
             ->assertSee('سجل المواعيد')
             ->assertSee('سجل المتابعات الدورية')
-            ->assertSee('العروض التجارية المقدمة');
+            ->assertSee('الاشتراك والفوترة');
     }
 
     public function test_authenticated_user_can_view_import_and_notifications(): void
@@ -60,7 +63,7 @@ class ExampleTest extends TestCase
         $this->actingAs($user)
             ->get(route('clients.import'))
             ->assertOk()
-            ->assertSee('استيراد جهات الاتصال عبر CSV');
+            ->assertSee('استيراد الفرص عبر ملف CSV');
 
         $this->actingAs($user)
             ->get(route('notifications.index'))

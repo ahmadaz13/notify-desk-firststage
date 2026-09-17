@@ -77,15 +77,15 @@ class RouteConsolidationTest extends TestCase
         $updateResponse->assertRedirect(route('clients.show', $client->id));
         $this->assertEquals('مطعم الرشيد الحديث', $client->fresh()->business_name);
 
-        // 7. POST /clients/{client}/convert
+        // 7. POST /clients/{client}/convert remains routable but deprecated.
         $convertResponse = $this->actingAs($admin)
             ->post(route('clients.convert', $client->id), [
                 'billing_type' => 'monthly',
                 'total_price' => 1200.00,
                 'start_date' => now()->toDateString(),
             ]);
-        $convertResponse->assertRedirect();
-        $this->assertEquals('subscriber', $client->fresh()->status);
+        $convertResponse->assertStatus(410);
+        $this->assertEquals('prospect', $client->fresh()->status);
 
         // 8. DELETE /clients/{client}
         $deleteResponse = $this->actingAs($admin)
@@ -112,7 +112,7 @@ class RouteConsolidationTest extends TestCase
         );
     }
 
-    public function test_navigation_hides_admin_links_from_partners(): void
+    public function test_legacy_partner_role_is_blocked_and_admin_navigation_remains(): void
     {
         $partner = Partner::create([
             'company_name' => 'شريك تجاري',
@@ -127,13 +127,8 @@ class RouteConsolidationTest extends TestCase
             'role' => 'admin',
         ]);
 
-        // Partner sees isolated navigation
         $partnerResponse = $this->actingAs($partnerUser)->get(route('clients.index'));
-        $partnerResponse->assertOk();
-        $partnerResponse->assertDontSee(route('settings.index'));
-        $partnerResponse->assertDontSee(route('conflicts.index'));
-        $partnerResponse->assertDontSee(route('clients.import'));
-        $partnerResponse->assertDontSee('quick-expense-fab-btn');
+        $partnerResponse->assertForbidden();
 
         // Admin sees management links
         $adminResponse = $this->actingAs($admin)->get(route('dashboard'));
@@ -141,6 +136,8 @@ class RouteConsolidationTest extends TestCase
         $adminResponse->assertSee(route('settings.index'));
         $adminResponse->assertSee(route('conflicts.index'));
         $adminResponse->assertSee(route('clients.import'));
-        $adminResponse->assertSee('quick-expense-fab-btn');
+        $adminResponse->assertSee('data-notify-add-client-fab', false);
+        $adminResponse->assertSee('href="'.route('clients.create').'"', false);
+        $adminResponse->assertDontSee('quick-expense-fab-btn', false);
     }
 }

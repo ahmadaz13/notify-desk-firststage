@@ -104,8 +104,8 @@ class MultiAttendeeAppointmentTest extends TestCase
         // Client profile appointment history displays attendee chips
         $clientResponse = $this->actingAs($ahmad)->get(route('clients.show', $client->id));
         $clientResponse->assertOk();
-        $clientResponse->assertSee('👤 Ahmad');
-        $clientResponse->assertSee('👤 Khalid');
+        $clientResponse->assertSee('Ahmad');
+        $clientResponse->assertSee('Khalid');
     }
 
     public function test_call_and_whatsapp_links_present_on_client_page(): void

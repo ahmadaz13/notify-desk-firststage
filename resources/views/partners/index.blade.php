@@ -11,64 +11,7 @@
     </div>
 </div>
 
-@php
-    $cred = session('new_partner_credentials') ?? session('reset_partner_credentials');
-@endphp
-
-@if($cred)
-    @php
-        $allCredsText = "بيانات دخول الشريك (" . $cred['company_name'] . "):\n"
-            . "رابط تسجيل الدخول: " . $cred['login_url'] . "\n"
-            . "البريد الإلكتروني: " . $cred['email'] . "\n"
-            . "كلمة المرور: " . $cred['password'] . "\n"
-            . "رابط المندوب للعملاء: " . $cred['delegate_link'];
-    @endphp
-    <div class="card" style="background:#fefce8;border:1.5px solid #eab308;margin-bottom:24px;padding:20px;border-radius:16px" x-data="{ copiedAll: false, copiedPass: false }">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-            <div style="font-weight:800;color:#854d0e;font-size:16px">
-                🔑 {{ session('reset_partner_credentials') ? 'تمت إعادة تعيين كلمة مرور الشريك بنجاح' : 'تم إنشاء حساب الشريك بنجاح - بيانات الدخول' }}
-            </div>
-            <span class="badge" style="background:#fef08a;color:#713f12">تظهر لمرة واحدة فقط</span>
-        </div>
-        
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px;margin-bottom:14px;background:#fff;padding:14px;border-radius:12px;border:1px solid #fef08a">
-            <div>
-                <small class="muted">الشركة / الشريك:</small>
-                <div style="font-weight:700">{{ $cred['company_name'] }}</div>
-            </div>
-            <div>
-                <small class="muted">رابط تسجيل الدخول:</small>
-                <div><a href="{{ $cred['login_url'] }}" style="color:var(--nd-accent);direction:ltr;font-family:monospace">{{ $cred['login_url'] }}</a></div>
-            </div>
-            <div>
-                <small class="muted">البريد الإلكتروني:</small>
-                <div style="font-family:monospace;direction:ltr">{{ $cred['email'] }}</div>
-            </div>
-            <div>
-                <small class="muted">كلمة المرور:</small>
-                <div style="display:flex;align-items:center;gap:8px">
-                    <span style="font-family:monospace;font-weight:800;font-size:16px;color:#b45309;background:#fef3c7;padding:2px 8px;border-radius:6px">{{ $cred['password'] }}</span>
-                    <button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px" @click="navigator.clipboard.writeText('{{ $cred['password'] }}'); copiedPass = true; setTimeout(() => copiedPass = false, 2000)">
-                        <span x-show="!copiedPass">نسخ</span>
-                        <span x-show="copiedPass" style="display:none;color:var(--nd-success)">✓</span>
-                    </button>
-                </div>
-            </div>
-            <div style="grid-column:1/-1">
-                <small class="muted">رابط المندوب للعملاء:</small>
-                <div style="font-family:monospace;direction:ltr;color:var(--nd-accent);word-break:break-all">{{ $cred['delegate_link'] }}</div>
-            </div>
-        </div>
-
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-            <small class="muted" style="color:#a16207">يرجى نسخ هذه البيانات وحفظها أو إرسالها للشريك الآن، فلن تظهر كلمة المرور مرة أخرى.</small>
-            <button type="button" class="btn btn-primary touch-btn" @click="navigator.clipboard.writeText(`{{ $allCredsText }}`); copiedAll = true; setTimeout(() => copiedAll = false, 2500)" style="background:#ca8a04;border-color:#ca8a04">
-                <span x-show="!copiedAll">📋 نسخ جميع بيانات الاعتماد دفعة واحدة</span>
-                <span x-show="copiedAll" style="display:none">تم نسخ جميع البيانات! ✓</span>
-            </button>
-        </div>
-    </div>
-@elseif(session('new_delegate_link'))
+@if(session('new_delegate_link'))
     <div class="card" style="background:#e6f4ea;border:1px solid #34a853;margin-bottom:20px;padding:16px" x-data="{ copied: false }">
         <div style="font-weight:800;color:#137333;margin-bottom:6px">🔗 تم إنشاء رابط المندوب الخاص بالشريك:</div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -89,7 +32,8 @@
                     <th style="padding:16px">اسم الشركة</th>
                     <th style="padding:16px">البريد الإلكتروني</th>
                     <th style="padding:16px">الهاتف</th>
-                    <th style="padding:16px">نسبة الأرباح</th>
+                    <th style="padding:16px">العمولة الافتراضية</th>
+                    <th style="padding:16px">الحالة</th>
                     <th style="padding:16px">عدد العملاء</th>
                     <th style="padding:16px">رابط المندوب</th>
                     <th style="padding:16px;text-align:center">الإجراءات</th>
@@ -103,12 +47,13 @@
                         <td style="padding:16px;direction:ltr;text-align:right">{{ $partner->email }}</td>
                         <td style="padding:16px">{{ $partner->phone ?: '—' }}</td>
                         <td style="padding:16px">
-                            @if($partner->profit_share_percentage !== null)
-                                <span class="badge green">{{ $partner->profit_share_percentage }}%</span>
+                            @if($partner->effectiveDefaultCommissionBps() !== null)
+                                <span class="badge green">{{ number_format($partner->effectiveDefaultCommissionBps() / 100, 2) }}%</span>
                             @else
                                 <span class="muted">غير محدد</span>
                             @endif
                         </td>
+                        <td style="padding:16px">{{ $partner->isActive() ? 'نشط' : 'مؤرشف' }}</td>
                         <td style="padding:16px;font-weight:700">{{ $partner->clients_count ?? $partner->clients()->count() }}</td>
                         <td style="padding:16px">
                             <div style="display:flex;align-items:center;gap:6px">
@@ -123,22 +68,19 @@
                         </td>
                         <td style="padding:16px;text-align:center">
                             <div style="display:inline-flex;gap:8px">
+                                <a href="{{ route('partners.show', $partner->id) }}" class="btn btn-soft" style="padding:6px 12px">التفاصيل</a>
                                 <a href="{{ route('partners.edit', $partner->id) }}" class="btn btn-soft" style="padding:6px 12px">تعديل</a>
-                                <form method="POST" action="{{ route('partners.reset-password', $partner->id) }}" onsubmit="return confirm('هل أنت متأكد من إعادة تعيين كلمة المرور لهذا الشريك؟')">
-                                    @csrf
-                                    <button type="submit" class="btn btn-ghost" style="padding:6px 10px;border-color:#f59e0b;color:#b45309" title="إعادة تعيين كلمة المرور">🔑 كلمة المرور</button>
-                                </form>
-                                <form method="POST" action="{{ route('partners.destroy', $partner->id) }}" onsubmit="return confirm('هل أنت متأكد من حذف هذا الشريك؟ سيتم حذف حساب الدخول المرتبط به.')">
+                                <form method="POST" action="{{ route('partners.destroy', $partner->id) }}" onsubmit="return confirm('هل أنت متأكد من أرشفة مرجع هذا الشريك؟')">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="btn btn-danger" style="padding:6px 12px">حذف</button>
+                                    <button type="submit" class="btn btn-danger" style="padding:6px 12px">أرشفة</button>
                                 </form>
                             </div>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="padding:48px 20px;text-align:center">
+                        <td colspan="8" style="padding:48px 20px;text-align:center">
                             <div style="font-size:48px;margin-bottom:12px;opacity:0.85">🤝</div>
                             <h3 style="margin:0 0 8px 0;font-size:18px;color:var(--nd-ink)">لا يوجد شركاء بعد</h3>
                             <p class="muted" style="margin:0 0 20px 0;font-size:14px">ابدأ ببناء شبكة شركائك وتوليد روابط مناديب مخصصة لكل شريك لمتابعة عملاء الشركاء وعمولاتهم.</p>
