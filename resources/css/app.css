@@ -3927,3 +3927,555 @@ table {
 @media (max-width: 900px) {
   .p5-grid-2, .p5-grid-3, .p5-grid-4 { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   PHASE 04: SINGLE-PAGE OPERATIONAL CLIENT WORKSPACE
+   ========================================================================== */
+
+.notify-client-workspace--v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.notify-workspace-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* Command Card (Hero) */
+.notify-workspace-command-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  background: var(--notify-surface);
+  border: 1px solid var(--notify-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--notify-shadow-sm);
+}
+
+.notify-workspace-command-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.notify-workspace-identity {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.notify-workspace-identity__main {
+  flex: 1 1 300px;
+  min-width: 0;
+}
+
+.notify-workspace-title {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--notify-text);
+  overflow-wrap: anywhere;
+}
+
+.notify-workspace-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.notify-workspace-meta-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--notify-surface-alt, #F1F5F9);
+  color: var(--notify-muted);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--notify-border);
+}
+
+.notify-workspace-stage {
+  flex: 0 0 auto;
+}
+
+.notify-badge--lg {
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  border-radius: 999px;
+}
+
+/* Preferred Contact Bar */
+.notify-workspace-contact-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--notify-surface-alt, #F8FAFC);
+  border: 1px solid var(--notify-border);
+  border-radius: var(--radius-sm);
+  flex-wrap: wrap;
+}
+
+.notify-workspace-contact-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+.notify-workspace-contact-label {
+  color: var(--notify-muted);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.notify-workspace-contact-name {
+  color: var(--notify-text);
+  font-weight: 800;
+}
+
+.notify-workspace-contact-role {
+  color: var(--notify-muted);
+  font-size: 12px;
+}
+
+.notify-workspace-contact-phone {
+  font-weight: 800;
+  color: var(--notify-primary);
+}
+
+.notify-workspace-contact-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notify-contact-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.notify-contact-action--whatsapp {
+  color: #16A34A;
+  border-color: rgba(22, 163, 74, 0.3);
+  background: rgba(22, 163, 74, 0.08);
+}
+
+.notify-contact-action--whatsapp:hover {
+  background: rgba(22, 163, 74, 0.16);
+}
+
+/* Next Action Card */
+.notify-workspace-next-action-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--notify-info-soft, #EFF8FF);
+  border: 1px solid rgba(2, 132, 199, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+.notify-workspace-next-action-card__main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.notify-workspace-next-action-badge {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: var(--notify-primary);
+  color: #FFFFFF;
+  border-radius: 4px;
+}
+
+.notify-workspace-next-action-label {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--notify-text);
+}
+
+.notify-workspace-next-action-time {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--notify-primary);
+}
+
+.notify-workspace-next-action-context {
+  margin: 0;
+  font-size: 13px;
+  color: var(--notify-muted);
+  width: 100%;
+}
+
+/* Context Actions Hub */
+.notify-workspace-actions-hub {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px dashed var(--notify-border);
+}
+
+.notify-workspace-primary-action {
+  flex: 0 0 auto;
+}
+
+.notify-button--hero {
+  min-height: 48px;
+  padding: 12px 28px;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(0, 85, 204, 0.25);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.notify-button--hero:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 85, 204, 0.35);
+}
+
+.notify-workspace-secondary-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Operational Summaries Grid (Subscriptions, Due, Contracts) */
+.notify-workspace-summary-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 16px;
+}
+
+.notify-workspace-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  background: var(--notify-surface);
+  border: 1px solid var(--notify-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--notify-shadow-sm);
+}
+
+.notify-workspace-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--notify-border);
+  padding-bottom: 10px;
+}
+
+.notify-workspace-card__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--notify-text);
+}
+
+.notify-workspace-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Subscriptions Stack */
+.notify-sub-cards-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notify-sub-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--notify-surface-alt, #F8FAFC);
+  border: 1px solid var(--notify-border);
+  border-radius: var(--radius-sm);
+}
+
+.notify-sub-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.notify-sub-card__titles {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.notify-sub-card__product {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--notify-text);
+}
+
+.notify-sub-card__plan {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--notify-muted);
+}
+
+.notify-sub-card__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  font-size: 12px;
+}
+
+.notify-sub-card__detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notify-sub-card__detail-item small {
+  color: var(--notify-muted);
+  font-size: 11px;
+}
+
+/* Amount Due Box */
+.notify-amount-due-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--notify-surface-alt, #F8FAFC);
+  border: 1px solid var(--notify-border);
+  border-radius: var(--radius-sm);
+}
+
+.notify-amount-due-box__label {
+  color: var(--notify-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.notify-amount-due-box__val-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.notify-amount-due-box__val {
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.notify-text-danger {
+  color: #DC2626 !important;
+}
+
+.notify-text-success {
+  color: #16A34A !important;
+}
+
+.notify-amount-due-box__action {
+  margin-top: 4px;
+}
+
+/* Contracts List */
+.notify-contracts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notify-contract-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--notify-surface-alt, #F8FAFC);
+  border: 1px solid var(--notify-border);
+  border-radius: var(--radius-sm);
+  flex-wrap: wrap;
+}
+
+.notify-contract-row__info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notify-contract-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Recent Activity */
+.notify-recent-activities-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notify-recent-activity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--notify-border);
+}
+
+.notify-recent-activity-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.notify-recent-activity-bullet {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--notify-primary);
+  flex-shrink: 0;
+}
+
+.notify-recent-activity-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.notify-recent-activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.notify-recent-activity-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--notify-text);
+}
+
+.notify-recent-activity-time {
+  font-size: 12px;
+  color: var(--notify-muted);
+}
+
+.notify-recent-activity-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--notify-text);
+}
+
+.notify-recent-activity-user {
+  font-size: 11px;
+  color: var(--notify-muted);
+}
+
+.notify-empty-state-simple {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  text-align: center;
+}
+
+/* Advanced Collapsible Stack */
+.notify-workspace-advanced-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.notify-workspace-advanced-stack .notify-collapsible {
+  border: 1px solid var(--notify-border);
+  border-radius: var(--radius-md);
+  background: var(--notify-surface);
+  box-shadow: var(--notify-shadow-sm);
+}
+
+/* Responsive Rules */
+@media (max-width: 960px) {
+  .notify-workspace-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .notify-workspace-command-card {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .notify-workspace-title {
+    font-size: 20px;
+  }
+
+  .notify-workspace-contact-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .notify-workspace-contact-actions {
+    justify-content: flex-start;
+  }
+
+  .notify-contact-action {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .notify-workspace-actions-hub {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .notify-button--hero {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .notify-workspace-secondary-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .notify-workspace-secondary-actions .notify-button {
+    flex: 1 1 calc(50% - 4px);
+    justify-content: center;
+  }
+}

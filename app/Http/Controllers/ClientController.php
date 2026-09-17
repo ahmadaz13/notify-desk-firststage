@@ -210,7 +210,15 @@ class ClientController extends Controller
             ->orderByDesc('id')
             ->get();
         $offers = DB::table('commercial_offers')->where('client_id', $client->id)->orderByDesc('offer_date')->get();
-        $subscriptions = Subscription::with(['billingPeriods.invoice', 'lifecycleEvents', 'pendingPlanPrice.plan'])
+        $subscriptions = Subscription::with([
+            'plan.product',
+            'plan.services',
+            'billingPeriods.invoice',
+            'lifecycleEvents',
+            'pendingPlanPrice.plan',
+            'contracts',
+            'invoices',
+        ])
             ->where('client_id', $client->id)
             ->orderByDesc('start_date')
             ->orderByDesc('id')
@@ -321,7 +329,10 @@ class ClientController extends Controller
             $contactAttempts,
             $installations,
             $lifecycleLabels,
-            $operationalQueues
+            $operationalQueues,
+            $receivableSummary,
+            $invoiceReceivables,
+            auth()->user()
         );
         $contactOutcomeViewModel = ContactOutcomeViewModel::make($appointmentTypeLabels);
 

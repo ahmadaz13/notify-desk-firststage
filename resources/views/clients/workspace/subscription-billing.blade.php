@@ -1,4 +1,4 @@
-<div id="tab-billing" class="tab-pane" style="display:none">
+<div id="tab-billing">
     <div class="p3-wrap">
         {{-- Workspace Header --}}
         <header class="p3-header">
@@ -236,7 +236,7 @@
                 {{-- Start Paid Subscription Form (Admin Only) --}}
                 <div style="display:flex;flex-direction:column;gap:16px">
                     @if(auth()->user()->isAdmin())
-                        <div class="p3-card" id="paid-subscription-section" style="border:2px solid #0055CC">
+                        <div class="p3-card" id="sec-start-subscription" style="border:2px solid #0055CC">
                             <div class="p3-card-head">
                                 <div>
                                     <h3 class="p3-card-title" style="color:#0055CC">{{ __('notify.subscriptions.start_paid') }}</h3>
@@ -716,7 +716,7 @@
                 {{-- Record Payment & Allocate Unused Credit Forms --}}
                 <div style="display:flex;flex-direction:column;gap:16px">
                     {{-- Record Payment V2 Form --}}
-                    <div class="p3-card">
+                    <div class="p3-card" id="sec-record-payment">
                         <div class="p3-card-head">
                             <div>
                                 <h3 class="p3-card-title">{{ __('notify.collections.record_payment') }}</h3>

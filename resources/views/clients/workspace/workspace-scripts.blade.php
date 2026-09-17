@@ -1,38 +1,35 @@
 <script>
 function switchTab(tabName) {
+    var target = document.getElementById('sec-' + tabName) || document.getElementById('tab-' + tabName) || document.getElementById(tabName);
+    if (target) {
+        var details = target.closest('details');
+        if (details) details.open = true;
+        target.style.display = 'block';
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     document.querySelectorAll('.tab-pane').forEach(function(pane) {
-        pane.style.display = 'none';
+        if (pane !== target && !pane.closest('details')) {
+            pane.style.display = 'none';
+        }
     });
+
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-ghost');
         btn.classList.remove('is-active');
     });
-    document.querySelectorAll('.mobile-accordion-header').forEach(function(hdr) {
-        hdr.classList.remove('active');
-        var chevron = hdr.querySelector('.chevron-icon');
-        if (chevron) chevron.style.transform = 'rotate(0deg)';
-    });
 
-    var targetPane = document.getElementById('tab-' + tabName);
     var targetBtn = document.getElementById('tab-btn-' + tabName);
-    var targetHeader = document.getElementById('acc-header-' + tabName);
-
-    if (targetPane) targetPane.style.display = 'block';
     if (targetBtn) {
         targetBtn.classList.remove('btn-ghost');
         targetBtn.classList.add('btn-primary');
         targetBtn.classList.add('is-active');
     }
-    if (targetHeader) {
-        targetHeader.classList.add('active');
-        var chevron = targetHeader.querySelector('.chevron-icon');
-        if (chevron) chevron.style.transform = 'rotate(180deg)';
-    }
 }
 
 function toggleAccordion(tabName) {
-    var targetPane = document.getElementById('tab-' + tabName);
+    var targetPane = document.getElementById('tab-' + tabName) || document.getElementById('sec-' + tabName);
     var targetHeader = document.getElementById('acc-header-' + tabName);
     if (!targetPane) return;
 
@@ -120,6 +117,37 @@ function initContactOutcome(root) {
 }
 
 document.querySelectorAll('[data-contact-outcome-root]').forEach(initContactOutcome);
+
+// Global trigger for call outcome modal
+document.addEventListener('click', function(e) {
+    var trigger = e.target.closest('[data-trigger-call-outcome]');
+    if (trigger) {
+        e.preventDefault();
+        var outcomeOpener = document.querySelector('[data-contact-outcome-open]');
+        if (outcomeOpener) {
+            outcomeOpener.click();
+        }
+    }
+});
+
+// Global anchor scroll handler that opens parent <details>
+document.addEventListener('click', function(e) {
+    var link = e.target.closest('a[href^="#"], [data-scroll-to]');
+    if (!link) return;
+
+    var targetId = link.getAttribute('data-scroll-to') || link.getAttribute('href');
+    if (!targetId || targetId === '#' || !targetId.startsWith('#')) return;
+
+    var targetElem = document.querySelector(targetId);
+    if (targetElem) {
+        e.preventDefault();
+        var details = targetElem.closest('details');
+        if (details) {
+            details.open = true;
+        }
+        targetElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+});
 
 document.querySelectorAll('[data-paid-subscription-form]').forEach(function(form) {
     var annualTerms = form.querySelector('[data-annual-payment-terms]');

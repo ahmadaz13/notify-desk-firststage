@@ -1,4 +1,4 @@
-<div id="tab-timeline" class="tab-pane" style="display:none">
+<div id="tab-timeline">
     <section class="notify-panel">
         <div class="notify-section-head">
             <div>
