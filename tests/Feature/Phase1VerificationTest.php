@@ -119,7 +119,7 @@ class Phase1VerificationTest extends TestCase
         $response->assertDontSee('financial-cards-grid');
     }
 
-    public function test_mobile_add_client_fab_semantics_touch_target_and_accessibility(): void
+    public function test_shell_add_client_action_has_touch_target_and_accessibility(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
 
@@ -128,16 +128,16 @@ class Phase1VerificationTest extends TestCase
 
         $content = $response->getContent();
 
-        $this->assertSame(1, substr_count($content, 'data-notify-add-client-fab'));
-        $response->assertSee('class="notify-add-client-fab"', false);
+        $this->assertSame(1, substr_count($content, 'data-shell-action="add-client"'));
+        $response->assertSee('notify-button--primary', false);
         $response->assertSee('href="'.route('clients.create').'"', false);
         $response->assertSee('aria-label="إضافة عميل"', false);
         $response->assertSee('data-lucide="plus"', false);
         $response->assertDontSee('quick-expense-fab-btn', false);
 
         $css = file_get_contents(resource_path('css/app.css'));
-        $this->assertStringContainsString('.notify-add-client-fab', $css);
+        $this->assertStringContainsString('.notify-button', $css);
         $this->assertStringContainsString('min-height: 48px', $css);
-        $this->assertStringContainsString('safe-area-inset-bottom', $css);
+        $this->assertStringContainsString('.notify-mobile-nav', $css);
     }
 }

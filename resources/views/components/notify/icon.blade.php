@@ -27,6 +27,7 @@
         'users' => 'users',
         'wallet' => 'wallet',
         'wrench' => 'wrench',
+        'x' => 'x',
     ];
 
     $lucideName = $icons[$name] ?? $icons['circle'];

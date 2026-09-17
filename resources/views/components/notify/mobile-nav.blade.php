@@ -1,53 +1,165 @@
 @props([
     'labels',
-    'unreadNotificationsCount' => 0,
     'canViewClients' => false,
-    'canImportClients' => false,
-    'canViewCollections' => false,
-    'canManageCatalog' => false,
-    'canReviewConflicts' => false,
-    'canManageSettings' => false,
-    'canViewAccounting' => false,
+    'isToday' => false,
+    'isClients' => false,
+    'isWork' => false,
+    'managementGroups' => [],
+    'advancedLinks' => [],
+    'moreActive' => false,
+    'targetLocale',
+    'targetLocaleLabel',
+    'userName',
+    'roleLabel',
 ])
 
-@php
-    $secondaryLinks = [
-        ['label' => $labels['notifications'], 'href' => route('notifications.index'), 'icon' => 'bell'],
-    ];
+<nav
+    class="notify-mobile-nav"
+    aria-label="{{ $labels['mobile_navigation'] }}"
+    x-data="{
+        moreOpen: false,
+        openMore() {
+            this.moreOpen = true;
+            this.$nextTick(() => this.$refs.moreClose?.focus());
+        },
+        closeMore(returnFocus = true) {
+            this.moreOpen = false;
+            if (returnFocus) this.$nextTick(() => this.$refs.moreButton?.focus());
+        },
+        trapFocus(event) {
+            const focusable = [...this.$refs.morePanel.querySelectorAll('a[href], button:not([disabled])')];
+            if (focusable.length === 0) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (! event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        },
+    }"
+    x-effect="document.body.classList.toggle('notify-mobile-menu-open', moreOpen)"
+    @keydown.escape.window="if (moreOpen) closeMore()"
+>
+    <button
+        class="notify-mobile-nav__backdrop"
+        type="button"
+        aria-label="{{ $labels['close'] }}"
+        x-show="moreOpen"
+        x-cloak
+        x-transition.opacity
+        @click="closeMore()"
+    ></button>
 
-    if ($canImportClients) {
-        $secondaryLinks[] = ['label' => $labels['import'], 'href' => route('clients.import'), 'icon' => 'clipboard-list'];
-    }
+    <section
+        class="notify-mobile-nav__more"
+        id="notify-mobile-more"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="notify-mobile-more-title"
+        data-mobile-more
+        x-ref="morePanel"
+        x-show="moreOpen"
+        x-cloak
+        x-transition:enter="notify-mobile-sheet-enter"
+        x-transition:enter-start="notify-mobile-sheet-enter-start"
+        x-transition:enter-end="notify-mobile-sheet-enter-end"
+        x-transition:leave="notify-mobile-sheet-leave"
+        x-transition:leave-start="notify-mobile-sheet-leave-start"
+        x-transition:leave-end="notify-mobile-sheet-leave-end"
+        @keydown.tab="trapFocus($event)"
+    >
+        <header class="notify-mobile-nav__more-header">
+            <div class="notify-mobile-nav__account-summary">
+                <span class="notify-avatar">{{ mb_substr($userName, 0, 1) }}</span>
+                <div class="notify-user__identity">
+                    <h2 id="notify-mobile-more-title">{{ $labels['more'] }}</h2>
+                    <span>{{ $userName }} · {{ $roleLabel }}</span>
+                </div>
+            </div>
+            <button class="notify-icon-button" type="button" x-ref="moreClose" @click="closeMore()" aria-label="{{ $labels['close'] }}">
+                <x-notify.icon name="x" />
+            </button>
+        </header>
 
-    if ($canViewCollections) {
-        $secondaryLinks[] = ['label' => $labels['collections'], 'href' => route('collections.index'), 'icon' => 'wallet'];
-    }
+        <div class="notify-mobile-nav__more-content">
+            @if($managementGroups !== [])
+                <div class="notify-mobile-nav__layer" data-mobile-nav-layer="management">
+                    <p class="notify-mobile-nav__layer-label">{{ $labels['management'] }}</p>
+                    @foreach($managementGroups as $group)
+                        <section class="notify-mobile-nav__group" data-nav-group="{{ $group['id'] }}" aria-labelledby="notify-mobile-group-{{ $group['id'] }}">
+                            <h3 id="notify-mobile-group-{{ $group['id'] }}">{{ $group['label'] }}</h3>
+                            <div class="notify-mobile-nav__group-links">
+                                @foreach($group['links'] as $link)
+                                    <a
+                                        class="notify-mobile-nav__more-link {{ $link['active'] ? 'is-active' : '' }}"
+                                        href="{{ $link['href'] }}"
+                                        data-nav-destination="{{ $link['id'] }}"
+                                        @if($link['active']) aria-current="page" @endif
+                                    >
+                                        <span class="notify-mobile-nav__more-link-main">
+                                            <x-notify.icon :name="$link['icon']" />
+                                            <span>{{ $link['label'] }}</span>
+                                        </span>
+                                    </a>
+                                @endforeach
+                            </div>
+                        </section>
+                    @endforeach
+                </div>
+            @endif
 
-    if ($canManageCatalog) {
-        $secondaryLinks[] = ['label' => $labels['catalog'], 'href' => route('commercial-catalog.index'), 'icon' => 'package'];
-    }
+            @if($advancedLinks !== [])
+                <div class="notify-mobile-nav__layer notify-mobile-nav__layer--advanced" data-mobile-nav-layer="advanced">
+                    <p class="notify-mobile-nav__layer-label">{{ $labels['advanced'] }}</p>
+                    <div class="notify-mobile-nav__group-links">
+                        @foreach($advancedLinks as $link)
+                            <a
+                                class="notify-mobile-nav__more-link {{ $link['active'] ? 'is-active' : '' }}"
+                                href="{{ $link['href'] }}"
+                                data-nav-destination="{{ $link['id'] }}"
+                                @if($link['active']) aria-current="page" @endif
+                            >
+                                <span class="notify-mobile-nav__more-link-main">
+                                    <x-notify.icon :name="$link['icon']" />
+                                    <span>{{ $link['label'] }}</span>
+                                </span>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
 
-    if ($canReviewConflicts) {
-        $secondaryLinks[] = ['label' => $labels['review_work'], 'href' => route('conflicts.index'), 'icon' => 'activity'];
-    }
+            <div class="notify-mobile-nav__layer notify-mobile-nav__layer--account" data-mobile-nav-layer="account">
+                <p class="notify-mobile-nav__layer-label">{{ $labels['account'] }}</p>
+                <a class="notify-mobile-nav__more-link" href="{{ route('locale.switch', $targetLocale) }}">
+                    <span class="notify-mobile-nav__more-link-main">
+                        <x-notify.icon name="languages" />
+                        <span>{{ $targetLocaleLabel }}</span>
+                    </span>
+                </a>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button class="notify-mobile-nav__more-link" type="submit">
+                        <span class="notify-mobile-nav__more-link-main">
+                            <x-notify.icon name="log-out" />
+                            <span>{{ $labels['logout'] }}</span>
+                        </span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
 
-    if ($canManageSettings) {
-        $secondaryLinks[] = ['label' => $labels['settings'], 'href' => route('settings.index'), 'icon' => 'settings'];
-    }
-
-    if ($canViewAccounting) {
-        $secondaryLinks[] = ['label' => $labels['accounting'], 'href' => route('accounting.index'), 'icon' => 'landmark'];
-    }
-@endphp
-
-<nav class="notify-mobile-nav" aria-label="{{ $labels['mobile_navigation'] }}" x-data="{ moreOpen: false }" @keydown.escape.window="moreOpen = false">
     <div class="notify-mobile-nav__grid">
-        <a class="notify-mobile-nav__item {{ request()->routeIs('dashboard') && ! in_array(request()->query('mode'), ['work', 'financial'], true) ? 'is-active' : '' }}" href="{{ route('dashboard', ['mode' => 'daily']) }}">
+        <a class="notify-mobile-nav__item {{ $isToday ? 'is-active' : '' }}" data-nav-destination="today" href="{{ route('dashboard', ['mode' => 'daily']) }}" @if($isToday) aria-current="page" @endif>
             <x-notify.icon name="home" />
             <span class="notify-mobile-nav__label">{{ $labels['today'] }}</span>
         </a>
         @if($canViewClients)
-            <a class="notify-mobile-nav__item {{ request()->routeIs('clients.index') || request()->routeIs('clients.show') || request()->routeIs('clients.create') || request()->routeIs('clients.edit') ? 'is-active' : '' }}" href="{{ route('clients.index') }}">
+            <a class="notify-mobile-nav__item {{ $isClients ? 'is-active' : '' }}" data-nav-destination="clients" href="{{ route('clients.index') }}" @if($isClients) aria-current="page" @endif>
                 <x-notify.icon name="users" />
                 <span class="notify-mobile-nav__label">{{ $labels['clients'] }}</span>
             </a>
@@ -57,22 +169,21 @@
                 <span class="notify-mobile-nav__label">{{ $labels['clients'] }}</span>
             </span>
         @endif
-        <a class="notify-mobile-nav__item {{ request()->routeIs('dashboard') && request()->query('mode') === 'work' ? 'is-active' : '' }}" href="{{ route('dashboard', ['mode' => 'work']) }}#mobile-work">
+        <a class="notify-mobile-nav__item {{ $isWork ? 'is-active' : '' }}" data-nav-destination="work" href="{{ route('dashboard', ['mode' => 'work']) }}#mobile-work" @if($isWork) aria-current="page" @endif>
             <x-notify.icon name="briefcase" />
             <span class="notify-mobile-nav__label">{{ $labels['work'] }}</span>
         </a>
-        <button class="notify-mobile-nav__item {{ request()->routeIs('notifications.*') || request()->routeIs('settings.*') || request()->routeIs('commercial-catalog.*') || request()->routeIs('accounting.*') || request()->routeIs('collections.*') || request()->routeIs('clients.import*') || request()->routeIs('conflicts.*') ? 'is-active' : '' }}" type="button" @click="moreOpen = !moreOpen" :aria-expanded="moreOpen.toString()">
+        <button
+            class="notify-mobile-nav__item {{ $moreActive ? 'is-active' : '' }}"
+            data-nav-destination="more"
+            type="button"
+            x-ref="moreButton"
+            @click="moreOpen ? closeMore(false) : openMore()"
+            :aria-expanded="moreOpen.toString()"
+            aria-controls="notify-mobile-more"
+        >
             <x-notify.icon name="menu" />
             <span class="notify-mobile-nav__label">{{ $labels['more'] }}</span>
         </button>
-    </div>
-
-    <div class="notify-mobile-nav__more" x-show="moreOpen" x-cloak @click.outside="moreOpen = false">
-        @foreach($secondaryLinks as $link)
-            <a class="notify-mobile-nav__more-link" href="{{ $link['href'] }}">
-                <span>{{ $link['label'] }}</span>
-                <x-notify.icon :name="$link['icon']" />
-            </a>
-        @endforeach
     </div>
 </nav>

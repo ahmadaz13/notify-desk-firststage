@@ -136,7 +136,7 @@ class RouteConsolidationTest extends TestCase
         $adminResponse->assertSee(route('settings.index'));
         $adminResponse->assertSee(route('conflicts.index'));
         $adminResponse->assertSee(route('clients.import'));
-        $adminResponse->assertSee('data-notify-add-client-fab', false);
+        $adminResponse->assertSee('data-shell-action="add-client"', false);
         $adminResponse->assertSee('href="'.route('clients.create').'"', false);
         $adminResponse->assertDontSee('quick-expense-fab-btn', false);
     }
