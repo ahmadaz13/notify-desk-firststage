@@ -63,8 +63,8 @@
 
     $canViewClients = auth()->check() && Gate::allows('viewAny', Client::class);
     $canCreateClient = auth()->check() && Gate::allows('create', Client::class);
-    $isToday = request()->routeIs('dashboard') && ! in_array(request()->query('mode'), ['work', 'financial'], true);
-    $isWork = request()->routeIs('dashboard') && request()->query('mode') === 'work';
+    $isWork = request()->routeIs('work') || (request()->routeIs('dashboard') && request()->query('mode') === 'work');
+    $isToday = request()->routeIs('dashboard') && ! in_array(request()->query('mode'), ['work', 'financial'], true) && ! request()->routeIs('work');
     $isClients = request()->routeIs('clients.*') && ! request()->routeIs('clients.import*');
 
     $managementGroups = [];
