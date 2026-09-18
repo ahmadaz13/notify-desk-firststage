@@ -75,4 +75,95 @@ class PlanPriceService
 
         return $price;
     }
+
+    public function resolveEffectivePrice(
+        int $productId,
+        int $planId,
+        string $billingInterval,
+        Carbon|string|null $startDate = null
+    ): PlanPrice {
+        if (! in_array($billingInterval, [PlanPrice::MONTHLY, PlanPrice::ANNUAL], true)) {
+            throw ValidationException::withMessages([
+                'billing_interval' => __('notify.client_workspace.validation.billing_interval') ?: 'اختر مدة الاشتراك.',
+            ]);
+        }
+
+        $date = $startDate ? Carbon::parse($startDate)->startOfDay() : now()->startOfDay();
+
+        $plan = \App\Models\Plan::with('product')
+            ->where('id', $planId)
+            ->where('product_id', $productId)
+            ->where('is_active', true)
+            ->whereNull('archived_at')
+            ->first();
+
+        if (! $plan) {
+            throw ValidationException::withMessages([
+                'plan_id' => __('notify.client_workspace.validation.plan') ?: 'اختر الباقة.',
+            ]);
+        }
+
+        if (! $plan->product || ! $plan->product->is_active || $plan->product->archived_at !== null) {
+            throw ValidationException::withMessages([
+                'product_id' => __('notify.client_workspace.validation.product') ?: 'اختر المنتج.',
+            ]);
+        }
+
+        $prices = PlanPrice::where('plan_id', $planId)
+            ->where('billing_interval', $billingInterval)
+            ->effective($date)
+            ->get();
+
+        if ($prices->isEmpty()) {
+            throw ValidationException::withMessages([
+                'billing_interval' => __('notify.client_workspace.validation.price_unavailable') ?: 'لا يوجد سعر فعال لهذه الباقة في التاريخ المحدد.',
+            ]);
+        }
+
+        if ($prices->count() > 1) {
+            throw ValidationException::withMessages([
+                'billing_interval' => 'تكوين السعر في الكتالوج غير متسق لوجود أكثر من سعر فعال في نفس التاريخ.',
+            ]);
+        }
+
+        $price = $prices->first();
+        $price->setRelation('plan', $plan);
+
+        return $price;
+    }
+
+    public function getSellableCatalogTree(?Carbon $at = null): array
+    {
+        $at = $at ?: now();
+        $products = \App\Models\Product::where('is_active', true)
+            ->whereNull('archived_at')
+            ->with(['plans' => function ($query) use ($at) {
+                $query->where('is_active', true)
+                    ->whereNull('archived_at')
+                    ->with(['prices' => function ($pQuery) use ($at) {
+                        $pQuery->effective($at);
+                    }]);
+            }])
+            ->get();
+
+        return $products->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'code' => $product->code,
+                'name_ar' => $product->name_ar,
+                'name_en' => $product->name_en,
+                'plans' => $product->plans->map(function ($plan) {
+                    $availableIntervals = $plan->prices->pluck('billing_interval')->unique()->values()->all();
+                    return [
+                        'id' => $plan->id,
+                        'code' => $plan->code,
+                        'tier' => $plan->tier,
+                        'name_ar' => $plan->name_ar,
+                        'name_en' => $plan->name_en,
+                        'available_intervals' => $availableIntervals,
+                    ];
+                })->filter(fn ($plan) => count($plan['available_intervals']) > 0)->values()->all(),
+            ];
+        })->filter(fn ($prod) => count($prod['plans']) > 0)->values()->all();
+    }
 }

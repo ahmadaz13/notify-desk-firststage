@@ -24,6 +24,7 @@ use App\Http\Controllers\FinancialAccountController;
 use App\Http\Controllers\FinanceReportController;
 use App\Http\Controllers\FreeInstallationController;
 use App\Http\Controllers\FollowUpController;
+use App\Http\Controllers\GuidedSubscriptionController;
 use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\InvestmentController;
 use App\Http\Controllers\LocaleController;
@@ -69,6 +70,9 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
     Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
     Route::post('/clients/{client}/convert', [ClientController::class, 'convert'])->name('clients.convert');
+    Route::get('/clients/{client}/guided-subscription/catalog', [GuidedSubscriptionController::class, 'catalog'])->name('clients.guided-subscription.catalog');
+    Route::post('/clients/{client}/guided-subscription/preview', [GuidedSubscriptionController::class, 'preview'])->name('clients.guided-subscription.preview');
+    Route::post('/clients/{client}/guided-subscription', [GuidedSubscriptionController::class, 'store'])->name('clients.guided-subscription.store');
     Route::post('/clients/{client}/paid-subscriptions', [BillingController::class, 'startPaidSubscription'])->name('clients.paid-subscriptions.store');
     Route::post('/clients/{client}/one-time-invoices', [BillingController::class, 'storeOneTimeInvoice'])->name('clients.one-time-invoices.store');
     Route::post('/clients/{client}/collections/payments', [CollectionsController::class, 'storePayment'])->name('clients.collections.payments.store');
@@ -114,6 +118,7 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::get('/contracts/{contract}/preview', [ContractController::class, 'preview'])->name('contracts.preview');
     Route::get('/contracts/{contract}/print', [ContractController::class, 'print'])->name('contracts.print');
     Route::get('/contracts/{contract}/download', [ContractController::class, 'download'])->name('contracts.download');
+    Route::get('/contracts/{contract}/download-pdf', [ContractController::class, 'downloadPdf'])->name('contracts.download-pdf');
     Route::post('/contracts/{contract}/issue', [ContractController::class, 'issue'])->name('contracts.issue');
     Route::post('/contracts/{contract}/void', [ContractController::class, 'void'])->name('contracts.void');
     Route::post('/contracts/{contract}/supersede', [ContractController::class, 'supersede'])->name('contracts.supersede');

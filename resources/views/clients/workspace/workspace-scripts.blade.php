@@ -184,6 +184,14 @@ document.addEventListener('click', function(e) {
         return;
     }
 
+    var triggerStartSub = e.target.closest('[data-trigger-start-subscription]');
+    if (triggerStartSub) {
+        e.preventDefault();
+        openModal('modal-start-subscription');
+        initGuidedSubscription();
+        return;
+    }
+
     var closer = e.target.closest('[data-close-action-modal]');
     if (closer) {
         e.preventDefault();
@@ -344,4 +352,218 @@ document.querySelectorAll('[data-paid-subscription-form]').forEach(function(form
     if (paymentTerms) paymentTerms.addEventListener('change', syncBillingTerms);
     syncBillingTerms();
 });
+
+// 5. Guided Subscription Form Handlers
+var guidedCatalog = null;
+var guidedCatalogLoaded = false;
+
+function initGuidedSubscription() {
+    var form = document.getElementById('guided-subscription-form');
+    if (!form) return;
+
+    var catalogUrl = form.getAttribute('data-catalog-url');
+    var productSelect = document.getElementById('guided-sub-product');
+    var planSelect = document.getElementById('guided-sub-plan');
+    var intervalSelect = document.getElementById('guided-sub-interval');
+    var paymentTermsSelect = document.getElementById('guided-sub-payment-terms');
+    var countSelect = document.getElementById('guided-sub-installments-count');
+    var dueDaySelect = document.getElementById('guided-sub-due-day');
+    var startDateInput = document.getElementById('guided-sub-start-date');
+    var submitBtn = document.getElementById('guided-sub-submit-btn');
+    var previewCard = document.getElementById('guided-sub-preview-card');
+    var errorDiv = document.getElementById('guided-sub-error');
+
+    if (!guidedCatalogLoaded) {
+        fetch(catalogUrl, {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (!data.success || !data.catalog) return;
+            guidedCatalog = data.catalog;
+            guidedCatalogLoaded = true;
+
+            productSelect.innerHTML = '<option value="">اختر المنتج...</option>';
+            guidedCatalog.forEach(function(prod) {
+                var opt = document.createElement('option');
+                opt.value = prod.id;
+                opt.textContent = prod.name_ar || prod.name_en;
+                productSelect.appendChild(opt);
+            });
+        })
+        .catch(function(err) { console.error('Failed to load catalog:', err); });
+    }
+
+    function onProductChange() {
+        var prodId = parseInt(productSelect.value, 10);
+        planSelect.innerHTML = '<option value="">اختر الباقة...</option>';
+        planSelect.disabled = true;
+        intervalSelect.innerHTML = '<option value="">اختر المدة...</option>';
+        intervalSelect.disabled = true;
+        hidePreview();
+
+        if (!prodId || !guidedCatalog) return;
+        var prod = guidedCatalog.find(function(p) { return p.id === prodId; });
+        if (!prod || !prod.plans || !prod.plans.length) return;
+
+        prod.plans.forEach(function(plan) {
+            var opt = document.createElement('option');
+            opt.value = plan.id;
+            opt.textContent = plan.name_ar || plan.name_en;
+            planSelect.appendChild(opt);
+        });
+        planSelect.disabled = false;
+    }
+
+    function onPlanChange() {
+        var prodId = parseInt(productSelect.value, 10);
+        var planId = parseInt(planSelect.value, 10);
+        intervalSelect.innerHTML = '<option value="">اختر المدة...</option>';
+        intervalSelect.disabled = true;
+        hidePreview();
+
+        if (!prodId || !planId || !guidedCatalog) return;
+        var prod = guidedCatalog.find(function(p) { return p.id === prodId; });
+        if (!prod) return;
+        var plan = prod.plans.find(function(pl) { return pl.id === planId; });
+        if (!plan || !plan.available_intervals) return;
+
+        plan.available_intervals.forEach(function(interval) {
+            var opt = document.createElement('option');
+            opt.value = interval;
+            opt.textContent = interval === 'annual' ? 'سنوي' : 'شهري';
+            intervalSelect.appendChild(opt);
+        });
+        intervalSelect.disabled = false;
+    }
+
+    function onIntervalChange() {
+        var interval = intervalSelect.value;
+        var annualContainer = document.getElementById('guided-annual-terms-container');
+        if (annualContainer) {
+            annualContainer.style.display = (interval === 'annual') ? 'block' : 'none';
+        }
+        syncPaymentTerms();
+        fetchPreview();
+    }
+
+    function syncPaymentTerms() {
+        var isAnnual = intervalSelect.value === 'annual';
+        var isInstallments = isAnnual && paymentTermsSelect && paymentTermsSelect.value === 'installments';
+        var installConfig = document.getElementById('guided-installments-config');
+        if (installConfig) {
+            installConfig.style.display = isInstallments ? 'grid' : 'none';
+        }
+    }
+
+    function hidePreview() {
+        if (previewCard) previewCard.style.display = 'none';
+        if (errorDiv) { errorDiv.style.display = 'none'; errorDiv.textContent = ''; }
+        if (submitBtn) submitBtn.disabled = true;
+    }
+
+    var previewDebounceTimer = null;
+    function fetchPreview() {
+        var prodId = productSelect.value;
+        var planId = planSelect.value;
+        var interval = intervalSelect.value;
+
+        if (!prodId || !planId || !interval) {
+            hidePreview();
+            return;
+        }
+
+        clearTimeout(previewDebounceTimer);
+        previewDebounceTimer = setTimeout(function() {
+            var previewUrl = form.getAttribute('data-preview-url');
+            var payload = {
+                product_id: prodId,
+                plan_id: planId,
+                billing_interval: interval,
+                payment_terms: interval === 'annual' ? (paymentTermsSelect ? paymentTermsSelect.value : 'full') : 'full',
+                installments_count: countSelect ? countSelect.value : 1,
+                installment_due_day: dueDaySelect ? dueDaySelect.value : 1,
+                start_date: startDateInput ? startDateInput.value : null
+            };
+
+            var csrfToken = form.querySelector('input[name="_token"]')?.value;
+
+            fetch(previewUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(function(res) { return res.json().then(function(data) { return { status: res.status, data: data }; }); })
+            .then(function(result) {
+                if (result.status >= 400 || !result.data.success) {
+                    var errorMsg = result.data.message || (result.data.errors ? Object.values(result.data.errors)[0][0] : 'حدث خطأ في جلب التسعير');
+                    if (errorDiv) {
+                        errorDiv.textContent = errorMsg;
+                        errorDiv.style.display = 'block';
+                    }
+                    if (previewCard) previewCard.style.display = 'none';
+                    if (submitBtn) submitBtn.disabled = true;
+                    return;
+                }
+
+                if (errorDiv) errorDiv.style.display = 'none';
+                var d = result.data;
+                document.getElementById('preview-unit-price').textContent = d.unit_price_formatted + ' د.أ';
+                document.getElementById('preview-setup-fee').textContent = d.setup_fee_formatted + ' د.أ';
+                document.getElementById('preview-tax').textContent = d.tax_formatted + ' د.أ';
+                document.getElementById('preview-total').textContent = d.total_formatted + ' د.أ';
+
+                var scheduleContainer = document.getElementById('preview-schedule-container');
+                var scheduleTbody = document.getElementById('preview-schedule-tbody');
+                if (d.schedule && d.schedule.length > 0) {
+                    scheduleTbody.innerHTML = '';
+                    d.schedule.forEach(function(item) {
+                        var tr = document.createElement('tr');
+                        tr.innerHTML = '<td style="padding:4px">' + item.sequence + '</td>'
+                                     + '<td style="padding:4px">' + item.due_date + '</td>'
+                                     + '<td style="padding:4px;font-weight:700">' + item.amount_due_formatted + ' د.أ</td>';
+                        scheduleTbody.appendChild(tr);
+                    });
+                    scheduleContainer.style.display = 'block';
+                } else {
+                    scheduleContainer.style.display = 'none';
+                }
+
+                previewCard.style.display = 'block';
+                submitBtn.disabled = false;
+            })
+            .catch(function(err) {
+                console.error(err);
+                if (errorDiv) {
+                    errorDiv.textContent = 'تعذر الاتصال بالخادم لاحتساب التسعير.';
+                    errorDiv.style.display = 'block';
+                }
+                if (submitBtn) submitBtn.disabled = true;
+            });
+        }, 150);
+    }
+
+    productSelect.onchange = onProductChange;
+    planSelect.onchange = onPlanChange;
+    intervalSelect.onchange = onIntervalChange;
+    if (paymentTermsSelect) paymentTermsSelect.onchange = function() {
+        syncPaymentTerms();
+        fetchPreview();
+    };
+    if (countSelect) countSelect.onchange = fetchPreview;
+    if (dueDaySelect) dueDaySelect.onchange = fetchPreview;
+    if (startDateInput) startDateInput.onchange = fetchPreview;
+
+    form.onsubmit = function() {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'جاري الحفظ والاعتماد...';
+        }
+    };
+}
 </script>

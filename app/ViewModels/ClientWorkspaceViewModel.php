@@ -189,6 +189,7 @@ class ClientWorkspaceViewModel
                 },
                 'preview_url' => route('contracts.preview', $contract->id),
                 'download_url' => route('contracts.download', $contract->id),
+                'download_pdf_url' => route('contracts.download-pdf', $contract->id),
                 'print_url' => route('contracts.print', $contract->id),
             ] : null;
 
@@ -250,6 +251,7 @@ class ClientWorkspaceViewModel
                 'issued_at' => $contract->issued_at ? Carbon::parse($contract->issued_at)->format('Y-m-d') : null,
                 'preview_url' => route('contracts.preview', $contract->id),
                 'download_url' => route('contracts.download', $contract->id),
+                'download_pdf_url' => route('contracts.download-pdf', $contract->id),
                 'print_url' => route('contracts.print', $contract->id),
                 'can_download' => $actor ? Gate::forUser($actor)->allows('download', $contract) : Gate::allows('download', $contract),
                 'can_view' => $actor ? Gate::forUser($actor)->allows('view', $contract) : Gate::allows('view', $contract),

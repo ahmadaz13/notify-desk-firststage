@@ -124,6 +124,7 @@
                     $pIsFollowUp = $pType === 'record_followup' || $pUrl === '#sec-follow-ups';
                     $pIsCreateApt = $pType === 'create_appointment' || $pUrl === '#sec-create-appointment';
                     $pIsClose = $pType === 'close_client' || $pUrl === '#sec-close-client';
+                    $pIsStartSub = $pType === 'start_subscription' || $pUrl === '#sec-paid-subscriptions';
                 @endphp
                 <div class="notify-workspace-primary-action">
                     @if($pIsCall)
@@ -162,6 +163,12 @@
                                 data-trigger-close-client>
                             <span>{{ $primaryAction['label'] }}</span>
                         </button>
+                    @elseif($pIsStartSub && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING))
+                        <button type="button"
+                                class="notify-button notify-button--primary notify-button--hero"
+                                data-trigger-start-subscription>
+                            <span>{{ $primaryAction['label'] }}</span>
+                        </button>
                     @elseif(str_starts_with($pUrl, '#'))
                         <a href="{{ $pUrl }}"
                            class="notify-button notify-button--primary notify-button--hero"
@@ -193,6 +200,7 @@
                             $sIsFollowUp = $sType === 'record_followup' || $sUrl === '#sec-follow-ups';
                             $sIsCreateApt = $sType === 'create_appointment' || $sUrl === '#sec-create-appointment';
                             $sIsClose = $sType === 'close_client' || $sUrl === '#sec-close-client';
+                            $sIsStartSub = $sType === 'start_subscription' || $sUrl === '#sec-paid-subscriptions';
                         @endphp
                         @if($sIsCall)
                             <button type="button"
@@ -228,6 +236,12 @@
                             <button type="button"
                                     class="notify-button notify-button--soft"
                                     data-trigger-close-client>
+                                <span>{{ $secAction['label'] }}</span>
+                            </button>
+                        @elseif($sIsStartSub && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING))
+                            <button type="button"
+                                    class="notify-button notify-button--soft"
+                                    data-trigger-start-subscription>
                                 <span>{{ $secAction['label'] }}</span>
                             </button>
                         @elseif(str_starts_with($sUrl, '#'))
@@ -364,10 +378,10 @@
                                             <span>{{ __('notify.client_workspace.view_contract') }}</span>
                                         </a>
                                     @endif
-                                    @if(!empty($contract['can_download']) && !empty($contract['download_url']))
-                                        <a href="{{ $contract['download_url'] }}"
+                                    @if(!empty($contract['can_download']))
+                                        <a href="{{ $contract['download_pdf_url'] ?? route('contracts.download-pdf', $contract['id']) }}"
                                            class="notify-button notify-button--ghost notify-button--sm">
-                                            <span>{{ __('notify.client_workspace.download_contract') }}</span>
+                                            <span>تحميل PDF</span>
                                         </a>
                                     @endif
                                     @if(!empty($contract['print_url']))
@@ -473,6 +487,10 @@
 ])
 
 @include('clients.workspace.actions.close-client', [
+    'client' => $client,
+])
+
+@include('clients.workspace.actions.start-subscription', [
     'client' => $client,
 ])
 

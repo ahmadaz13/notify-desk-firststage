@@ -18,7 +18,8 @@ use Throwable;
 class ContractController extends Controller
 {
     public function __construct(
-        protected ContractService $contractService
+        protected ContractService $contractService,
+        protected \App\Services\ContractPdfService $pdfService
     ) {}
 
     /**
@@ -56,11 +57,15 @@ class ContractController extends Controller
     }
 
     /**
-     * Securely download the archived contract HTML document.
+     * Securely download the archived contract HTML or PDF document.
      */
-    public function download(Contract $contract): StreamedResponse|Response
+    public function download(Request $request, Contract $contract): StreamedResponse|Response|RedirectResponse
     {
         Gate::authorize('download', $contract);
+
+        if ($request->query('format') === 'pdf') {
+            return $this->downloadPdf($contract);
+        }
 
         if (! $contract->private_file_path || ! Storage::disk('local')->exists($contract->private_file_path)) {
             abort(409, 'ملف العقد غير متاح ويحتاج إعادة توليد صريحة من صفحة العميل.');
@@ -71,6 +76,21 @@ class ContractController extends Controller
             "Contract-{$contract->contract_number}.html",
             ['Content-Type' => 'text/html; charset=UTF-8']
         );
+    }
+
+    /**
+     * Download the immutable contract as a PDF document.
+     */
+    public function downloadPdf(Contract $contract): Response|RedirectResponse
+    {
+        Gate::authorize('download', $contract);
+
+        try {
+            return $this->pdfService->downloadResponse($contract);
+        } catch (Throwable $e) {
+            return redirect()->route('clients.show', $contract->client_id)
+                ->with('warning', 'تعذر إنشاء ملف PDF للعقد في الوقت الحالي؛ لا يزال بإمكانك استعراض العقد وطباعته عبر المتصفح.');
+        }
     }
 
     /**
