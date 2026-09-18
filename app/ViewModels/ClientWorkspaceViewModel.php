@@ -132,8 +132,13 @@ class ClientWorkspaceViewModel
         $subscriptionsByProduct = $subscriptions->map(function (Subscription $sub) use ($invoiceReceivables, $contracts) {
             $plan = $sub->plan;
             $product = $plan?->product;
-            $productName = $product?->name_ar ?: ($product?->name_en ?: 'Notify Desk');
-            $planName = $plan?->name_ar ?: ($plan?->name_en ?: ($sub->plan_name_snapshot ?: 'باقة الاشتراك'));
+            $preferArabic = str_starts_with(app()->getLocale(), 'ar');
+            $productName = $preferArabic
+                ? ($product?->name_ar ?: ($product?->name_en ?: 'Notify Desk'))
+                : ($product?->name_en ?: ($product?->name_ar ?: 'Notify Desk'));
+            $planName = $preferArabic
+                ? ($plan?->name_ar ?: ($plan?->name_en ?: ($sub->plan_name_snapshot ?: __('notify.subscriptions.authorized'))))
+                : ($plan?->name_en ?: ($plan?->name_ar ?: ($sub->plan_name_snapshot ?: __('notify.subscriptions.authorized'))));
 
             $interval = $sub->billing_interval_v2 ?: ($sub->billing_type ?: 'monthly');
             $termLabel = $interval === 'annual' ? __('notify.catalog.annual') : __('notify.catalog.monthly');
@@ -146,9 +151,9 @@ class ClientWorkspaceViewModel
                 default => 'info',
             };
             $statusLabel = match ($status) {
-                'active' => 'نشط',
-                'cancelled' => 'ملغي',
-                'pending_change' => 'تغيير مجدول',
+                'active' => __('notify.statuses.active'),
+                'cancelled' => __('notify.statuses.cancelled'),
+                'pending_change' => __('notify.statuses.pending'),
                 default => str($status)->headline()->toString(),
             };
 
@@ -175,10 +180,10 @@ class ClientWorkspaceViewModel
                 'number' => $contract->contract_number,
                 'status' => $contract->status,
                 'status_label' => match ($contract->status) {
-                    'issued' => 'معتمد',
-                    'draft' => 'مسودة',
-                    'voided' => 'ملغي',
-                    'superseded' => 'مستبدل',
+                    'issued' => __('notify.statuses.issued'),
+                    'draft' => __('notify.statuses.draft'),
+                    'voided' => __('notify.statuses.voided'),
+                    'superseded' => __('notify.statuses.superseded'),
                     default => $contract->status,
                 },
                 'status_variant' => match ($contract->status) {

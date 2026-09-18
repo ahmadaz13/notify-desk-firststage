@@ -976,6 +976,8 @@ return array (
     'reconciled' => 'متطابق',
     'reversed' => 'معكوس',
     'unpaid' => 'غير مدفوع',
+    'superseded' => 'مستبدل',
+    'voided' => 'ملغي',
   ),
   'subscriptions' =>
   array (
@@ -1180,6 +1182,7 @@ return array (
     'callback_label' => 'متابعة هاتفية / اتصال',
     'trial_followup_label' => 'متابعة تجربة مجانية',
     'collection_due' => 'تحصيل مستحق — :amount',
+    'collection_context' => 'فاتورة #:invoice — مستحقة في :date',
     'review_required' => 'مراجعة مطلوبة',
     'empty_group' => 'لا توجد عناصر مفتوحة في هذا القسم',
     'empty_filter' => 'لا توجد عناصر تطابق هذا الفلتر',

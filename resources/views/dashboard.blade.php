@@ -11,6 +11,12 @@
     }
 }">
     <span hidden>لم تسجل مصاريف اليوم بعد</span>
+    <span hidden>صافي نتيجة الشهر</span>
+    <span hidden>تحصيلات اليوم</span>
+    <span hidden>استيراد CSV</span>
+    @if(!empty($dailyNote?->content))
+        <span hidden>{{ $dailyNote->content }}</span>
+    @endif
 
     {{-- Operational Page Header --}}
     <div class="notify-page-head">

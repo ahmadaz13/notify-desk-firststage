@@ -976,6 +976,8 @@ return array (
     'reconciled' => 'Reconciled',
     'reversed' => 'Reversed',
     'unpaid' => 'Unpaid',
+    'superseded' => 'Superseded',
+    'voided' => 'Voided',
   ),
   'subscriptions' =>
   array (
@@ -1180,6 +1182,7 @@ return array (
     'callback_label' => 'Callback / Phone Follow-up',
     'trial_followup_label' => 'Trial Follow-up',
     'collection_due' => 'Collection due — :amount',
+    'collection_context' => 'Invoice #:invoice — due on :date',
     'review_required' => 'Review required',
     'empty_group' => 'No open items in this section',
     'empty_filter' => 'No operational items match this filter',

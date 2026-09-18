@@ -306,7 +306,13 @@ class UnifiedOperationalWorkProjection
             ? (__('notify.work.installation_label', ['time' => $timeFormatted]) ?: "تركيب — {$timeFormatted}")
             : (__('notify.work.appointment_label', ['time' => $timeFormatted]) ?: "موعد — {$timeFormatted}");
 
-        $context = $apt->notes ?: ($apt->location ?: ($apt->appointment_type_label ?? $apt->appointment_type));
+        $contextParts = array_values(array_filter([
+            $apt->notes ?: ($apt->location ?: ($apt->appointment_type_label ?? $apt->appointment_type)),
+            $apt->users->isNotEmpty()
+                ? $apt->users->map(fn (User $attendee) => '👤 ' . $attendee->name)->join(' ')
+                : null,
+        ]));
+        $context = implode(' | ', $contextParts);
 
         $primaryAction = $isInstallation
             ? [
@@ -532,7 +538,10 @@ class UnifiedOperationalWorkProjection
 
         $amountFormatted = $projection['outstanding'] ?? '';
         $label = __('notify.work.collection_due', ['amount' => $amountFormatted]) ?: "تحصيل مستحق — {$amountFormatted}";
-        $context = "فاتورة #{$invoice->invoice_number} — مستحقة في " . ($invoice->due_date ? $invoice->due_date->toDateString() : '');
+        $context = __('notify.work.collection_context', [
+            'invoice' => $invoice->invoice_number,
+            'date' => $invoice->due_date ? $invoice->due_date->toDateString() : __('notify.common.unspecified'),
+        ]);
 
         return [
             'id' => "col-{$invoice->id}",
