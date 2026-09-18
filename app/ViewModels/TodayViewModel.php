@@ -11,17 +11,27 @@ class TodayViewModel
         private readonly array $snapshot,
         private readonly array $queues,
         private readonly Collection $notifications,
-        private readonly Collection $recentExpenses
+        private readonly Collection $recentExpenses,
+        private readonly ?array $todayProjection = null,
+        private readonly ?array $workProjection = null
     ) {
     }
 
-    public static function make(array $snapshot, array $queues, mixed $notifications, mixed $recentExpenses): self
-    {
+    public static function make(
+        array $snapshot,
+        array $queues,
+        mixed $notifications,
+        mixed $recentExpenses,
+        ?array $todayProjection = null,
+        ?array $workProjection = null
+    ): self {
         return new self(
             $snapshot,
             $queues,
             collect($notifications),
-            collect($recentExpenses)
+            collect($recentExpenses),
+            $todayProjection,
+            $workProjection
         );
     }
 
@@ -259,6 +269,68 @@ class TodayViewModel
             'new_prospects' => 'New prospect',
             default => 'Operational follow-up',
         };
+    }
+
+    public function todayProjection(): array
+    {
+        return $this->todayProjection ?? [
+            'overdue' => collect(),
+            'next' => collect(),
+            'later_today' => collect(),
+            'counts' => ['overdue' => 0, 'next' => 0, 'later_today' => 0, 'total' => 0],
+        ];
+    }
+
+    public function overdueItems(): Collection
+    {
+        return $this->todayProjection()['overdue'] ?? collect();
+    }
+
+    public function nextItems(): Collection
+    {
+        return $this->todayProjection()['next'] ?? collect();
+    }
+
+    public function laterTodayItems(): Collection
+    {
+        return $this->todayProjection()['later_today'] ?? collect();
+    }
+
+    public function workProjection(): array
+    {
+        return $this->workProjection ?? [
+            'filter' => 'all',
+            'overdue' => collect(),
+            'today' => collect(),
+            'upcoming' => collect(),
+            'filter_counts' => [],
+            'counts' => ['overdue' => 0, 'today' => 0, 'upcoming' => 0, 'total' => 0],
+        ];
+    }
+
+    public function workOverdueItems(): Collection
+    {
+        return $this->workProjection()['overdue'] ?? collect();
+    }
+
+    public function workTodayItems(): Collection
+    {
+        return $this->workProjection()['today'] ?? collect();
+    }
+
+    public function workUpcomingItems(): Collection
+    {
+        return $this->workProjection()['upcoming'] ?? collect();
+    }
+
+    public function workFilter(): string
+    {
+        return $this->workProjection()['filter'] ?? 'all';
+    }
+
+    public function workFilterCounts(): array
+    {
+        return $this->workProjection()['filter_counts'] ?? [];
     }
 
     private function money(mixed $amount): string

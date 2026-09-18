@@ -56,6 +56,7 @@ Route::post('/p/{uuid}/client', [PublicClientController::class, 'store'])->name(
 
 Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/work', [DashboardController::class, 'work'])->name('work');
     Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
 
     // Daily Notes

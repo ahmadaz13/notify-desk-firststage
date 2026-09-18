@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\DailyOperationalService;
 use App\Services\FreeInstallationService;
 use App\Services\OperationalQueueService;
+use App\Services\UnifiedOperationalWorkProjection;
 use App\Support\AppointmentTypes;
 use App\Support\FinancialPermissions;
 use App\Support\PaymentMethods;
@@ -23,7 +24,8 @@ class DashboardController extends Controller
 {
     public function __construct(
         protected DailyOperationalService $dailyOpsService,
-        protected OperationalQueueService $operationalQueueService
+        protected OperationalQueueService $operationalQueueService,
+        protected UnifiedOperationalWorkProjection $unifiedWorkProjection
     ) {}
 
     public function index()
@@ -104,7 +106,20 @@ class DashboardController extends Controller
         $requestedMode = request()->query('mode', 'daily');
         $mode = in_array($requestedMode, ['daily', 'work', 'financial'], true) ? $requestedMode : 'daily';
         $currentMode = $mode;
-        $todayViewModel = TodayViewModel::make($dailySnapshot, $operationalQueues, $unreadNotifications, $recentExpenses);
+
+        $businessNow = Carbon::now('Asia/Amman');
+        $todayProjection = $this->unifiedWorkProjection->today($user, $businessNow);
+        $requestedFilter = request()->query('filter', UnifiedOperationalWorkProjection::FILTER_ALL);
+        $workProjection = $this->unifiedWorkProjection->work($user, $requestedFilter, $businessNow);
+
+        $todayViewModel = TodayViewModel::make(
+            $dailySnapshot,
+            $operationalQueues,
+            $unreadNotifications,
+            $recentExpenses,
+            $todayProjection,
+            $workProjection
+        );
 
         return view('dashboard', compact(
             'clients', 'prospects', 'subscribers', 'appointments', 'nextAppointment',
@@ -113,8 +128,16 @@ class DashboardController extends Controller
             'unreadNotifications', 'investments',
             'isPartner', 'partner', 'totalClientPayments', 'netRevenue', 'earnedShare',
             'dailySnapshot', 'recentExpenses', 'todayAppointments', 'pendingFollowUps', 'dailyNote', 'expenseCategories', 'teamUsers',
-            'currentMode', 'mode', 'paymentMethodOptions', 'legacyFinancialSummary', 'todayViewModel'
+            'currentMode', 'mode', 'paymentMethodOptions', 'legacyFinancialSummary', 'todayViewModel',
+            'todayProjection', 'workProjection'
         ));
+    }
+
+    public function work(Request $request)
+    {
+        $request->merge(['mode' => 'work']);
+
+        return $this->index();
     }
 
     /**

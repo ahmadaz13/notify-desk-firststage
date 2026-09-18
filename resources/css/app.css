@@ -4628,3 +4628,206 @@ table {
     padding: 20px 16px;
   }
 }
+
+/* ==========================================================================
+   Phase 08: Unified Operational Work & Today
+   ========================================================================== */
+
+.notify-work-feed {
+  display: grid;
+  gap: 12px;
+}
+
+.notify-work-section {
+  margin-bottom: 28px;
+}
+
+.notify-work-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.notify-work-section__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--notify-text);
+}
+
+.notify-work-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--notify-border);
+  border-radius: var(--radius-md);
+  background: var(--notify-surface);
+  box-shadow: var(--notify-shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.notify-work-card:hover {
+  border-color: var(--notify-primary);
+  box-shadow: var(--notify-shadow-md);
+}
+
+.notify-work-card--overdue {
+  border-inline-start: 4px solid var(--notify-danger);
+}
+
+.notify-work-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notify-work-card__type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.notify-work-card__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.notify-work-card__icon--info {
+  background: var(--notify-info-soft);
+  color: var(--notify-primary);
+}
+
+.notify-work-card__icon--success {
+  background: var(--notify-success-soft);
+  color: var(--notify-success);
+}
+
+.notify-work-card__icon--warning {
+  background: var(--notify-warning-soft);
+  color: var(--notify-warning);
+}
+
+.notify-work-card__icon--danger {
+  background: var(--notify-danger-soft);
+  color: var(--notify-danger);
+}
+
+.notify-work-card__client {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--notify-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notify-work-card__due {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--notify-muted);
+  flex-shrink: 0;
+}
+
+.notify-work-card__due.is-overdue {
+  color: var(--notify-danger);
+  font-weight: 600;
+}
+
+.notify-work-card__body {
+  margin: 2px 0;
+}
+
+.notify-work-card__label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--notify-text);
+  margin-bottom: 4px;
+}
+
+.notify-work-card__context {
+  font-size: 0.875rem;
+  color: var(--notify-muted);
+  line-height: 1.4;
+}
+
+.notify-work-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid var(--notify-border);
+}
+
+.notify-work-card__secondary-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.notify-work-filters {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+  scrollbar-width: none;
+}
+
+.notify-work-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.notify-work-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid var(--notify-border);
+  background: var(--notify-surface);
+  color: var(--notify-text);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.notify-work-filter-chip:hover {
+  background: var(--notify-surface-muted, #f1f5f9);
+  border-color: var(--notify-primary);
+}
+
+.notify-work-filter-chip.is-active {
+  background: var(--notify-primary);
+  border-color: var(--notify-primary);
+  color: #fff;
+}
+
+.notify-work-filter-chip__count {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.notify-work-filter-chip.is-active .notify-work-filter-chip__count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
