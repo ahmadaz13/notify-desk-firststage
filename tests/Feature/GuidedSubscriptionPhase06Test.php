@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Client;
 use App\Models\Contract;
 use App\Models\Invoice;
+use App\Models\InvoiceLine;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\PlanPrice;
@@ -484,6 +485,64 @@ class GuidedSubscriptionPhase06Test extends TestCase
         $response->assertOk()
             ->assertJsonPath('quantity', 3)
             ->assertJsonPath('quantity_label', '3 فروع');
+    }
+
+    public function test_multi_branch_preview_confirmation_invoice_and_contract_snapshot_agree(): void
+    {
+        $preview = $this->actingAs($this->founder)
+            ->postJson(route('clients.guided-subscription.preview', $this->client->id), [
+                'product_id' => $this->productA->id,
+                'plan_id' => $this->planA1->id,
+                'billing_interval' => 'monthly',
+                'quantity' => 1,
+                'plan_price_id' => $this->monthlyPriceB1->id,
+                'amount_minor' => 1,
+                'tax_rate_bps' => 0,
+                'total_minor' => 1,
+            ]);
+
+        $preview->assertOk()
+            ->assertJsonPath('quantity', 3)
+            ->assertJsonPath('unit_price_formatted', '100.000')
+            ->assertJsonPath('setup_fee_formatted', '20.000')
+            ->assertJsonPath('tax_formatted', '24.000')
+            ->assertJsonPath('total_formatted', '174.000')
+            ->assertJsonPath('total_minor', 174000);
+
+        $this->actingAs($this->founder)
+            ->post(route('clients.guided-subscription.store', $this->client->id), [
+                'product_id' => $this->productA->id,
+                'plan_id' => $this->planA1->id,
+                'billing_interval' => 'monthly',
+                'quantity' => 1,
+                'plan_price_id' => $this->monthlyPriceB1->id,
+                'amount_minor' => 1,
+                'tax_rate_bps' => 0,
+                'total_minor' => 1,
+            ])
+            ->assertRedirect(route('clients.show', $this->client->id));
+
+        $subscription = Subscription::where('client_id', $this->client->id)->firstOrFail();
+        $invoice = Invoice::where('subscription_id', $subscription->id)->firstOrFail();
+        $contract = Contract::where('subscription_id', $subscription->id)->firstOrFail();
+
+        $this->assertSame(3, (int) $subscription->quantity);
+        $this->assertSame(150000, (int) $subscription->subtotal_minor);
+        $this->assertSame(24000, (int) $subscription->tax_minor_v2);
+        $this->assertSame(174000, (int) $subscription->total_minor);
+        $this->assertSame(174000, (int) $invoice->total_minor);
+
+        $line = $invoice->lines()->where('line_type', InvoiceLine::TYPE_SUBSCRIPTION)->firstOrFail();
+        $this->assertSame(3, $line->metadata['branch_quantity']);
+        $this->assertSame(1, $line->metadata['included_branch_quantity']);
+        $this->assertSame(2, $line->metadata['extra_branch_quantity']);
+        $this->assertSame(15000, $line->metadata['additional_branch_price_minor']);
+
+        $snapshot = $contract->snapshot_data;
+        $this->assertSame(3, $snapshot['pricing']['quantity']);
+        $this->assertSame(150000, $snapshot['pricing']['subtotal_minor']);
+        $this->assertSame(24000, $snapshot['pricing']['tax_minor']);
+        $this->assertSame(174000, $snapshot['pricing']['total_minor']);
     }
 
     /* ----------------------------------------------------------------------
