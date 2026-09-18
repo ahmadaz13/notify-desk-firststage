@@ -192,6 +192,13 @@ document.addEventListener('click', function(e) {
         return;
     }
 
+    var triggerRecordPayment = e.target.closest('[data-trigger-record-payment]');
+    if (triggerRecordPayment) {
+        e.preventDefault();
+        openModal('modal-record-payment');
+        return;
+    }
+
     var closer = e.target.closest('[data-close-action-modal]');
     if (closer) {
         e.preventDefault();

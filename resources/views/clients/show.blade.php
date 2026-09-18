@@ -125,6 +125,7 @@
                     $pIsCreateApt = $pType === 'create_appointment' || $pUrl === '#sec-create-appointment';
                     $pIsClose = $pType === 'close_client' || $pUrl === '#sec-close-client';
                     $pIsStartSub = $pType === 'start_subscription' || $pUrl === '#sec-paid-subscriptions';
+                    $pIsRecordPayment = $pType === 'record_payment' || $pUrl === '#sec-record-payment';
                 @endphp
                 <div class="notify-workspace-primary-action">
                     @if($pIsCall)
@@ -169,6 +170,12 @@
                                 data-trigger-start-subscription>
                             <span>{{ $primaryAction['label'] }}</span>
                         </button>
+                    @elseif($pIsRecordPayment && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::RECORD_PAYMENT))
+                        <button type="button"
+                                class="notify-button notify-button--primary notify-button--hero"
+                                data-trigger-record-payment>
+                            <span>{{ $primaryAction['label'] }}</span>
+                        </button>
                     @elseif(str_starts_with($pUrl, '#'))
                         <a href="{{ $pUrl }}"
                            class="notify-button notify-button--primary notify-button--hero"
@@ -201,6 +208,7 @@
                             $sIsCreateApt = $sType === 'create_appointment' || $sUrl === '#sec-create-appointment';
                             $sIsClose = $sType === 'close_client' || $sUrl === '#sec-close-client';
                             $sIsStartSub = $sType === 'start_subscription' || $sUrl === '#sec-paid-subscriptions';
+                            $sIsRecordPayment = $sType === 'record_payment' || $sUrl === '#sec-record-payment';
                         @endphp
                         @if($sIsCall)
                             <button type="button"
@@ -242,6 +250,12 @@
                             <button type="button"
                                     class="notify-button notify-button--soft"
                                     data-trigger-start-subscription>
+                                <span>{{ $secAction['label'] }}</span>
+                            </button>
+                        @elseif($sIsRecordPayment && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::RECORD_PAYMENT))
+                            <button type="button"
+                                    class="notify-button notify-button--soft"
+                                    data-trigger-record-payment>
                                 <span>{{ $secAction['label'] }}</span>
                             </button>
                         @elseif(str_starts_with($sUrl, '#'))
@@ -339,11 +353,11 @@
 
                     @if(!empty($amountDue['total_minor']) && $amountDue['total_minor'] > 0 && !empty($amountDue['can_record_payment']))
                         <div class="notify-amount-due-box__action">
-                            <a href="#sec-record-payment"
+                            <button type="button"
                                class="notify-button notify-button--primary notify-button--sm"
-                               data-scroll-to="#sec-record-payment">
+                               data-trigger-record-payment>
                                 <span>{{ __('notify.client_workspace.action_record_payment') }}</span>
-                            </a>
+                            </button>
                         </div>
                     @endif
                 </div>
@@ -488,6 +502,12 @@
 
 @include('clients.workspace.actions.close-client', [
     'client' => $client,
+])
+
+@include('clients.workspace.actions.record-payment', [
+    'client' => $client,
+    'amountDue' => $amountDue,
+    'paymentMethodOptions' => $paymentMethodOptions ?? [],
 ])
 
 @include('clients.workspace.actions.start-subscription', [

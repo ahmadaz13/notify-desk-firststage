@@ -75,6 +75,7 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/clients/{client}/guided-subscription', [GuidedSubscriptionController::class, 'store'])->name('clients.guided-subscription.store');
     Route::post('/clients/{client}/paid-subscriptions', [BillingController::class, 'startPaidSubscription'])->name('clients.paid-subscriptions.store');
     Route::post('/clients/{client}/one-time-invoices', [BillingController::class, 'storeOneTimeInvoice'])->name('clients.one-time-invoices.store');
+    Route::post('/clients/{client}/payments/normal', [CollectionsController::class, 'storeNormalPayment'])->name('clients.payments.normal.store');
     Route::post('/clients/{client}/collections/payments', [CollectionsController::class, 'storePayment'])->name('clients.collections.payments.store');
     Route::post('/clients/{client}/credit-notes', [CollectionsController::class, 'storeCreditNote'])->name('clients.credit-notes.store');
     Route::patch('/clients/{client}/stage', [ClientStageController::class, 'update'])->name('clients.stage.update');
