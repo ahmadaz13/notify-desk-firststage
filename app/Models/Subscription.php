@@ -31,6 +31,8 @@ class Subscription extends Model
         'tax_rate_bps',
         'tax_minor_v2',
         'total_minor',
+        'agreed_value_minor',
+        'payment_terms',
         'current_period_start',
         'current_period_end',
         'next_billing_date',
@@ -82,6 +84,7 @@ class Subscription extends Model
         'tax_rate_bps' => 'integer',
         'tax_minor_v2' => 'integer',
         'total_minor' => 'integer',
+        'agreed_value_minor' => 'integer',
         'current_period_start' => 'date',
         'current_period_end' => 'date',
         'next_billing_date' => 'date',
@@ -140,6 +143,18 @@ class Subscription extends Model
     public function contracts(): HasMany
     {
         return $this->hasMany(Contract::class)->orderByDesc('id');
+    }
+
+    public function contract(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Contract::class)->latestOfMany();
+    }
+
+    public function systems(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'subscription_system')
+            ->withPivot(['system_code_snapshot', 'system_name_ar_snapshot', 'system_name_en_snapshot'])
+            ->withTimestamps();
     }
 
     public function invoices(): HasMany

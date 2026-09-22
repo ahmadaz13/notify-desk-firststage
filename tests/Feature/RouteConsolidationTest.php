@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Client;
-use App\Models\Partner;
 use App\Models\User;
 use App\Support\ClientLifecycle;
 use Database\Seeders\ExpenseCategorySeeder;
@@ -102,32 +101,4 @@ class RouteConsolidationTest extends TestCase
         );
     }
 
-    public function test_legacy_partner_role_is_blocked_and_admin_navigation_remains(): void
-    {
-        $partner = Partner::create([
-            'company_name' => 'شريك تجاري',
-            'email' => 'partner@partner.com',
-            'phone' => '0794443322',
-        ]);
-        $partnerUser = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-        $admin = User::factory()->create([
-            'role' => 'admin',
-        ]);
-
-        $partnerResponse = $this->actingAs($partnerUser)->get(route('clients.index'));
-        $partnerResponse->assertForbidden();
-
-        // Admin sees management links
-        $adminResponse = $this->actingAs($admin)->get(route('dashboard'));
-        $adminResponse->assertOk();
-        $adminResponse->assertSee(route('settings.index'));
-        $adminResponse->assertSee(route('conflicts.index'));
-        $adminResponse->assertSee(route('clients.import'));
-        $adminResponse->assertSee('data-shell-action="add-client"', false);
-        $adminResponse->assertSee('href="'.route('clients.create').'"', false);
-        $adminResponse->assertDontSee('quick-expense-fab-btn', false);
-    }
 }

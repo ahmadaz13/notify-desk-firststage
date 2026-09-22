@@ -731,7 +731,7 @@ class DailyOperationsPhase05Test extends TestCase
 
         // Direct write route to start subscription is forbidden for staff
         $this->actingAs($this->staff)
-            ->post(route('clients.paid-subscriptions.store', $client->id), [])
+            ->post(route('clients.guided-subscription.store', $client->id), [])
             ->assertForbidden();
 
         // Direct payment route is forbidden for staff

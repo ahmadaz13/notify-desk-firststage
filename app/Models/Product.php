@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
@@ -18,6 +19,8 @@ class Product extends Model
         'description_ar',
         'description_en',
         'is_active',
+        'default_monthly_price_minor',
+        'default_annual_price_minor',
         'archived_at',
         'created_by',
     ];
@@ -25,6 +28,8 @@ class Product extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'archived_at' => 'datetime',
+        'default_monthly_price_minor' => 'integer',
+        'default_annual_price_minor' => 'integer',
     ];
 
     public function plans(): HasMany
@@ -44,6 +49,20 @@ class Product extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function clients(): BelongsToMany
+    {
+        return $this->belongsToMany(Client::class, 'client_system')
+            ->withPivot(['access_type', 'granted_at', 'revoked_at', 'note', 'granted_by'])
+            ->withTimestamps();
+    }
+
+    public function subscriptions(): BelongsToMany
+    {
+        return $this->belongsToMany(Subscription::class, 'subscription_system')
+            ->withPivot(['system_code_snapshot', 'system_name_ar_snapshot', 'system_name_en_snapshot'])
+            ->withTimestamps();
     }
 
     public function scopeSellable($query)

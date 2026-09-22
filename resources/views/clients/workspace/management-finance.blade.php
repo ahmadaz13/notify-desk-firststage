@@ -99,7 +99,6 @@
                 {{-- Backward compatibility routes container (hidden from normal human view) --}}
                 <div hidden aria-hidden="true" style="display:none">
                     <form method="POST" action="{{ route('clients.collections.payments.store', $client) }}"><input type="hidden" name="_token" value="{{ csrf_token() }}"></form>
-                    <form method="POST" action="{{ route('clients.paid-subscriptions.store', $client) }}"><input type="hidden" name="_token" value="{{ csrf_token() }}"></form>
                     <form method="POST" action="{{ route('clients.one-time-invoices.store', $client) }}"><input type="hidden" name="_token" value="{{ csrf_token() }}"></form>
                     <form method="POST" action="{{ route('clients.offers.store', $client) }}"><input type="hidden" name="_token" value="{{ csrf_token() }}"></form>
                 </div>

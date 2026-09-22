@@ -14,7 +14,6 @@ use App\Models\FinancialTransfer;
 use App\Models\FixedAsset;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
-use App\Models\Partner;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\AccountingReconciliationService;
@@ -289,16 +288,6 @@ class FinancePhaseE1Test extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase E1 Partner',
-            'email' => 'phase-e1-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 }

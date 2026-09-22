@@ -36,7 +36,6 @@
         'more' => __('notify.navigation.more'),
         'subscription_management' => __('notify.navigation.subscription_management'),
         'products_pricing' => __('notify.navigation.products_pricing'),
-        'partners' => __('notify.navigation.partners'),
         'collections' => __('notify.navigation.collections'),
         'finance' => __('notify.navigation.finance'),
         'expenses' => __('notify.navigation.expenses'),
@@ -44,7 +43,6 @@
         'executive' => __('notify.navigation.executive'),
         'saas' => __('notify.navigation.saas'),
         'import' => __('notify.navigation.import'),
-        'conflicts' => __('notify.navigation.conflicts'),
         'settings' => __('notify.navigation.settings'),
         'administration' => __('notify.navigation.administration') ?: 'Administration',
         'financial_accounts' => __('notify.navigation.financial_accounts'),
@@ -86,9 +84,7 @@
 
     $isAdministration = request()->routeIs('commercial-catalog.*')
         || request()->routeIs('administration.*')
-        || request()->routeIs('partners.*')
         || request()->routeIs('settings.*')
-        || request()->routeIs('conflicts.*')
         || request()->routeIs('custom-projects.*')
         || request()->routeIs('clients.custom-projects.*')
         || request()->routeIs('clients.import*');
@@ -177,13 +173,6 @@
         }
         if ($admin) {
             $adminSubLinks[] = [
-                'id'     => 'partners',
-                'label'  => $labels['partners'],
-                'href'   => route('partners.index'),
-                'icon'   => 'building',
-                'active' => $isRoute(['partners.*']),
-            ];
-            $adminSubLinks[] = [
                 'id'     => 'team',
                 'label'  => __('notify.navigation.team') ?: 'الفريق',
                 'href'   => route('administration.team'),
@@ -198,15 +187,6 @@
                 'href'   => route('clients.import'),
                 'icon'   => 'clipboard-list',
                 'active' => $isRoute(['clients.import*']),
-            ];
-        }
-        if ($admin) {
-            $adminSubLinks[] = [
-                'id'     => 'conflicts',
-                'label'  => $labels['conflicts'],
-                'href'   => route('conflicts.index'),
-                'icon'   => 'activity',
-                'active' => $isRoute(['conflicts.*']),
             ];
         }
         if ($allows(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG)) {

@@ -176,10 +176,9 @@ class Phase1FinancialSafetyTest extends TestCase
 
         $payload = [
             '_idempotency_key' => $idempotencyKey,
-            'product_id' => $this->product->id,
-            'plan_id' => $this->plan->id,
+            'system_ids' => [$this->product->id],
             'billing_interval' => 'monthly',
-            'quantity' => 1,
+            'agreed_value_jod' => '50.000',
             'start_date' => now()->toDateString(),
         ];
 
@@ -416,23 +415,6 @@ class Phase1FinancialSafetyTest extends TestCase
         } catch (\DomainException $e) {
             $this->assertStringContainsString('cannot be deleted', $e->getMessage());
         }
-    }
-
-    public function test_validation_error_on_plan_price_does_not_leak_raw_snake_case_message(): void
-    {
-        // Post without plan_price_id and without fallback adapter params
-        $response = $this->actingAs($this->admin)
-            ->post(route('clients.paid-subscriptions.store', $this->client->id), [
-                'quantity' => 1,
-                'start_date' => now()->toDateString(),
-            ]);
-
-        $response->assertSessionHasErrors('plan_price_id');
-        $errorMessage = session('errors')->first('plan_price_id');
-
-        // Verify that raw "The plan price id field is required." is NOT emitted
-        $this->assertStringNotContainsString('The plan price id field is required.', $errorMessage);
-        $this->assertStringNotContainsString('plan_price_id', $errorMessage);
     }
 
     public function test_today_and_work_action_labels_render_translated_strings_not_raw_keys(): void
@@ -800,57 +782,4 @@ class Phase1FinancialSafetyTest extends TestCase
         app()->setLocale('ar');
     }
 
-    public function test_safe_subscription_adapter_enforces_product_matching_and_planprice_authority(): void
-    {
-        $product2 = Product::create([
-            'name_ar' => 'منتج ثان',
-            'name_en' => 'Second Product',
-            'code' => 'PROD_2',
-            'is_active' => true,
-        ]);
-
-        // Attempting to subscribe with plan_price_id belonging to Product 1 while specifying Product 2
-        $response = $this->actingAs($this->admin)
-            ->post(route('clients.paid-subscriptions.store', $this->client), [
-                '_idempotency_key' => (string) Str::uuid(),
-                'product_id' => $product2->id,
-                'plan_price_id' => $this->monthlyPrice->id,
-                'quantity' => 1,
-                'start_date' => now()->toDateString(),
-                'custom_price' => '1.000', // Attempting to tamper with price
-            ]);
-
-        $response->assertSessionHasErrors(['plan_id']);
-
-        // Now subscribe validly with correct product
-        $validKey = (string) Str::uuid();
-        $responseValid = $this->actingAs($this->admin)
-            ->post(route('clients.paid-subscriptions.store', $this->client), [
-                '_idempotency_key' => $validKey,
-                'product_id' => $this->product->id,
-                'plan_price_id' => $this->monthlyPrice->id,
-                'quantity' => 1,
-                'start_date' => now()->toDateString(),
-                'custom_price' => '1.000', // Attempting to override price
-            ]);
-
-        $responseValid->assertRedirect();
-
-        // Verify PlanPrice authority: invoice total is 50.000 JOD (monthlyPrice 50000 fils), NOT 1.000
-        $subscription = Subscription::where('client_id', $this->client->id)->latest()->firstOrFail();
-        $invoice = Invoice::where('subscription_id', $subscription->id)->firstOrFail();
-        $this->assertEquals(50000, $invoice->total_minor);
-
-        // Verify same-product subscription conflict prevents duplicate active subscription
-        $responseConflict = $this->actingAs($this->admin)
-            ->post(route('clients.paid-subscriptions.store', $this->client), [
-                '_idempotency_key' => (string) Str::uuid(),
-                'product_id' => $this->product->id,
-                'plan_price_id' => $this->monthlyPrice->id,
-                'quantity' => 1,
-                'start_date' => now()->toDateString(),
-            ]);
-
-        $responseConflict->assertSessionHasErrors(['plan_price_id']);
-    }
 }

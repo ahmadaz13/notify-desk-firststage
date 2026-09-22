@@ -10,7 +10,6 @@ use App\Models\CreditNoteLine;
 use App\Models\FinancialAccount;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
-use App\Models\Partner;
 use App\Models\Payment;
 use App\Models\PaymentReversal;
 use App\Models\Refund;
@@ -351,9 +350,9 @@ class FinancePhaseC2BTest extends TestCase
 
     public function test_partner_cannot_create_credit_notes_or_issue_refunds(): void
     {
-        [$partner, $partnerUser] = $this->createPartnerUser();
+        [, $partnerUser] = $this->createPartnerUser();
         $admin = User::factory()->create(['role' => 'admin']);
-        $client = $this->createClient(['partner_id' => $partner->id]);
+        $client = $this->createClient();
         $invoice = $this->createInvoice($client, 10000, '2026-09-14');
         $payment = $this->recordPayment($admin, $client, '1.000');
         $creditNote = $this->createCreditNote($admin, $client, '1.000', '0.000', $invoice);
@@ -504,16 +503,6 @@ class FinancePhaseC2BTest extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase C2B Partner',
-            'email' => 'phase-c2b-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 }

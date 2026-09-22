@@ -6,7 +6,7 @@
         <div class="p5-header-main">
             <div class="p5-eyebrow">{{ __('notify.navigation.administration') }}</div>
             <h1 class="p5-title">الإدارة</h1>
-            <p class="p5-subtitle">إدارة المنتجات والأسعار، الشركاء، الفريق، الاستيراد، والإعدادات الموحدة.</p>
+            <p class="p5-subtitle">إدارة الأنظمة، الفريق، الاستيراد، والإعدادات الموحدة.</p>
         </div>
     </header>
 
@@ -20,8 +20,8 @@
                 <x-notify.icon name="package" :size="24" />
             </div>
             <div class="admin-section-card__body">
-                <h2 class="admin-section-card__title">المنتجات والتسعير</h2>
-                <p class="admin-section-card__desc">إدارة الأنظمة التجارية، الباقات، وإصدارات الأسعار المعتمدة.</p>
+                <h2 class="admin-section-card__title">الأنظمة</h2>
+                <p class="admin-section-card__desc">إدارة الأنظمة المتاحة وأسعارها الافتراضية الاختيارية.</p>
                 <div class="admin-section-card__meta">
                     <span class="p5-badge p5-badge--success">{{ $activeProducts }} نظام فعال</span>
                     <span class="p5-badge p5-badge--neutral">{{ $totalProducts }} إجمالي</span>
@@ -29,35 +29,11 @@
             </div>
             <div class="admin-section-card__footer">
                 <a href="{{ route('commercial-catalog.index') }}" class="p5-btn p5-btn-primary p5-btn-sm">
-                    إدارة الكتالوج
+                    إدارة الأنظمة
                 </a>
             </div>
         </div>
         @endcan
-
-        {{-- 2. Partners --}}
-        @if($isAdmin)
-        <div class="admin-section-card">
-            <div class="admin-section-card__icon">
-                <x-notify.icon name="building" :size="24" />
-            </div>
-            <div class="admin-section-card__body">
-                <h2 class="admin-section-card__title">الشركاء</h2>
-                <p class="admin-section-card__desc">إدارة شركاء الإحالة، معدلات العمولة، وسجلات الإسناد.</p>
-                <div class="admin-section-card__meta">
-                    <span class="p5-badge p5-badge--success">{{ $activePartners }} شريك فعال</span>
-                    @if($pendingConflicts > 0)
-                        <span class="p5-badge p5-badge--warning">{{ $pendingConflicts }} تعارض معلق</span>
-                    @endif
-                </div>
-            </div>
-            <div class="admin-section-card__footer">
-                <a href="{{ route('partners.index') }}" class="p5-btn p5-btn-primary p5-btn-sm">
-                    إدارة الشركاء
-                </a>
-            </div>
-        </div>
-        @endif
 
         {{-- 3. Team & Permissions --}}
         @if($isAdmin)
@@ -100,31 +76,6 @@
             </div>
         </div>
         @endcan
-
-        {{-- 5. Conflicts / Reviews --}}
-        @if($isAdmin)
-        <div class="admin-section-card {{ $pendingConflicts > 0 ? 'admin-section-card--alert' : '' }}">
-            <div class="admin-section-card__icon">
-                <x-notify.icon name="activity" :size="24" />
-            </div>
-            <div class="admin-section-card__body">
-                <h2 class="admin-section-card__title">التعارضات والمراجعات</h2>
-                <p class="admin-section-card__desc">معالجة تعارضات الإحالة وطلبات إعادة التعيين.</p>
-                <div class="admin-section-card__meta">
-                    @if($pendingConflicts > 0)
-                        <span class="p5-badge p5-badge--warning">{{ $pendingConflicts }} بحاجة مراجعة</span>
-                    @else
-                        <span class="p5-badge p5-badge--success">لا توجد تعارضات معلقة</span>
-                    @endif
-                </div>
-            </div>
-            <div class="admin-section-card__footer">
-                <a href="{{ route('conflicts.index') }}" class="p5-btn p5-btn-primary p5-btn-sm">
-                    عرض التعارضات
-                </a>
-            </div>
-        </div>
-        @endif
 
         {{-- 6. Settings --}}
         @can('manage_financial_settings')

@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Client;
-use App\Models\Partner;
 use App\Models\PaymentSchedule;
 use App\Models\Service;
 use App\Models\Subscription;

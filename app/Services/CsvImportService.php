@@ -207,7 +207,6 @@ class CsvImportService
                     'business_type' => $data['business_type'] ?? $data['business_category'],
                     'lead_source' => !empty($data['lead_source']) ? $data['lead_source'] : 'CSV Import',
                     'source_reference' => !empty($data['source_reference']) ? $data['source_reference'] : null,
-                    'partner_id' => null,
                     'primary_owner_id' => $userId,
                     'status' => 'prospect',
                     'stage' => ClientLifecycle::PROSPECT,
@@ -228,7 +227,7 @@ class CsvImportService
                     'metadata' => json_encode([
                         'requested_import_type' => $type,
                         'policy' => 'normal_csv_import_does_not_create_subscriber_or_billing_records',
-                        'referral_policy' => 'csv_import_does_not_create_partner_ownership',
+                        'referral_policy' => 'csv_import_leaves_referral_metadata_empty',
                     ], JSON_UNESCAPED_UNICODE),
                     'created_at' => $now,
                     'updated_at' => $now,

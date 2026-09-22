@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
-use App\Models\Partner;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\PlanPrice;
@@ -246,16 +245,6 @@ class FinancePhaseB2Test extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase B2 Partner',
-            'email' => 'phase-b2-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 }

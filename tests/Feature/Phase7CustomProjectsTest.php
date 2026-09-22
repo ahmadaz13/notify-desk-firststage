@@ -55,7 +55,7 @@ class Phase7CustomProjectsTest extends TestCase
         $this->actingAs($admin)->get(route('custom-projects.edit', $project))->assertOk()->assertSee('Edit project');
         $this->actingAs($admin)->get(route('clients.show', $client))->assertOk()->assertSee('Website');
         $this->actingAs($admin)->get(route('clients.show', ['client' => $client->id, 'finance_advanced' => 1]))
-            ->assertOk()->assertSee('sec-payments');
+            ->assertOk()->assertSee('sec-record-payment');
         $this->actingAs($admin)->put(route('custom-projects.update', $project), [
             'name' => 'Website',
             'agreed_value_jod' => $project->agreedValueFormatted(),

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Partner;
 use App\Models\User;
 use Database\Seeders\SettingsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -43,30 +42,6 @@ class Phase1VerificationTest extends TestCase
         ])->assertRedirect(route('dashboard'));
 
         $this->assertAuthenticatedAs($staff);
-    }
-
-    public function test_partner_login_identifiers_are_unavailable(): void
-    {
-        $partner = Partner::create([
-            'company_name' => 'شركة الأفق الرقمي',
-            'email' => 'partner@al-ofuq.com',
-            'phone' => '0791112233',
-        ]);
-
-        User::factory()->create([
-            'email' => 'partner@al-ofuq.com',
-            'password' => Hash::make('secret12345'),
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        foreach (['partner@al-ofuq.com', '0791112233'] as $identifier) {
-            $this->post(route('login.store'), [
-                'email' => $identifier,
-                'password' => 'secret12345',
-            ])->assertSessionHasErrors('email');
-            $this->assertGuest();
-        }
     }
 
     public function test_canonical_mode_server_rendering(): void

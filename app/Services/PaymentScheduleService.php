@@ -33,7 +33,7 @@ class PaymentScheduleService
         if ($installmentsCount < 2 || $installmentsCount > 12) {
             throw new InvalidArgumentException('Annual installment count must be between 2 and 12.');
         }
-        if (! in_array($dueDay, [1, 5, 15, 30], true)) {
+        if ($dueDay < 1 || $dueDay > 31) {
             throw new InvalidArgumentException('Installment due day is invalid.');
         }
 
@@ -63,7 +63,7 @@ class PaymentScheduleService
     }
 
     /**
-     * Persist an idempotent V2 schedule that remains subordinate to one annual invoice.
+     * Persist an idempotent schedule that remains subordinate to one annual invoice.
      */
     public function ensureAnnualInstallmentSchedule(
         Subscription $subscription,
@@ -72,12 +72,12 @@ class PaymentScheduleService
         int $dueDay
     ): Collection {
         if (
-            $subscription->billing_engine_version !== 'v2'
+            ! in_array($subscription->billing_engine_version, ['v2', 'v1_simple'], true)
             || $subscription->billing_interval_v2 !== 'annual'
             || (int) $invoice->subscription_id !== (int) $subscription->id
         ) {
             throw ValidationException::withMessages([
-                'payment_terms' => 'يمكن إنشاء جدول أقساط V2 لفاتورة اشتراك سنوي فقط.',
+                'payment_terms' => 'يمكن إنشاء جدول أقساط لفاتورة اشتراك سنوي فقط.',
             ]);
         }
 

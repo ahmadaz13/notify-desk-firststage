@@ -29,11 +29,9 @@ class DatabaseSeeder extends Seeder
         $schedule = DB::table('payment_schedules')->insertGetId(['subscription_id' => $subscription, 'amount_due' => 450, 'due_date' => now()->subDays(1)->toDateString(), 'status' => 'due', 'created_at' => $now, 'updated_at' => $now]);
         DB::table('payments')->insert(['client_id' => $clients[1]['id'], 'subscription_id' => $subscription, 'payment_schedule_id' => $schedule, 'amount' => 450, 'payment_method' => 'bank_transfer', 'paid_at' => now(), 'recorded_by' => $khalid, 'notes' => null, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('expenses')->insert(['amount' => 18, 'category' => 'تنقلات', 'date' => now()->toDateString(), 'paid_by' => $ahmad, 'notes' => 'زيارة ميدانية', 'created_at' => $now, 'updated_at' => $now]);
-        $this->call(SettingsSeeder::class);
         $this->call(ExpenseCategorySeeder::class);
         $this->call(AssetCategorySeeder::class);
         $this->call(ServiceCatalogSeeder::class);
-        $this->call(CommercialCatalogSeeder::class);
         $this->call(AccountingSeeder::class);
     }
 }

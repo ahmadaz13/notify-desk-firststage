@@ -55,7 +55,6 @@ class BootstrapFoundersCommand extends Command
                     'password' => Hash::make($password),
                     'role' => User::ROLE_FOUNDER,
                     'is_active' => true,
-                    'partner_id' => null,
                     'email_verified_at' => now(),
                 ]);
 
@@ -75,9 +74,6 @@ class BootstrapFoundersCommand extends Command
                 $changes['is_active'] = true;
             }
 
-            if ($user->partner_id !== null) {
-                $changes['partner_id'] = null;
-            }
 
             if ($resetPasswords) {
                 $changes['password'] = Hash::make($password);

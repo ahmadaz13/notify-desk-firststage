@@ -7,8 +7,6 @@ use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Services\CommercialPricingService;
 use App\Services\InvoiceService;
-use App\Services\PlanPriceService;
-use App\Services\SubscriptionBillingService;
 use App\Support\FinancialPermissions;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -19,81 +17,6 @@ use Illuminate\Validation\Rule;
 
 class BillingController extends Controller
 {
-    public function startPaidSubscription(
-        Request $request,
-        Client $client,
-        PlanPriceService $priceService,
-        SubscriptionBillingService $billingService
-    ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
-
-        if (! $request->filled('plan_price_id') && $request->filled('plan_id') && $request->filled('billing_interval')) {
-            $query = \App\Models\PlanPrice::query()
-                ->where('plan_id', (int) $request->input('plan_id'))
-                ->where('billing_interval', (string) $request->input('billing_interval'))
-                ->where('is_active', true);
-
-            if ($request->filled('product_id')) {
-                $query->whereHas('plan', fn ($q) => $q->where('product_id', (int) $request->input('product_id')));
-            }
-
-            $matchedPrice = $query->first();
-            if ($matchedPrice) {
-                $request->merge(['plan_price_id' => $matchedPrice->id]);
-            }
-        }
-
-        if ($request->filled('product_id')) {
-            $plan = null;
-            if ($request->filled('plan_id')) {
-                $plan = \App\Models\CommercialPlan::find($request->input('plan_id'));
-            } elseif ($request->filled('plan_price_id')) {
-                $priceRec = \App\Models\PlanPrice::with('plan')->find($request->input('plan_price_id'));
-                $plan = $priceRec?->plan;
-            }
-            if ($plan && (int) $plan->product_id !== (int) $request->input('product_id')) {
-                throw ValidationException::withMessages([
-                    'plan_id' => 'الخطة المحددة لا تنتمي إلى المنتج المحدد.',
-                ]);
-            }
-        }
-
-        $validated = $request->validate([
-            'plan_price_id' => 'required|exists:plan_prices,id',
-            'quantity' => 'required|integer|min:1|max:999',
-            'start_date' => 'required|date',
-            'discount_jod' => $this->nullableMoneyRules(),
-            'discount_reason' => 'nullable|string|max:255',
-            'notes' => 'nullable|string|max:1000',
-            'payment_terms' => ['nullable', Rule::in(['full', 'installments'])],
-            'installments_count' => 'nullable|integer|min:2|max:12',
-            'installment_due_day' => ['nullable', 'integer', Rule::in([1, 5, 15, 30])],
-            'preview_only' => 'nullable|boolean',
-        ], [
-            'plan_price_id.required' => __('notify.subscriptions.plan_price_required') ?: 'يرجى اختيار خطة وسعر الاشتراك.',
-            'plan_price_id.exists' => __('notify.subscriptions.plan_price_invalid') ?: 'السعر أو الخطة المختارة غير صالحة.',
-        ], [
-            'plan_price_id' => __('notify.subscriptions.plan_price') ?: 'سعر الخطة',
-        ]);
-
-        $price = $priceService->activeEffectivePrice((int) $validated['plan_price_id']);
-        if ($request->boolean('preview_only')) {
-            return back()
-                ->withInput()
-                ->with('billingTermsPreview', $billingService->previewPaidSubscriptionTerms($price, $validated));
-        }
-
-        [, , $contractResult] = $billingService->startPaidSubscription($client, $price, $validated, auth()->id());
-
-        $response = back()->with('success', 'تم بدء الاشتراك المدفوع وإنشاء الفاتورة الأولى بدون تسجيل أي دفعة.');
-
-        if ($contractResult['status'] !== 'ready') {
-            $response->with('warning', 'تم حفظ الاشتراك والفاتورة، لكن مسودة العقد تحتاج إعادة توليد من قسم العقود دون إنشاء اشتراك أو فاتورة جديدة.');
-        }
-
-        return $response;
-    }
-
     public function storeOneTimeInvoice(
         Request $request,
         Client $client,

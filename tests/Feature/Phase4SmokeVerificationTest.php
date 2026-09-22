@@ -79,9 +79,11 @@ class Phase4SmokeVerificationTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin)->post(route('clients.guided-subscription.store', $client), [
-            'product_id' => $product->id,
-            'plan_id' => $plan->id,
+            '_idempotency_key' => (string) \Illuminate\Support\Str::uuid(),
+            'system_ids' => [$product->id],
             'billing_interval' => 'annual',
+            'agreed_value_jod' => '100.000',
+            'start_date' => now()->toDateString(),
             'payment_terms' => 'installments',
             'installments_count' => 4,
             'installment_due_day' => 5,
@@ -103,7 +105,6 @@ class Phase4SmokeVerificationTest extends TestCase
         $workspaceResponse = $this->actingAs($this->admin)->get(route('clients.show', $client));
         $workspaceResponse->assertOk()
             ->assertSee('برنامج نقاط البيع المتطور')
-            ->assertSee('الباقة المتقدمة')
             ->assertSee(route('contracts.print', $client->contracts()->first()->id), false);
     }
 
@@ -125,20 +126,22 @@ class Phase4SmokeVerificationTest extends TestCase
         // Create active subscription
         $this->actingAs($this->admin)->post(route('clients.guided-subscription.store', $client), [
             '_idempotency_key' => (string) \Illuminate\Support\Str::uuid(),
-            'product_id' => $product->id,
-            'plan_id' => $plan->id,
+            'system_ids' => [$product->id],
             'billing_interval' => 'monthly',
+            'agreed_value_jod' => '30.000',
+            'start_date' => now()->toDateString(),
         ]);
 
         // Attempting to create second active subscription for the same product must fail with validation error
         $secondAttempt = $this->actingAs($this->admin)->post(route('clients.guided-subscription.store', $client), [
             '_idempotency_key' => (string) \Illuminate\Support\Str::uuid(),
-            'product_id' => $product->id,
-            'plan_id' => $plan->id,
+            'system_ids' => [$product->id],
             'billing_interval' => 'monthly',
+            'agreed_value_jod' => '30.000',
+            'start_date' => now()->toDateString(),
         ]);
 
-        $secondAttempt->assertSessionHasErrors(['product_id']);
+        $secondAttempt->assertSessionHasErrors(['system_ids']);
     }
 
     public function test_simplified_record_payment_derives_financial_account_server_side(): void

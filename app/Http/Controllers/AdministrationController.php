@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ConflictResolutionRequest;
-use App\Models\Partner;
 use App\Models\Product;
 use App\Models\User;
 use App\Support\FinancialPermissions;
@@ -37,10 +35,6 @@ class AdministrationController extends Controller
         $activeProducts = Product::where('is_active', true)->whereNull('archived_at')->count();
         $totalProducts  = Product::count();
 
-        // Partners summary (admin only)
-        $activePartners   = $isAdmin ? Partner::where('status', 'active')->count() : null;
-        $pendingConflicts = $isAdmin ? ConflictResolutionRequest::where('status', 'pending')->count() : null;
-
         // Team summary (admin only)
         $activeTeamMembers = $isAdmin ? User::where('is_active', true)
             ->whereIn('role', User::activeInternalRoles())
@@ -50,8 +44,6 @@ class AdministrationController extends Controller
             'isAdmin',
             'activeProducts',
             'totalProducts',
-            'activePartners',
-            'pendingConflicts',
             'activeTeamMembers',
         ));
     }
@@ -65,7 +57,7 @@ class AdministrationController extends Controller
         $this->checkAdmin();
 
         $teamMembers = User::whereIn('role', User::activeInternalRoles())
-            ->orderByRaw("FIELD(role, 'founder', 'admin', 'staff')")
+            ->orderByRaw("CASE role WHEN 'founder' THEN 1 WHEN 'admin' THEN 2 WHEN 'staff' THEN 3 ELSE 4 END")
             ->orderBy('name')
             ->get();
 

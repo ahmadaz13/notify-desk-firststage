@@ -12,7 +12,6 @@ use App\Models\FixedAsset;
 use App\Models\FundingSource;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
-use App\Models\Partner;
 use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\User;
@@ -342,16 +341,6 @@ class FinancePhaseF1Test extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase F1 Partner',
-            'email' => 'phase-f1-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 }

@@ -3,10 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Client;
-use App\Models\Partner;
 use App\Models\User;
 use App\Services\OperationalQueueService;
-use App\Support\ClientLifecycle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -38,9 +36,9 @@ class BackendClosureG3IdentityPermissionsTest extends TestCase
         $staff = User::factory()->create(['role' => 'staff']);
 
         $this->actingAs($staff)
-            ->post(route('commercial-catalog.plans.store'), [
-                'code' => 'staff_forbidden',
-                'name_ar' => 'باقة موظف',
+            ->post(route('commercial-catalog.products.store'), [
+                'name_ar' => 'نظام موظف',
+                'name_en' => 'Staff System',
             ])
             ->assertForbidden();
 
@@ -52,11 +50,7 @@ class BackendClosureG3IdentityPermissionsTest extends TestCase
             ])
             ->assertForbidden();
 
-        $this->actingAs($staff)
-            ->post(route('settings.update'), [
-                'currency' => 'JOD',
-            ])
-            ->assertForbidden();
+        $this->actingAs($staff)->get(route('settings.index'))->assertForbidden();
     }
 
     public function test_admin_keeps_approved_high_risk_access(): void
@@ -72,28 +66,4 @@ class BackendClosureG3IdentityPermissionsTest extends TestCase
             ->assertOk();
     }
 
-    public function test_public_referral_ingress_preserves_attribution_without_partner_user_creation(): void
-    {
-        $partner = Partner::create([
-            'company_name' => 'G3 Referral Partner',
-            'email' => 'g3-referral@example.com',
-        ]);
-
-        $this->post(route('public.client.store', $partner->public_uuid), [
-            'phone' => '0795556677',
-            'name' => 'G3 Public Lead',
-            'area' => 'Amman',
-            'source' => 'Referral',
-        ])->assertRedirect(route('public.client.create', $partner->public_uuid));
-
-        $this->assertDatabaseHas('clients', [
-            'business_name' => 'G3 Public Lead',
-            'partner_id' => $partner->id,
-            'stage' => ClientLifecycle::PROSPECT,
-        ]);
-        $this->assertDatabaseMissing('users', [
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-    }
 }

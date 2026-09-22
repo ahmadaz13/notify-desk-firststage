@@ -76,10 +76,9 @@ class ClientWorkspaceViewModel
         $whatsappUrl = self::whatsappUrl($preferredContactData['whatsapp_number'] ?: $contactPhone);
 
         $nextAction = $queues?->nextActionFor($client) ?? null;
-        $partner = $client->partnerAttribution?->partner ?: $client->partner;
-        $commissionBps = $client->partnerAttribution?->commission_bps_snapshot;
+        $commissionBps = $client->referral_commission_bps;
         $commissionLabel = $commissionBps === null
-            ? ($partner ? 'إحالة قديمة بلا لقطة عمولة' : 'عميل مباشر')
+            ? ($client->referred_by_name ? 'لا توجد عمولة محددة' : 'عميل مباشر')
             : sprintf('%d.%02d%%', intdiv($commissionBps, 100), $commissionBps % 100);
 
         // 1. Identity
@@ -134,9 +133,14 @@ class ClientWorkspaceViewModel
             $plan = $sub->plan;
             $product = $plan?->product;
             $preferArabic = str_starts_with(app()->getLocale(), 'ar');
-            $productName = $preferArabic
+            $systemNames = $sub->relationLoaded('systems')
+                ? $sub->systems->map(fn ($system) => $preferArabic
+                    ? ($system->pivot->system_name_ar_snapshot ?: $system->name_ar)
+                    : ($system->pivot->system_name_en_snapshot ?: $system->name_en ?: $system->name_ar))->filter()->join('، ')
+                : '';
+            $productName = $systemNames ?: ($preferArabic
                 ? ($product?->name_ar ?: ($product?->name_en ?: 'Notify Desk'))
-                : ($product?->name_en ?: ($product?->name_ar ?: 'Notify Desk'));
+                : ($product?->name_en ?: ($product?->name_ar ?: 'Notify Desk')));
             $planName = $preferArabic
                 ? ($plan?->name_ar ?: ($plan?->name_en ?: ($sub->plan_name_snapshot ?: __('notify.subscriptions.authorized'))))
                 : ($plan?->name_en ?: ($plan?->name_ar ?: ($sub->plan_name_snapshot ?: __('notify.subscriptions.authorized'))));
@@ -304,8 +308,8 @@ class ClientWorkspaceViewModel
             'lead_source' => (string) ($client->lead_source ?: 'غير محدد'),
             'source_reference' => $client->source_reference ?: null,
             'number_of_branches' => (int) ($client->number_of_branches ?: 1),
-            'partner_name' => $partner?->company_name ?: null,
-            'partner_commission' => ($actor?->isAdmin() ?? false) ? $commissionLabel : null,
+            'referred_by_name' => $client->referred_by_name,
+            'referral_commission' => ($actor?->isAdmin() ?? false) ? $commissionLabel : null,
             'notes' => $client->notes ?: null,
             'contacts' => $client->contacts,
         ];
@@ -369,7 +373,7 @@ class ClientWorkspaceViewModel
                 ['label' => 'المنطقة والمدينة', 'value' => trim(collect([$client->city ?: $client->city_area, $client->area])->filter()->join(' / ')) ?: 'غير محدد'],
                 ['label' => 'نوع النشاط والفئة', 'value' => ($client->business_type ?: $client->business_category ?: 'غير محدد').' · '.($client->number_of_branches ?? 1).' فروع'],
                 ['label' => 'مصدر العميل', 'value' => trim(($client->lead_source ?: 'غير محدد').' '.($client->source_reference ? '· '.$client->source_reference : ''))],
-                ['label' => 'شريك الإحالة', 'value' => $partner?->company_name ?: 'لا يوجد', 'meta' => $commissionLabel],
+                ['label' => 'الإحالة', 'value' => $client->referred_by_name ?: 'لا يوجد', 'meta' => $commissionLabel],
                 ['label' => 'الحضور الرقمي', 'value' => collect([$client->instagram, $client->website])->filter()->join(' · ') ?: 'غير محدد'],
                 ['label' => 'الموقع', 'value' => $client->location_text ?: ($client->maps_url ?: 'غير محدد')],
             ],

@@ -11,9 +11,9 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientContactController;
 use App\Http\Controllers\ClientReviewItemController;
 use App\Http\Controllers\ClientStageController;
+use App\Http\Controllers\ClientSystemAccessController;
 use App\Http\Controllers\CommercialCatalogController;
 use App\Http\Controllers\CollectionsController;
-use App\Http\Controllers\ConflictResolutionController;
 use App\Http\Controllers\ContactAttemptController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\CsvImportController;
@@ -31,8 +31,6 @@ use App\Http\Controllers\MeetingOutcomeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperatingExpenseController;
 use App\Http\Controllers\OfferController;
-use App\Http\Controllers\PartnerController;
-use App\Http\Controllers\PublicClientController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SaasMetricsController;
 use App\Http\Controllers\SubscriptionBillingController;
@@ -47,10 +45,6 @@ Route::get('/health', HealthCheckController::class)->middleware('throttle:60,1')
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.store');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-
-// Public Delegate Form (No Login Required)
-Route::get('/p/{uuid}/client/create', [PublicClientController::class, 'create'])->name('public.client.create');
-Route::post('/p/{uuid}/client', [PublicClientController::class, 'store'])->name('public.client.store');
 
 Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -70,7 +64,8 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::get('/clients/{client}/guided-subscription/catalog', [GuidedSubscriptionController::class, 'catalog'])->name('clients.guided-subscription.catalog');
     Route::post('/clients/{client}/guided-subscription/preview', [GuidedSubscriptionController::class, 'preview'])->name('clients.guided-subscription.preview');
     Route::post('/clients/{client}/guided-subscription', [GuidedSubscriptionController::class, 'store'])->middleware('financial.idempotency')->name('clients.guided-subscription.store');
-    Route::post('/clients/{client}/paid-subscriptions', [BillingController::class, 'startPaidSubscription'])->middleware('financial.idempotency')->name('clients.paid-subscriptions.store');
+    Route::post('/clients/{client}/system-access', [ClientSystemAccessController::class, 'store'])->name('clients.system-access.store');
+    Route::delete('/clients/{client}/system-access/{system}', [ClientSystemAccessController::class, 'destroy'])->name('clients.system-access.destroy');
     Route::post('/clients/{client}/one-time-invoices', [BillingController::class, 'storeOneTimeInvoice'])->middleware('financial.idempotency')->name('clients.one-time-invoices.store');
     Route::post('/clients/{client}/payments/normal', [CollectionsController::class, 'storeNormalPayment'])->middleware('financial.idempotency')->name('clients.payments.normal.store');
     Route::post('/clients/{client}/collections/payments', [CollectionsController::class, 'storePayment'])->middleware('financial.idempotency')->name('clients.collections.payments.store');
@@ -101,10 +96,8 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/credit-notes/{creditNote}/refunds', [CollectionsController::class, 'refundCreditNote'])->middleware('financial.idempotency')->name('credit-notes.refunds.store');
 
     // Subscriptions Workflow
-    Route::post('/subscriptions/{subscription}/plan-change', [SubscriptionController::class, 'schedulePlanChange'])->name('subscriptions.plan-change.schedule');
     Route::post('/subscriptions/{subscription}/cancel', [SubscriptionController::class, 'scheduleCancellation'])->name('subscriptions.cancel');
     Route::post('/subscriptions/{subscription}/cancel/undo', [SubscriptionController::class, 'undoCancellation'])->name('subscriptions.cancel.undo');
-    Route::post('/subscriptions/{subscription}/reactivate', [SubscriptionController::class, 'reactivate'])->name('subscriptions.reactivate');
     Route::post('/invoices/{invoice}/void', [BillingController::class, 'voidInvoice'])->middleware('financial.idempotency')->name('invoices.void');
 
     // Contracts Workflow
@@ -116,14 +109,6 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/contracts/{contract}/issue', [ContractController::class, 'issue'])->name('contracts.issue');
     Route::post('/contracts/{contract}/void', [ContractController::class, 'void'])->name('contracts.void');
     Route::post('/contracts/{contract}/supersede', [ContractController::class, 'supersede'])->name('contracts.supersede');
-
-    // Partner Management (Admin Only)
-    Route::resource('partners', PartnerController::class);
-
-    // Conflict Resolution (Admin Only)
-    Route::get('/conflicts', [ConflictResolutionController::class, 'index'])->name('conflicts.index');
-    Route::get('/conflicts/{conflict}', [ConflictResolutionController::class, 'show'])->name('conflicts.show');
-    Route::post('/conflicts/{conflict}/resolve', [ConflictResolutionController::class, 'resolve'])->name('conflicts.resolve');
 
     // Meeting Outcomes
     Route::get('/appointments/{appointment}/outcome', [MeetingOutcomeController::class, 'create'])->name('appointments.outcome.create');
@@ -166,10 +151,6 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/commercial-catalog/products', [CommercialCatalogController::class, 'storeProduct'])->name('commercial-catalog.products.store');
     Route::patch('/commercial-catalog/products/{product}', [CommercialCatalogController::class, 'updateProduct'])->name('commercial-catalog.products.update');
     Route::post('/commercial-catalog/products/{product}/archive', [CommercialCatalogController::class, 'archiveProduct'])->name('commercial-catalog.products.archive');
-    Route::post('/commercial-catalog/plans', [CommercialCatalogController::class, 'storePlan'])->name('commercial-catalog.plans.store');
-    Route::patch('/commercial-catalog/plans/{plan}', [CommercialCatalogController::class, 'updatePlan'])->name('commercial-catalog.plans.update');
-    Route::post('/commercial-catalog/plans/{plan}/archive', [CommercialCatalogController::class, 'archivePlan'])->name('commercial-catalog.plans.archive');
-    Route::post('/commercial-catalog/plans/{plan}/prices', [CommercialCatalogController::class, 'storePrice'])->name('commercial-catalog.prices.store');
     Route::get('/collections', [CollectionsController::class, 'index'])->name('collections.index');
     Route::get('/financial-accounts', [FinancialAccountController::class, 'index'])->name('financial-accounts.index');
     Route::post('/financial-accounts', [FinancialAccountController::class, 'store'])->name('financial-accounts.store');
@@ -218,7 +199,6 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/accounting/revenue-recognition/run', [AccountingController::class, 'recognizeRevenue'])->name('accounting.revenue-recognition.run');
     Route::post('/accounting/revenue-recognition/schedules/{schedule}/confirm', [AccountingController::class, 'confirmRevenueRecognition'])->name('accounting.revenue-recognition.confirm');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
-    Route::post('/settings/update', [SettingsController::class, 'update'])->name('settings.update');
     Route::get('/settings/export', [SettingsController::class, 'export'])->name('settings.export');
 
     // Notifications

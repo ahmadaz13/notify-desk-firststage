@@ -629,6 +629,7 @@
 
 @include('clients.workspace.actions.start-subscription', [
     'client' => $client,
+    'sellableProducts' => $sellableProducts,
 ])
 
 @include('clients.workspace.workspace-scripts')

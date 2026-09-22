@@ -4,12 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\CashMovement;
 use App\Models\Client;
-use App\Models\ClientPartnerAttribution;
 use App\Models\Contract;
 use App\Models\FinancialAccount;
 use App\Models\Invoice;
 use App\Models\PaymentSchedule;
-use App\Models\Partner;
 use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
@@ -19,7 +17,6 @@ use App\Services\AccountingSetupService;
 use App\Services\FinancialAccountService;
 use App\Services\PaymentAllocationService;
 use App\Services\PaymentScheduleService;
-use App\Services\PartnerCommissionService;
 use App\Services\SaasMetricEventService;
 use App\Services\SubscriptionBillingService;
 use App\Support\ClientLifecycle;
@@ -143,20 +140,6 @@ class BillingTermsAndAnnualInstallmentsGate5Test extends TestCase
         $this->assertSame('2027-09-17', $installmentSubscription->next_billing_date->toDateString());
         $this->assertDatabaseCount('invoices', 2);
         $this->assertDatabaseCount('cash_movements', 0);
-
-        $partner = Partner::create([
-            'company_name' => 'Gate 5 Partner',
-            'email' => 'gate5-partner@example.com',
-            'status' => 'active',
-        ]);
-        ClientPartnerAttribution::create([
-            'client_id' => $installmentClient->id,
-            'partner_id' => $partner->id,
-            'commission_bps_snapshot' => 1000,
-            'attributed_at' => now(),
-            'created_by' => $user->id,
-        ]);
-        $this->assertSame(0, app(PartnerCommissionService::class)->summary($partner)['commission_minor']);
 
         $metrics = app(SaasMetricEventService::class);
         $this->assertSame(

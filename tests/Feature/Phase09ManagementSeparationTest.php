@@ -78,9 +78,7 @@ class Phase09ManagementSeparationTest extends TestCase
 
         // Sub-items for Administration
         $response->assertSee('data-nav-destination="products-pricing"', false)
-            ->assertSee('data-nav-destination="partners"', false)
             ->assertSee('data-nav-destination="import"', false)
-            ->assertSee('data-nav-destination="conflicts"', false)
             ->assertSee('data-nav-destination="settings"', false);
 
         // Subordinate engine isolation: Accounting and Financial Accounts are NOT top-level sidebar items

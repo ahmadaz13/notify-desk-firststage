@@ -12,7 +12,6 @@ use App\Models\FixedAsset;
 use App\Models\FixedAssetAcquisitionReversal;
 use App\Models\FundingSource;
 use App\Models\Invoice;
-use App\Models\Partner;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
@@ -321,16 +320,6 @@ class FinancePhaseD2BTest extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase D2B Partner',
-            'email' => 'phase-d2b-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 }

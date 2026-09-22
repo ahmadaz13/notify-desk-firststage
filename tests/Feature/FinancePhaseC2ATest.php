@@ -6,7 +6,6 @@ use App\Models\Client;
 use App\Models\FinancialAccount;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
-use App\Models\Partner;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\PaymentAllocationReversal;
@@ -211,9 +210,9 @@ class FinancePhaseC2ATest extends TestCase
 
     public function test_partner_cannot_reverse_allocation_or_payment(): void
     {
-        [$partner, $partnerUser] = $this->createPartnerUser();
+        [, $partnerUser] = $this->createPartnerUser();
         $admin = User::factory()->create(['role' => 'admin']);
-        $client = $this->createClient(['partner_id' => $partner->id]);
+        $client = $this->createClient();
         $invoice = $this->createInvoice($client, 10000, '2026-09-14');
         $payment = $this->recordPayment($admin, $client, '10.000', [
             ['invoice_id' => $invoice->id, 'amount' => '10.000'],
@@ -354,16 +353,6 @@ class FinancePhaseC2ATest extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase C2A Partner',
-            'email' => 'phase-c2a-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 }

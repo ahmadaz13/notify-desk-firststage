@@ -185,16 +185,17 @@ class Phase3ClientWorkspaceTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin)->post(route('clients.guided-subscription.store', $client), [
-            'product_id' => $product->id,
-            'plan_id' => $plan->id,
+            '_idempotency_key' => (string) \Illuminate\Support\Str::uuid(),
+            'system_ids' => [$product->id],
             'billing_interval' => 'monthly',
+            'agreed_value_jod' => '50.000',
             'start_date' => now()->toDateString(),
         ]);
 
         $response->assertRedirect();
         $this->assertDatabaseHas('subscriptions', [
             'client_id' => $client->id,
-            'plan_id' => $plan->id,
+            'billing_engine_version' => 'v1_simple',
             'status' => 'active',
         ]);
         $this->assertSame(ClientLifecycle::SUBSCRIBER, $client->fresh()->stage);
@@ -266,9 +267,10 @@ class Phase3ClientWorkspaceTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin)->post(route('clients.guided-subscription.store', $client), [
-            'product_id' => $product->id,
-            'plan_id' => $plan->id,
+            '_idempotency_key' => (string) \Illuminate\Support\Str::uuid(),
+            'system_ids' => [$product->id],
             'billing_interval' => 'monthly',
+            'agreed_value_jod' => '70.000',
             'start_date' => now()->toDateString(),
         ]);
 
@@ -334,9 +336,10 @@ class Phase3ClientWorkspaceTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin)->post(route('clients.guided-subscription.store', $client), [
-            'product_id' => $product->id,
-            'plan_id' => $plan->id,
+            '_idempotency_key' => (string) \Illuminate\Support\Str::uuid(),
+            'system_ids' => [$product->id],
             'billing_interval' => 'monthly',
+            'agreed_value_jod' => '40.000',
             'start_date' => now()->toDateString(),
         ]);
 

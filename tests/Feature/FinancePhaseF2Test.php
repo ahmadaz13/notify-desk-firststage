@@ -6,7 +6,6 @@ use App\Models\CashMovement;
 use App\Models\Client;
 use App\Models\FinancialAccount;
 use App\Models\InvoiceLine;
-use App\Models\Partner;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\PlanPrice;
@@ -250,17 +249,7 @@ class FinancePhaseF2Test extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase F2 Partner',
-            'email' => 'phase-f2-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 
     private function period(string $from, string $to): ReportingPeriod

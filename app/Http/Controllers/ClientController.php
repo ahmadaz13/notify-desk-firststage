@@ -8,13 +8,10 @@ use App\Models\CustomProject;
 use App\Models\Installation;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
-use App\Models\Plan;
-use App\Models\Partner;
 use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\ReceivableService;
-use App\Services\ClientPartnerAttributionService;
 use App\Services\ClientOperationalWorkflowService;
 use App\Services\OperationalQueueService;
 use App\Services\PaymentScheduleService;
@@ -95,14 +92,13 @@ class ClientController extends Controller
     {
         Gate::authorize('create', Client::class);
 
-        $partners = Partner::where('status', 'active')->orderBy('company_name')->get();
         $leadSourceOptions = $this->leadSourceOptions();
         $businessCategorySuggestions = $this->businessCategorySuggestions();
 
-        return view('clients.create', compact('partners', 'leadSourceOptions', 'businessCategorySuggestions'));
+        return view('clients.create', compact('leadSourceOptions', 'businessCategorySuggestions'));
     }
 
-    public function store(Request $request, ClientPartnerAttributionService $attributions): RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
         Gate::authorize('create', Client::class);
 
@@ -125,25 +121,13 @@ class ClientController extends Controller
             'contact_person' => 'nullable|string|max:120',
             'primary_contact_role' => ['nullable', Rule::in(['owner', 'manager', 'other'])],
             'notes' => 'nullable|string',
-            'partner_id' => [
-                Rule::requiredIf(fn () => $request->string('lead_source')->toString() === 'Partner'),
-                'nullable',
-                Rule::exists('partners', 'id')->where(fn ($query) => $query->where('status', 'active')),
-            ],
-            'partner_commission_percentage' => 'nullable|numeric|min:0|max:100',
-            'partner_attribution_notes' => 'nullable|string|max:1000',
+            'referred_by_name' => 'nullable|string|max:255',
+            'referral_note' => 'nullable|string|max:1000',
         ], $this->clientValidationMessages());
 
-        $partnerId = $data['lead_source'] === 'Partner' && filled($data['partner_id'] ?? null)
-            ? (int) $data['partner_id']
-            : null;
-        $canManageAttributionTerms = $request->user()->isAdmin();
-        $commissionBps = $canManageAttributionTerms
-            ? $this->percentageToBps($data['partner_commission_percentage'] ?? null)
-            : null;
-        $attributionNotes = $canManageAttributionTerms ? ($data['partner_attribution_notes'] ?? null) : null;
         $primaryContactRole = $data['primary_contact_role'] ?? 'owner';
-        unset($data['partner_id'], $data['partner_commission_percentage'], $data['partner_attribution_notes'], $data['primary_contact_role']);
+        unset($data['primary_contact_role']);
+        $data['referral_commission_bps'] = null;
 
         $data['business_phone'] = filled($data['business_phone'] ?? null) ? $data['business_phone'] : $data['phone'];
         $data['business_type'] = filled($data['business_type'] ?? null) ? $data['business_type'] : $data['business_category'];
@@ -155,10 +139,6 @@ class ClientController extends Controller
         $data['primary_owner_id'] = auth()->id();
 
         $client = Client::create($data);
-
-        if ($partnerId !== null) {
-            $attributions->assign($client, Partner::findOrFail($partnerId), $commissionBps, $attributionNotes, auth()->id());
-        }
 
         DB::table('activity_logs')->insert([
             'client_id' => $client->id,
@@ -193,7 +173,7 @@ class ClientController extends Controller
 
         $client = $clientModel;
         $customProjects = CustomProject::where('client_id', $client->id)->orderByDesc('created_at')->get();
-        $client->load(['contacts', 'primaryContact', 'partner', 'partnerAttribution.partner']);
+        $client->load(['contacts', 'primaryContact', 'systems']);
         $timeline = DB::table('activity_logs')->where('client_id', $client->id)->orderByDesc('created_at')->get();
         $appointments = Appointment::where('client_id', $client->id)->with('users')->orderByDesc('appointment_date')->orderByDesc('appointment_time')->get();
         $payments = \App\Models\Payment::with(['reversal', 'allocations.invoice', 'allocations.reversal'])
@@ -219,6 +199,8 @@ class ClientController extends Controller
             'lifecycleEvents',
             'pendingPlanPrice.plan',
             'contracts',
+            'contract',
+            'systems',
             'invoices',
         ])
             ->where('client_id', $client->id)
@@ -279,14 +261,8 @@ class ClientController extends Controller
             ->whereNull('archived_at')
             ->orderBy('name_ar')
             ->get();
-        $sellableProducts = Product::sellable()
-            ->with(['sellablePlans.services', 'sellablePlans.activePrices' => fn ($query) => $query->effective(now())->orderBy('billing_interval')])
-            ->orderBy('code')
-            ->get();
-        $sellablePlans = Plan::sellable()
-            ->with(['services', 'activePrices' => fn ($query) => $query->effective(now())->orderBy('billing_interval')])
-            ->orderBy('code')
-            ->get();
+        $sellableProducts = Product::sellable()->orderBy('name_ar')->get();
+        $sellablePlans = collect();
         $accountingTrace = collect();
         if (Gate::allows(FinancialPermissions::VIEW_ACCOUNTING)) {
             $sourcePairs = [
@@ -346,19 +322,14 @@ class ClientController extends Controller
         $client = Client::findOrFail($id);
         Gate::authorize('update', $client);
 
-        $client->load(['partnerAttribution', 'contacts', 'primaryContact']);
-        $partners = Partner::query()
-            ->where('status', 'active')
-            ->when($client->partner_id, fn ($query) => $query->orWhere('id', $client->partner_id))
-            ->orderBy('company_name')
-            ->get();
+        $client->load(['contacts', 'primaryContact']);
         $leadSourceOptions = $this->leadSourceOptions($client->lead_source);
         $businessCategorySuggestions = $this->businessCategorySuggestions($client->business_category);
 
-        return view('clients.edit', compact('client', 'partners', 'leadSourceOptions', 'businessCategorySuggestions'));
+        return view('clients.edit', compact('client', 'leadSourceOptions', 'businessCategorySuggestions'));
     }
 
-    public function update(Request $request, int $id, ClientPartnerAttributionService $attributions): RedirectResponse
+    public function update(Request $request, int $id): RedirectResponse
     {
         $client = Client::findOrFail($id);
         Gate::authorize('update', $client);
@@ -382,36 +353,17 @@ class ClientController extends Controller
             'contact_person' => 'nullable|string|max:120',
             'primary_contact_role' => ['nullable', Rule::in(['owner', 'manager', 'other'])],
             'notes' => 'nullable|string',
-            'partner_id' => [
-                Rule::requiredIf(fn () => $request->string('lead_source')->toString() === 'Partner'),
-                'nullable',
-                Rule::exists('partners', 'id')->where(function ($query) use ($client) {
-                    $query->where('status', 'active');
-                    if ($client->partner_id !== null) {
-                        $query->orWhere('id', $client->partner_id);
-                    }
-                }),
-            ],
-            'partner_commission_percentage' => 'nullable|numeric|min:0|max:100',
-            'partner_attribution_notes' => 'nullable|string|max:1000',
+            'referred_by_name' => 'nullable|string|max:255',
+            'referral_commission_percentage' => 'nullable|numeric|min:0|max:100',
+            'referral_note' => 'nullable|string|max:1000',
         ], $this->clientValidationMessages());
 
-        $leadSourceChanged = $data['lead_source'] !== $client->lead_source;
-        $preserveLegacyAttribution = ! $leadSourceChanged
-            && $data['lead_source'] !== 'Partner'
-            && $client->partner_id !== null;
-        $partnerId = $preserveLegacyAttribution
-            ? (int) $client->partner_id
-            : ($data['lead_source'] === 'Partner' && filled($data['partner_id'] ?? null) ? (int) $data['partner_id'] : null);
-        $canManageAttributionTerms = $request->user()->isAdmin();
-        $commissionBps = $canManageAttributionTerms
-            ? $this->percentageToBps($data['partner_commission_percentage'] ?? null)
-            : null;
-        $attributionNotes = $canManageAttributionTerms && $request->has('partner_attribution_notes')
-            ? ($data['partner_attribution_notes'] ?? null)
-            : $client->partnerAttribution?->notes;
         $primaryContactRole = $data['primary_contact_role'] ?? null;
-        unset($data['partner_id'], $data['partner_commission_percentage'], $data['partner_attribution_notes'], $data['primary_contact_role']);
+        $commission = $data['referral_commission_percentage'] ?? null;
+        unset($data['referral_commission_percentage'], $data['primary_contact_role']);
+        $data['referral_commission_bps'] = $request->user()->isAdmin()
+            ? $this->percentageToBps($commission)
+            : $client->referral_commission_bps;
 
         $data['business_phone'] = filled($data['business_phone'] ?? null) ? $data['business_phone'] : $data['phone'];
         $data['business_type'] = filled($data['business_type'] ?? null)
@@ -439,21 +391,6 @@ class ClientController extends Controller
                     'primary_phone' => $data['phone'],
                     'is_primary' => true,
                 ]);
-            }
-        }
-
-        if ($partnerId === null) {
-            $attributions->clear($client);
-        } else {
-            $existing = $client->partnerAttribution;
-            $partner = Partner::findOrFail($partnerId);
-            $preservingArchivedAttribution = (int) $client->partner_id === $partnerId && ! $partner->isActive();
-            if (! $preservingArchivedAttribution) {
-                $snapshotBps = $commissionBps;
-                if ($snapshotBps === null && $existing && (int) $existing->partner_id === $partnerId) {
-                    $snapshotBps = $existing->commission_bps_snapshot;
-                }
-                $attributions->assign($client, $partner, $snapshotBps, $attributionNotes, auth()->id());
             }
         }
 
@@ -486,7 +423,6 @@ class ClientController extends Controller
             'Instagram' => __('notify.clients.lead_sources.instagram'),
             'Referral' => __('notify.clients.lead_sources.referral'),
             'Direct Prospecting' => __('notify.clients.lead_sources.direct_prospecting'),
-            'Partner' => __('notify.clients.lead_sources.partner'),
             'Other' => __('notify.clients.lead_sources.other'),
         ];
 
@@ -520,8 +456,6 @@ class ClientController extends Controller
             'phone.required' => __('notify.clients.validation.phone_required'),
             'city_area.required' => __('notify.clients.validation.city_area_required'),
             'lead_source.required' => __('notify.clients.validation.lead_source_required'),
-            'partner_id.required' => __('notify.clients.validation.partner_id_required'),
-            'partner_id.exists' => __('notify.clients.validation.partner_id_invalid'),
         ];
     }
 

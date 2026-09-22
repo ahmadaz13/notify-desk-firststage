@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -13,11 +14,6 @@ class Client extends Model
     use HasFactory;
 
     protected $guarded = ['id'];
-
-    public function partner(): BelongsTo
-    {
-        return $this->belongsTo(Partner::class);
-    }
 
     public function createdBy(): BelongsTo
     {
@@ -110,9 +106,11 @@ class Client extends Model
         return $this->hasMany(ContactAttempt::class)->orderByDesc('created_at');
     }
 
-    public function partnerAttribution(): HasOne
+    public function systems(): BelongsToMany
     {
-        return $this->hasOne(ClientPartnerAttribution::class);
+        return $this->belongsToMany(Product::class, 'client_system')
+            ->withPivot(['access_type', 'granted_at', 'revoked_at', 'note', 'granted_by'])
+            ->withTimestamps();
     }
 
     public function reviewItems(): HasMany

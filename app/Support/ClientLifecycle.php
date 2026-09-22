@@ -45,7 +45,6 @@ class ClientLifecycle
         'instagram',
         'referral',
         'existing_client',
-        'partner',
         'other',
     ];
 

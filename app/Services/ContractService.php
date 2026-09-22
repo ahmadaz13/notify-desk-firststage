@@ -39,8 +39,9 @@ class ContractService
 
     public function buildSnapshot(Client $client, Subscription $subscription, User $author, ?string $contractNumber = null): array
     {
-        $subscription->loadMissing(['plan.product', 'plan.services', 'invoices']);
+        $subscription->loadMissing(['plan.product', 'plan.services', 'systems', 'invoices']);
         $isV2 = $subscription->billing_engine_version === 'v2' && $subscription->plan !== null;
+        $usesMinorUnits = in_array($subscription->billing_engine_version, ['v2', 'v1_simple'], true);
 
         $services = $isV2
             ? $subscription->plan->services->map(function ($service) {
@@ -56,7 +57,7 @@ class ContractService
                     'source' => 'plan_service',
                 ];
             })->values()->all()
-            : DB::table('subscription_service')
+            : ($subscription->billing_engine_version === 'v1_simple' ? collect() : DB::table('subscription_service')
                 ->where('subscription_id', $subscription->id)
                 ->get()
                 ->map(function ($service) {
@@ -71,7 +72,7 @@ class ContractService
                         'price_contribution' => (float) $service->price_contribution,
                         'source' => 'subscription_service',
                     ];
-                })->all();
+                }))->all();
 
         $schedules = DB::table('payment_schedules')
             ->where('subscription_id', $subscription->id)
@@ -100,7 +101,7 @@ class ContractService
         $plan = $subscription->plan;
         $product = $plan?->product;
 
-        $financial = $isV2
+        $financial = $usesMinorUnits
             ? [
                 'currency' => $subscription->currency ?: 'JOD',
                 'currency_ar' => 'د.أ',
@@ -147,6 +148,12 @@ class ContractService
                 'name_ar' => $product?->name_ar,
                 'name_en' => $product?->name_en,
             ],
+            'systems' => $subscription->systems->map(fn ($system) => [
+                'id' => $system->id,
+                'code' => $system->pivot->system_code_snapshot,
+                'name_ar' => $system->pivot->system_name_ar_snapshot,
+                'name_en' => $system->pivot->system_name_en_snapshot,
+            ])->values()->all(),
             'package' => [
                 'plan_id' => $subscription->plan_id,
                 'plan_code_snapshot' => $subscription->plan_code_snapshot ?: $plan?->code,
@@ -168,6 +175,7 @@ class ContractService
                 'tax_rate_bps' => $subscription->tax_rate_bps !== null ? (int) $subscription->tax_rate_bps : null,
                 'tax_minor' => $subscription->tax_minor_v2 !== null ? (int) $subscription->tax_minor_v2 : null,
                 'total_minor' => $subscription->total_minor !== null ? (int) $subscription->total_minor : null,
+                'agreed_value_minor' => $subscription->agreed_value_minor !== null ? (int) $subscription->agreed_value_minor : null,
             ],
             'subscription' => [
                 'id' => $subscription->id,
@@ -181,9 +189,8 @@ class ContractService
                 'version' => $subscription->version ?? 1,
                 'monthly_due_day' => $subscription->monthly_due_day ?? 1,
                 'installments_count' => $subscription->installments_count ?? 1,
-                'payment_terms' => $isV2 && $subscription->billing_interval_v2 === 'annual' && (int) $subscription->installments_count > 1
-                    ? 'installments'
-                    : 'full',
+                'payment_terms' => $subscription->payment_terms
+                    ?: ($subscription->billing_interval_v2 === 'annual' && (int) $subscription->installments_count > 1 ? 'installments' : 'full'),
             ],
             'invoice' => $initialInvoice ? [
                 'id' => $initialInvoice->id,

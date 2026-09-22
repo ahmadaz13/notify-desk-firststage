@@ -10,7 +10,6 @@ use App\Models\FinancialTransfer;
 use App\Models\FinancialTransferReversal;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
-use App\Models\Partner;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\Refund;
@@ -449,17 +448,7 @@ class FinancePhaseD1Test extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase D1 Partner',
-            'email' => 'phase-d1-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 }
 

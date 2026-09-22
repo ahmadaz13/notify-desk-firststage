@@ -73,14 +73,12 @@ class ApplicationShellNavigationTest extends TestCase
             'administration',
             'subscription-management',
             'products-pricing',
-            'partners',
             'collections',
             'operating-expenses',
             'capital-management',
             'executive',
             'saas-metrics',
             'import',
-            'conflicts',
             'settings',
         ] as $destination) {
             $response->assertSee('data-nav-destination="'.$destination.'"', false);

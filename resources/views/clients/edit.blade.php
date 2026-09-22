@@ -20,7 +20,6 @@
         method="POST"
         action="{{ route('clients.update', $client->id) }}"
         class="notify-prospect-form"
-        x-data="{ leadSource: @js(old('lead_source', $client->lead_source)), partnerId: @js((string) old('partner_id', $client->partner_id)) }"
         x-init="$nextTick(() => { const field = $el.querySelector('[aria-invalid=true]'); if (field) { field.focus(); field.scrollIntoView({ block: 'center' }); } })"
     >
         @csrf
@@ -78,7 +77,7 @@
 
                 <div class="field">
                     <label for="lead_source">{{ __('notify.clients.lead_source') }} *</label>
-                    <select id="lead_source" class="touch-input" name="lead_source" x-model="leadSource" @change="if (leadSource !== 'Partner') partnerId = ''" required @error('lead_source') aria-invalid="true" @enderror>
+                    <select id="lead_source" class="touch-input" name="lead_source" required @error('lead_source') aria-invalid="true" @enderror>
                         <option value="">{{ __('notify.clients.choose_lead_source') }}</option>
                         @foreach($leadSourceOptions as $value => $label)
                             <option value="{{ $value }}" @selected(old('lead_source', $client->lead_source) === $value)>{{ $label }}</option>
@@ -87,15 +86,20 @@
                     @error('lead_source') <span class="error" role="alert">{{ $message }}</span> @enderror
                 </div>
 
-                <div class="field notify-conditional-field" x-cloak x-show="leadSource === 'Partner'">
-                    <label for="partner_id">{{ __('notify.clients.referring_partner') }} *</label>
-                    <select id="partner_id" class="touch-input" name="partner_id" x-model="partnerId" :required="leadSource === 'Partner'" :disabled="leadSource !== 'Partner'" @error('partner_id') aria-invalid="true" @enderror>
-                        <option value="">{{ __('notify.clients.choose_partner') }}</option>
-                        @foreach($partners as $partner)
-                            <option value="{{ $partner->id }}" @selected(old('partner_id', $client->partner_id) == $partner->id)>{{ $partner->company_name }}</option>
-                        @endforeach
-                    </select>
-                    @error('partner_id') <span class="error" role="alert">{{ $message }}</span> @enderror
+                <div class="field">
+                    <label for="referred_by_name">{{ __('notify.clients.referred_by_name') }}</label>
+                    <input id="referred_by_name" class="touch-input" name="referred_by_name" value="{{ old('referred_by_name', $client->referred_by_name) }}" maxlength="255">
+                </div>
+                <div class="field">
+                    <label for="referral_note">{{ __('notify.clients.referral_note') }}</label>
+                    <input id="referral_note" class="touch-input" name="referral_note" value="{{ old('referral_note', $client->referral_note) }}" maxlength="1000">
+                </div>
+                @if(auth()->user()->isAdmin())
+                <div class="field">
+                    <label for="referral_commission_percentage">{{ __('notify.clients.referral_commission_percentage') }}</label>
+                    <input id="referral_commission_percentage" class="touch-input" name="referral_commission_percentage" type="number" min="0" max="100" step="0.01" value="{{ old('referral_commission_percentage', $client->referral_commission_bps === null ? '' : $client->referral_commission_bps / 100) }}">
+                </div>
+                @endif
                 </div>
             </div>
         </div>

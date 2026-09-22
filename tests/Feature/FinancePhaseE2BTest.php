@@ -10,7 +10,6 @@ use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
-use App\Models\Partner;
 use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\RevenueRecognitionAdjustment;
@@ -325,17 +324,7 @@ class FinancePhaseE2BTest extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase E2B Partner',
-            'email' => 'phase-e2b-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 
     private function accountLineTotal(int $chartAccountId): int

@@ -248,17 +248,19 @@ class Phase10FreezeCandidateTest extends TestCase
         // Create Subscription 1 for Product A using guided store
         $this->actingAs($this->admin)->post(route('clients.guided-subscription.store', $client->id), [
             '_idempotency_key' => 'freeze-sub-A-'.\Illuminate\Support\Str::uuid(),
-            'product_id' => $productA->id,
-            'plan_id' => $planA->id,
+            'system_ids' => [$productA->id],
             'billing_interval' => 'monthly',
+            'agreed_value_jod' => '50.000',
+            'start_date' => now()->toDateString(),
         ])->assertRedirect();
 
         // Create Subscription 2 for Product B (allowed because different product)
         $this->actingAs($this->admin)->post(route('clients.guided-subscription.store', $client->id), [
             '_idempotency_key' => 'freeze-sub-B-'.\Illuminate\Support\Str::uuid(),
-            'product_id' => $productB->id,
-            'plan_id' => $planB->id,
+            'system_ids' => [$productB->id],
             'billing_interval' => 'monthly',
+            'agreed_value_jod' => '30.000',
+            'start_date' => now()->toDateString(),
         ])->assertRedirect();
 
         $this->assertDatabaseCount('subscriptions', 2);
@@ -274,12 +276,13 @@ class Phase10FreezeCandidateTest extends TestCase
         // Attempting to start another subscription for Product A through guided subscription should be rejected
         $duplicateResponse = $this->actingAs($this->admin)->post(route('clients.guided-subscription.store', $client->id), [
             '_idempotency_key' => 'freeze-sub-A-dup-'.\Illuminate\Support\Str::uuid(),
-            'product_id' => $productA->id,
-            'plan_id' => $planA->id,
+            'system_ids' => [$productA->id],
             'billing_interval' => 'monthly',
+            'agreed_value_jod' => '50.000',
+            'start_date' => now()->toDateString(),
         ]);
 
-        $duplicateResponse->assertSessionHasErrors(['product_id']);
+        $duplicateResponse->assertSessionHasErrors(['system_ids']);
         $this->assertDatabaseCount('subscriptions', 2);
     }
 
