@@ -28,13 +28,33 @@ class BillingController extends Controller
         Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
 
         if (! $request->filled('plan_price_id') && $request->filled('plan_id') && $request->filled('billing_interval')) {
-            $matchedPrice = \App\Models\PlanPrice::query()
+            $query = \App\Models\PlanPrice::query()
                 ->where('plan_id', (int) $request->input('plan_id'))
                 ->where('billing_interval', (string) $request->input('billing_interval'))
-                ->where('is_active', true)
-                ->first();
+                ->where('is_active', true);
+
+            if ($request->filled('product_id')) {
+                $query->whereHas('plan', fn ($q) => $q->where('product_id', (int) $request->input('product_id')));
+            }
+
+            $matchedPrice = $query->first();
             if ($matchedPrice) {
                 $request->merge(['plan_price_id' => $matchedPrice->id]);
+            }
+        }
+
+        if ($request->filled('product_id')) {
+            $plan = null;
+            if ($request->filled('plan_id')) {
+                $plan = \App\Models\CommercialPlan::find($request->input('plan_id'));
+            } elseif ($request->filled('plan_price_id')) {
+                $priceRec = \App\Models\PlanPrice::with('plan')->find($request->input('plan_price_id'));
+                $plan = $priceRec?->plan;
+            }
+            if ($plan && (int) $plan->product_id !== (int) $request->input('product_id')) {
+                throw ValidationException::withMessages([
+                    'plan_id' => 'الخطة المحددة لا تنتمي إلى المنتج المحدد.',
+                ]);
             }
         }
 

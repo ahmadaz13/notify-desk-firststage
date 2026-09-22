@@ -4,8 +4,11 @@ return [
     'required' => 'حقل :attribute مطلوب.',
     'exists' => 'القيمة المحددة في :attribute غير صالحة.',
     'integer' => 'يجب أن يكون حقل :attribute رقماً صحيحاً.',
+    'numeric' => 'يجب أن يكون حقل :attribute رقماً.',
     'string' => 'يجب أن يكون حقل :attribute نصاً.',
     'date' => 'يجب أن يكون حقل :attribute تاريخاً صالحاً.',
+    'array' => 'يجب أن يكون حقل :attribute مصفوفة.',
+    'boolean' => 'يجب أن يكون حقل :attribute منطقياً.',
     'min' => [
         'numeric' => 'يجب أن تكون قيمة :attribute على الأقل :min.',
     ],

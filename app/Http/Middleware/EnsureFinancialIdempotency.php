@@ -3,10 +3,12 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureFinancialIdempotency
@@ -16,17 +18,22 @@ class EnsureFinancialIdempotency
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $idempotencyKey = $request->header('X-Idempotency-Key')
+        $rawKey = $request->header('X-Idempotency-Key')
             ?: $request->input('_idempotency_key')
             ?: $request->input('idempotency_key');
 
-        if (blank($idempotencyKey)) {
-            return $next($request);
+        $userId = $request->user()?->id;
+
+        if (blank($rawKey)) {
+            // Irreversible financial POST routes must not silently bypass idempotency.
+            // Synthesize an authoritative deterministic key based on authenticated user, route, and payload.
+            $payload = $this->cleanedPayload($request);
+            $idempotencyKey = 'syn_'.substr(hash('sha256', ($userId ?? 'anon').'|'.$request->method().'|'.$request->path().'|'.json_encode($payload)), 0, 48);
+        } else {
+            $idempotencyKey = substr(trim((string) $rawKey), 0, 64);
         }
 
-        $idempotencyKey = substr(trim((string) $idempotencyKey), 0, 64);
         $requestHash = $this->calculateRequestHash($request);
-        $userId = $request->user()?->id;
 
         // Atomically claim the idempotency key
         try {
@@ -51,9 +58,19 @@ class EnsureFinancialIdempotency
                 return $next($request);
             }
 
-            // Check payload conflict
+            // Verify key owner (prevent cross-user key collision, response leak, or authorization bypass)
+            if ($record->user_id !== null && (int) $record->user_id !== (int) $userId) {
+                return $this->conflictResponse($request, 'Idempotency key conflict: key belongs to another authenticated user.');
+            }
+
+            // Check payload & route conflict
             if ($record->request_hash !== $requestHash) {
                 return $this->conflictResponse($request);
+            }
+
+            // If committed with downstream error in prior attempt, block re-execution to prevent duplicate business record
+            if ($record->status === 'committed_error') {
+                return $this->conflictResponse($request, 'Financial transaction was committed in a previous attempt. Re-execution blocked.');
             }
 
             // If processing, wait briefly for concurrent execution
@@ -62,6 +79,9 @@ class EnsureFinancialIdempotency
                 if (! $record || $record->status !== 'completed') {
                     if ($record && $record->request_hash !== $requestHash) {
                         return $this->conflictResponse($request);
+                    }
+                    if ($record && $record->status === 'committed_error') {
+                        return $this->conflictResponse($request, 'Financial transaction was committed in a previous attempt. Re-execution blocked.');
                     }
 
                     return $this->conflictResponse($request, 'A duplicate financial request is currently processing. Please wait.');
@@ -72,7 +92,7 @@ class EnsureFinancialIdempotency
                 return $this->reconstructResponse($record);
             }
 
-            // If failed, allow retry
+            // If failed without business commit, allow retry
             DB::table('idempotency_keys')
                 ->where('key', $idempotencyKey)
                 ->update([
@@ -81,26 +101,41 @@ class EnsureFinancialIdempotency
                 ]);
         }
 
+        $businessTransactionCommitted = false;
+        $activeListener = true;
+        Event::listen(TransactionCommitted::class, function () use (&$businessTransactionCommitted, &$activeListener) {
+            if ($activeListener && DB::transactionLevel() === 0) {
+                $businessTransactionCommitted = true;
+            }
+        });
+
         try {
             $response = $next($request);
         } catch (\Throwable $e) {
+            $activeListener = false;
+            $finalStatus = $businessTransactionCommitted ? 'committed_error' : 'failed';
             DB::table('idempotency_keys')
                 ->where('key', $idempotencyKey)
                 ->update([
-                    'status' => 'failed',
+                    'status' => $finalStatus,
                     'updated_at' => now(),
                 ]);
 
             throw $e;
+        } finally {
+            $activeListener = false;
         }
 
-        if ($response->getStatusCode() < 400) {
+        $hasValidationErrors = $request->hasSession() && $request->session()->has('errors');
+
+        if ($response->getStatusCode() < 400 && ! $hasValidationErrors) {
             $this->storeCompletedOutcome($idempotencyKey, $response, $request);
         } else {
+            $finalStatus = $businessTransactionCommitted ? 'committed_error' : 'failed';
             DB::table('idempotency_keys')
                 ->where('key', $idempotencyKey)
                 ->update([
-                    'status' => 'failed',
+                    'status' => $finalStatus,
                     'response_code' => $response->getStatusCode(),
                     'updated_at' => now(),
                 ]);
@@ -109,12 +144,42 @@ class EnsureFinancialIdempotency
         return $response;
     }
 
+    /**
+     * Clean up completed synthetic in-flight idempotency records after response delivery.
+     * Preserves explicit keys (for 24h replay), committed_error keys (to prevent duplicate creation),
+     * and in-flight processing records (to prevent double clicks).
+     */
+    public function terminate(Request $request, Response $response): void
+    {
+        $rawKey = $request->header('X-Idempotency-Key')
+            ?: $request->input('_idempotency_key')
+            ?: $request->input('idempotency_key');
+
+        if (blank($rawKey)) {
+            $userId = $request->user()?->id;
+            $payload = $this->cleanedPayload($request);
+            $key = 'syn_'.substr(hash('sha256', ($userId ?? 'anon').'|'.$request->method().'|'.$request->path().'|'.json_encode($payload)), 0, 48);
+
+            DB::table('idempotency_keys')
+                ->where('key', $key)
+                ->whereIn('status', ['completed', 'failed'])
+                ->delete();
+        }
+    }
+
     private function calculateRequestHash(Request $request): string
+    {
+        $payload = $this->cleanedPayload($request);
+
+        return hash('sha256', ($request->user()?->id ?? 'anon').'|'.$request->method().'|'.$request->path().'|'.json_encode($payload));
+    }
+
+    private function cleanedPayload(Request $request): array
     {
         $payload = $request->except(['_token', '_idempotency_key', 'idempotency_key']);
         ksort($payload);
 
-        return hash('sha256', $request->method().'|'.$request->path().'|'.json_encode($payload));
+        return $payload;
     }
 
     private function waitForCompletion(string $key): ?object

@@ -4,8 +4,11 @@ return [
     'required' => 'The :attribute field is required.',
     'exists' => 'The selected :attribute is invalid.',
     'integer' => 'The :attribute field must be an integer.',
+    'numeric' => 'The :attribute field must be a number.',
     'string' => 'The :attribute field must be a string.',
     'date' => 'The :attribute field must be a valid date.',
+    'array' => 'The :attribute field must be an array.',
+    'boolean' => 'The :attribute field must be true or false.',
     'min' => [
         'numeric' => 'The :attribute field must be at least :min.',
     ],

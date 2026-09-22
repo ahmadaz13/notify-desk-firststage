@@ -505,4 +505,291 @@ class Phase1FinancialSafetyTest extends TestCase
         $this->assertEquals($journal1->id, $journal2->id);
         $this->assertDatabaseCount('journal_entries', 1);
     }
+
+    public function test_missing_idempotency_key_does_not_silently_bypass_financial_idempotency(): void
+    {
+        $category = ExpenseCategory::firstOrCreate(
+            ['key' => 'office_supplies_unkeyed'],
+            ['name' => 'Office Supplies Unkeyed', 'name_ar' => 'قرطاسية بدون مفتاح', 'is_active' => true]
+        );
+
+        $payload = [
+            'amount' => '42.000',
+            'category_id' => $category->id,
+            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
+            'financial_account_id' => $this->cashAccount->id,
+            'incurred_on' => now()->toDateString(),
+            'paid_at' => now()->toDateString(),
+            'description' => 'Unkeyed Protected Expense',
+        ];
+
+        // First execution succeeds
+        $res1 = $this->actingAs($this->admin)
+            ->post(route('operating-expenses.store'), $payload);
+        $res1->assertRedirect();
+        $this->assertDatabaseCount('expenses', 1);
+
+        // Simulate concurrent in-flight execution of identical unkeyed request
+        $cleaned = collect($payload)->except(['_token', '_idempotency_key', 'idempotency_key'])->sortKeys()->toArray();
+        $synKey = 'syn_'.substr(hash('sha256', $this->admin->id.'|POST|operating-expenses|'.json_encode($cleaned)), 0, 48);
+        $hash = hash('sha256', $this->admin->id.'|POST|operating-expenses|'.json_encode($cleaned));
+
+        DB::table('idempotency_keys')->insert([
+            'key' => $synKey,
+            'request_hash' => $hash,
+            'status' => 'processing',
+            'user_id' => $this->admin->id,
+            'expires_at' => now()->addHours(24),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // A concurrent unkeyed request arriving now sees the in-flight claim and is blocked from creating a duplicate!
+        $res2 = $this->actingAs($this->admin)
+            ->post(route('operating-expenses.store'), $payload);
+
+        $res2->assertStatus(409);
+        $this->assertDatabaseCount('expenses', 1);
+    }
+
+    public function test_transaction_crash_window_blocks_retry_if_committed_with_error(): void
+    {
+        $category = ExpenseCategory::firstOrCreate(
+            ['key' => 'crash_window_cat'],
+            ['name' => 'Crash Window Test', 'name_ar' => 'اختبار نافذة الانهيار', 'is_active' => true]
+        );
+
+        $key = 'crash-window-test-key-'.Str::uuid();
+        $payload = [
+            '_idempotency_key' => $key,
+            'amount' => '15.000',
+            'category_id' => $category->id,
+            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
+            'financial_account_id' => $this->cashAccount->id,
+            'incurred_on' => now()->toDateString(),
+            'paid_at' => now()->toDateString(),
+            'description' => 'Crash Window Expense',
+        ];
+
+        // Simulate committed_error state: business transaction committed, but outcome was marked committed_error
+        $cleaned = collect($payload)->except(['_token', '_idempotency_key', 'idempotency_key'])->sortKeys()->toArray();
+        $hash = hash('sha256', $this->admin->id.'|POST|operating-expenses|'.json_encode($cleaned));
+
+        DB::table('idempotency_keys')->insert([
+            'key' => $key,
+            'request_hash' => $hash,
+            'status' => 'committed_error',
+            'user_id' => $this->admin->id,
+            'expires_at' => now()->addHours(24),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // When a retry arrives, it must be rejected with 409 and never re-execute to create a second expense
+        $response = $this->actingAs($this->admin)
+            ->post(route('operating-expenses.store'), $payload);
+
+        $response->assertStatus(409);
+        $this->assertDatabaseCount('expenses', 0);
+    }
+
+    public function test_cross_user_idempotency_key_isolation(): void
+    {
+        $admin2 = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'is_active' => true,
+        ]);
+
+        $category = ExpenseCategory::firstOrCreate(
+            ['key' => 'cross_user_cat'],
+            ['name' => 'Cross User Test', 'name_ar' => 'اختبار عزل المستخدمين', 'is_active' => true]
+        );
+
+        $sharedKey = 'shared-key-isolation-'.Str::uuid();
+        $payload = [
+            '_idempotency_key' => $sharedKey,
+            'amount' => '25.000',
+            'category_id' => $category->id,
+            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
+            'financial_account_id' => $this->cashAccount->id,
+            'incurred_on' => now()->toDateString(),
+            'paid_at' => now()->toDateString(),
+            'description' => 'Cross User Expense',
+        ];
+
+        // Admin 1 successfully executes
+        $this->actingAs($this->admin)
+            ->post(route('operating-expenses.store'), $payload)
+            ->assertRedirect();
+        $this->assertDatabaseCount('expenses', 1);
+
+        // Admin 2 tries to use the same key
+        $response = $this->actingAs($admin2)
+            ->post(route('operating-expenses.store'), $payload);
+
+        $response->assertStatus(409);
+        // Expense count must still be 1 (Admin 2's request was blocked)
+        $this->assertDatabaseCount('expenses', 1);
+    }
+
+    public function test_cross_route_idempotency_key_isolation(): void
+    {
+        $category = ExpenseCategory::firstOrCreate(
+            ['key' => 'cross_route_cat'],
+            ['name' => 'Cross Route Test', 'name_ar' => 'اختبار عزل المسارات', 'is_active' => true]
+        );
+
+        $key = 'cross-route-key-'.Str::uuid();
+        $expensePayload = [
+            '_idempotency_key' => $key,
+            'amount' => '10.000',
+            'category_id' => $category->id,
+            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
+            'financial_account_id' => $this->cashAccount->id,
+            'incurred_on' => now()->toDateString(),
+            'paid_at' => now()->toDateString(),
+            'description' => 'Route A Expense',
+        ];
+
+        // Route A executes
+        $this->actingAs($this->admin)
+            ->post(route('operating-expenses.store'), $expensePayload)
+            ->assertRedirect();
+
+        // Same key sent to Route B (financial transfer)
+        $transferAccount = FinancialAccount::create([
+            'code' => 'TEST_BANK_CROSS_ROUTE',
+            'name_ar' => 'حساب بنكي تجريبي',
+            'name_en' => 'Test Bank Account',
+            'type' => 'bank',
+            'currency' => 'JOD',
+            'is_active' => true,
+        ]);
+
+        $transferPayload = [
+            '_idempotency_key' => $key,
+            'from_account_id' => $this->cashAccount->id,
+            'to_account_id' => $transferAccount->id,
+            'amount' => '5.000',
+            'transferred_at' => now()->toDateString(),
+            'notes' => 'Route B Transfer with same key',
+        ];
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('financial-transfers.store'), $transferPayload);
+
+        $response->assertStatus(409);
+        $this->assertDatabaseCount('financial_transfers', 0);
+    }
+
+    public function test_validation_localization_integrity_for_arabic_and_english(): void
+    {
+        // Test Arabic
+        app()->setLocale('ar');
+
+        $validatorAr = validator([
+            'amount' => 'not-a-number',
+            'start_date' => 'invalid-date',
+            'client_id' => 999999,
+        ], [
+            'amount' => 'required|numeric',
+            'start_date' => 'required|date',
+            'client_id' => 'required|exists:clients,id',
+            'plan_price_id' => 'required|exists:plan_prices,id',
+        ]);
+
+        $this->assertTrue($validatorAr->fails());
+        $errorsAr = $validatorAr->errors()->all();
+
+        foreach ($errorsAr as $msg) {
+            $this->assertStringNotContainsString('validation.', $msg, "Arabic validation leaked raw translation key: {$msg}");
+        }
+
+        $this->assertStringContainsString('رقماً', $validatorAr->errors()->first('amount'));
+        $this->assertStringContainsString('تاريخاً', $validatorAr->errors()->first('start_date'));
+        $this->assertStringContainsString('غير صالحة', $validatorAr->errors()->first('client_id'));
+        $this->assertEquals('يرجى اختيار خطة وسعر الاشتراك.', $validatorAr->errors()->first('plan_price_id'));
+
+        // Test English
+        app()->setLocale('en');
+
+        $validatorEn = validator([
+            'amount' => 'not-a-number',
+            'start_date' => 'invalid-date',
+            'client_id' => 999999,
+        ], [
+            'amount' => 'required|numeric',
+            'start_date' => 'required|date',
+            'client_id' => 'required|exists:clients,id',
+            'plan_price_id' => 'required|exists:plan_prices,id',
+        ]);
+
+        $this->assertTrue($validatorEn->fails());
+        $errorsEn = $validatorEn->errors()->all();
+
+        foreach ($errorsEn as $msg) {
+            $this->assertStringNotContainsString('validation.', $msg, "English validation leaked raw translation key: {$msg}");
+        }
+
+        $this->assertStringContainsString('must be a number', $validatorEn->errors()->first('amount'));
+        $this->assertStringContainsString('must be a valid date', $validatorEn->errors()->first('start_date'));
+        $this->assertStringContainsString('invalid', $validatorEn->errors()->first('client_id'));
+        $this->assertEquals('Please select a subscription plan and price.', $validatorEn->errors()->first('plan_price_id'));
+
+        app()->setLocale('ar');
+    }
+
+    public function test_safe_subscription_adapter_enforces_product_matching_and_planprice_authority(): void
+    {
+        $product2 = Product::create([
+            'name_ar' => 'منتج ثان',
+            'name_en' => 'Second Product',
+            'code' => 'PROD_2',
+            'is_active' => true,
+        ]);
+
+        // Attempting to subscribe with plan_price_id belonging to Product 1 while specifying Product 2
+        $response = $this->actingAs($this->admin)
+            ->post(route('clients.paid-subscriptions.store', $this->client), [
+                '_idempotency_key' => (string) Str::uuid(),
+                'product_id' => $product2->id,
+                'plan_price_id' => $this->monthlyPrice->id,
+                'quantity' => 1,
+                'start_date' => now()->toDateString(),
+                'custom_price' => '1.000', // Attempting to tamper with price
+            ]);
+
+        $response->assertSessionHasErrors(['plan_id']);
+
+        // Now subscribe validly with correct product
+        $validKey = (string) Str::uuid();
+        $responseValid = $this->actingAs($this->admin)
+            ->post(route('clients.paid-subscriptions.store', $this->client), [
+                '_idempotency_key' => $validKey,
+                'product_id' => $this->product->id,
+                'plan_price_id' => $this->monthlyPrice->id,
+                'quantity' => 1,
+                'start_date' => now()->toDateString(),
+                'custom_price' => '1.000', // Attempting to override price
+            ]);
+
+        $responseValid->assertRedirect();
+
+        // Verify PlanPrice authority: invoice total is 50.000 JOD (monthlyPrice 50000 fils), NOT 1.000
+        $subscription = Subscription::where('client_id', $this->client->id)->latest()->firstOrFail();
+        $invoice = Invoice::where('subscription_id', $subscription->id)->firstOrFail();
+        $this->assertEquals(50000, $invoice->total_minor);
+
+        // Verify same-product subscription conflict prevents duplicate active subscription
+        $responseConflict = $this->actingAs($this->admin)
+            ->post(route('clients.paid-subscriptions.store', $this->client), [
+                '_idempotency_key' => (string) Str::uuid(),
+                'product_id' => $this->product->id,
+                'plan_price_id' => $this->monthlyPrice->id,
+                'quantity' => 1,
+                'start_date' => now()->toDateString(),
+            ]);
+
+        $responseConflict->assertSessionHasErrors(['plan_price_id']);
+    }
 }
