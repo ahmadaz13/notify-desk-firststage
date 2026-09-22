@@ -98,6 +98,13 @@ return array (
     'upload' => 'رفع',
     'view' => 'عرض',
     'whatsapp' => 'واتساب',
+    'complete_installation' => 'إكمال التركيب',
+    'record_outcome' => 'تسجيل النتيجة',
+    'record_follow_up' => 'تسجيل المتابعة',
+    'open_client' => 'فتح ملف العميل',
+    'review' => 'مراجعة',
+    'record_call' => 'تسجيل اتصال',
+    'record_payment' => 'تسجيل دفعة',
   ),
   'app_name' => 'نوتيفاي ديسك',
   'appointments' =>
@@ -641,6 +648,7 @@ return array (
     'role_founder' => 'مؤسس',
     'role_admin' => 'مدير النظام',
     'role_staff' => 'فريق العمل',
+    'role_guest' => 'مستخدم مقيد',
     'status' => 'الحالة',
     'subtotal' => 'المجموع الفرعي',
     'tax' => 'الضريبة',
@@ -996,6 +1004,15 @@ return array (
     'start_date' => 'تاريخ البدء',
     'start_paid' => 'بدء اشتراك مدفوع',
     'title' => 'الاشتراكات',
+    'plan_price' => 'سعر الخطة',
+    'plan_price_required' => 'يرجى اختيار خطة وسعر الاشتراك.',
+    'plan_price_invalid' => 'السعر أو الخطة المختارة غير صالحة.',
+    'validation' =>
+    array (
+      'plan_price_required' => 'يرجى اختيار خطة وسعر الاشتراك.',
+      'plan_price_invalid' => 'السعر أو الخطة المختارة غير صالحة.',
+      'same_product_conflict' => 'يوجد اشتراك نشط أو تغيير مجدول لهذا المنتج.',
+    ),
   ),
   'today' =>
   array (

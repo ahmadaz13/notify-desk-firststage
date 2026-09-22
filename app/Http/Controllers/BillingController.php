@@ -27,6 +27,17 @@ class BillingController extends Controller
     ): RedirectResponse {
         Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
 
+        if (! $request->filled('plan_price_id') && $request->filled('plan_id') && $request->filled('billing_interval')) {
+            $matchedPrice = \App\Models\PlanPrice::query()
+                ->where('plan_id', (int) $request->input('plan_id'))
+                ->where('billing_interval', (string) $request->input('billing_interval'))
+                ->where('is_active', true)
+                ->first();
+            if ($matchedPrice) {
+                $request->merge(['plan_price_id' => $matchedPrice->id]);
+            }
+        }
+
         $validated = $request->validate([
             'plan_price_id' => 'required|exists:plan_prices,id',
             'quantity' => 'required|integer|min:1|max:999',
@@ -38,6 +49,11 @@ class BillingController extends Controller
             'installments_count' => 'nullable|integer|min:2|max:12',
             'installment_due_day' => ['nullable', 'integer', Rule::in([1, 5, 15, 30])],
             'preview_only' => 'nullable|boolean',
+        ], [
+            'plan_price_id.required' => __('notify.subscriptions.plan_price_required') ?: 'يرجى اختيار خطة وسعر الاشتراك.',
+            'plan_price_id.exists' => __('notify.subscriptions.plan_price_invalid') ?: 'السعر أو الخطة المختارة غير صالحة.',
+        ], [
+            'plan_price_id' => __('notify.subscriptions.plan_price') ?: 'سعر الخطة',
         ]);
 
         $price = $priceService->activeEffectivePrice((int) $validated['plan_price_id']);

@@ -28,6 +28,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -483,6 +484,12 @@ class ClientController extends Controller
 
         $clientModel = Client::findOrFail($client);
         Gate::authorize('update', $clientModel);
+
+        Log::warning('Deprecated legacy convert route POST /clients/{client}/convert invoked', [
+            'client_id' => $client,
+            'user_id' => auth()->id(),
+            'payload' => $request->except(['_token', 'password']),
+        ]);
 
         abort(410, 'Legacy subscription conversion is deprecated. Use the V2 paid-subscription workflow with an explicit PlanPrice.');
     }

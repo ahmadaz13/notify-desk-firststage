@@ -108,4 +108,11 @@ class FixedAsset extends Model
     {
         return Money::fromMinorUnits($this->acquisition_cost_minor)->format();
     }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (FixedAsset $asset) {
+            throw new \DomainException('Fixed assets are financial records and cannot be deleted. Use reversal instead.');
+        });
+    }
 }

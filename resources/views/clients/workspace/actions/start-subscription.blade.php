@@ -21,6 +21,7 @@
 
         <form method="POST" action="{{ route('clients.guided-subscription.store', $client->id) }}" class="notify-action-form" id="guided-subscription-form" data-preview-url="{{ route('clients.guided-subscription.preview', $client->id) }}" data-catalog-url="{{ route('clients.guided-subscription.catalog', $client->id) }}">
             @csrf
+            <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
 
             {{-- Step 1: Product and Plan --}}
             <div class="notify-form-grid" style="grid-template-columns:1fr 1fr;gap:12px">

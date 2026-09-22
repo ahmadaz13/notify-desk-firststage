@@ -18,6 +18,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class DashboardController extends Controller
@@ -229,12 +230,22 @@ class DashboardController extends Controller
     {
         Gate::authorize(FinancialPermissions::RECORD_PAYMENT);
 
+        Log::warning('Deprecated legacy payment route POST /payments invoked', [
+            'user_id' => auth()->id(),
+            'payload' => $request->except(['_token', 'password']),
+        ]);
+
         abort(410, 'Legacy payment writes are deprecated. Use the V2 Collections payment workflow.');
     }
 
     public function storeExpense(Request $request)
     {
         Gate::authorize(FinancialPermissions::MANAGE_EXPENSES);
+
+        Log::warning('Deprecated legacy expense route POST /expenses invoked', [
+            'user_id' => auth()->id(),
+            'payload' => $request->except(['_token', 'password']),
+        ]);
 
         abort(410, 'Legacy dashboard expense writes are deprecated. Use the V2 Operating Expenses workflow.');
     }

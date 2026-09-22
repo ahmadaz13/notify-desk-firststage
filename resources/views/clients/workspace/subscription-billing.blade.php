@@ -245,6 +245,7 @@
                             </div>
                             <form method="POST" action="{{ route('clients.paid-subscriptions.store', $client->id) }}" data-paid-subscription-form>
                                 @csrf
+                                <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                                 <div class="p3-filter-grid" style="grid-template-columns:1fr;gap:10px">
                                     <div class="p3-field">
                                         <label>النظام ثم الباقة والسعر *</label>

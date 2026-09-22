@@ -79,4 +79,15 @@ class Invoice extends Model
     {
         return Money::fromMinorUnits($this->total_minor)->format();
     }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Invoice $invoice) {
+            if ($invoice->status !== self::STATUS_DRAFT
+                || $invoice->allocations()->exists()
+                || $invoice->creditApplications()->exists()) {
+                throw new \DomainException('Issued, voided, or allocated invoices cannot be deleted. Use invoice voiding instead.');
+            }
+        });
+    }
 }

@@ -68,6 +68,7 @@
     <x-notify.collapsible-section id="sec-add-expense" :title="__('notify.expenses.add')" subtitle="قيد تشغيلي فوري مرتبط بالحساب المالي أو بالدافع الشخصي" :open="true">
         <form method="POST" action="{{ route('operating-expenses.store') }}">
             @csrf
+            <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
             <div class="p4-form-grid">
                 <div class="p4-field">
                     <label>القيمة (د.أ) *</label>

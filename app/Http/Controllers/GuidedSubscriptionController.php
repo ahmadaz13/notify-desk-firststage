@@ -164,15 +164,18 @@ class GuidedSubscriptionController extends Controller
                 auth()->id()
             );
         } catch (ValidationException $e) {
-            // Check for same-product conflict and map to product_id error
             $errors = $e->errors();
             if (isset($errors['plan_price_id'])) {
                 $firstError = $errors['plan_price_id'][0] ?? '';
                 if (str_contains($firstError, 'نشط') || str_contains($firstError, 'المنتج') || str_contains($firstError, 'خطة مجدول')) {
                     throw ValidationException::withMessages([
-                        'product_id' => __('notify.client_workspace.validation.same_product_conflict') ?: 'يوجد اشتراك نشط أو تغيير مجدول لهذا المنتج.',
+                        'product_id' => __('notify.subscriptions.validation.same_product_conflict') ?: ($firstError ?: 'يوجد اشتراك نشط أو تغيير مجدول لهذا المنتج.'),
                     ]);
                 }
+
+                throw ValidationException::withMessages([
+                    'plan_id' => __('notify.subscriptions.validation.plan_price_invalid') ?: 'السعر أو الخطة المختارة غير صالحة أو غير متاح للبيع حالياً.',
+                ]);
             }
             throw $e;
         }

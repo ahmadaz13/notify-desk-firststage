@@ -49,4 +49,11 @@ class PaymentAllocation extends Model
     {
         return $this->hasOne(PaymentAllocationReversal::class);
     }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (PaymentAllocation $allocation) {
+            throw new \DomainException('Payment allocations are immutable financial records and cannot be deleted. Use reversal instead.');
+        });
+    }
 }

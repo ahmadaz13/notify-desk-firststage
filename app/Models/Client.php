@@ -144,4 +144,17 @@ class Client extends Model
     {
         return $this->hasMany(Refund::class)->orderByDesc('refunded_at')->orderByDesc('id');
     }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Client $client) {
+            if ($client->invoices()->exists()
+                || $client->payments()->exists()
+                || $client->subscriptions()->exists()
+                || $client->creditNotes()->exists()
+                || $client->refunds()->exists()) {
+                throw new \DomainException('Cannot delete client with existing financial history. Close the client instead.');
+            }
+        });
+    }
 }

@@ -83,7 +83,7 @@ class User extends Authenticatable
 
     public function isOwnerLevelInternalUser(): bool
     {
-        return empty($this->role) || in_array($this->role, [self::ROLE_FOUNDER, self::ROLE_ADMIN], true);
+        return in_array($this->role, [self::ROLE_FOUNDER, self::ROLE_ADMIN], true);
     }
 
     public function isAdmin(): bool
@@ -121,7 +121,8 @@ class User extends Authenticatable
         return match ($this->role) {
             self::ROLE_FOUNDER => 'notify.common.role_founder',
             self::ROLE_STAFF => 'notify.common.role_staff',
-            default => 'notify.common.role_admin',
+            self::ROLE_ADMIN => 'notify.common.role_admin',
+            default => 'notify.common.role_guest',
         };
     }
 

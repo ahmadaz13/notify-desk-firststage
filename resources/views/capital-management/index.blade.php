@@ -55,6 +55,7 @@
                 </div>
                 <form method="POST" action="{{ route('capital-funding-transactions.store') }}">
                     @csrf
+                    <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                     <div class="p4-form-grid">
                         <div class="p4-field">
                             <label>مصدر محفوظ</label>

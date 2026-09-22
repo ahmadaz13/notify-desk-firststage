@@ -98,6 +98,13 @@ return array (
     'upload' => 'Upload',
     'view' => 'View',
     'whatsapp' => 'WhatsApp',
+    'complete_installation' => 'Complete Installation',
+    'record_outcome' => 'Record Outcome',
+    'record_follow_up' => 'Record Follow-up',
+    'open_client' => 'Open Client',
+    'review' => 'Review',
+    'record_call' => 'Record Call',
+    'record_payment' => 'Record Payment',
   ),
   'app_name' => 'Notify Desk',
   'appointments' =>
@@ -641,6 +648,7 @@ return array (
     'role_founder' => 'Founder',
     'role_admin' => 'Administrator',
     'role_staff' => 'Staff',
+    'role_guest' => 'Guest / Restricted',
     'status' => 'Status',
     'subtotal' => 'Subtotal',
     'tax' => 'Tax',
@@ -996,6 +1004,15 @@ return array (
     'start_date' => 'Start Date',
     'start_paid' => 'Start Paid Subscription',
     'title' => 'Subscriptions',
+    'plan_price' => 'Plan Price',
+    'plan_price_required' => 'Please select a subscription plan and price.',
+    'plan_price_invalid' => 'The selected plan or price is invalid.',
+    'validation' =>
+    array (
+      'plan_price_required' => 'Please select a subscription plan and price.',
+      'plan_price_invalid' => 'The selected plan or price is invalid.',
+      'same_product_conflict' => 'An active subscription or scheduled plan change already exists for this product.',
+    ),
   ),
   'today' =>
   array (

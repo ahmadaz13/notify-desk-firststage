@@ -48,4 +48,11 @@ class FinancialTransfer extends Model
     {
         return Money::fromMinorUnits($this->amount_minor)->format();
     }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (FinancialTransfer $transfer) {
+            throw new \DomainException('Financial transfers are immutable financial records and cannot be deleted. Use reversal instead.');
+        });
+    }
 }

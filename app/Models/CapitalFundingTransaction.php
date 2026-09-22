@@ -78,4 +78,11 @@ class CapitalFundingTransaction extends Model
     {
         return Money::fromMinorUnits($this->amount_minor)->format();
     }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (CapitalFundingTransaction $funding) {
+            throw new \DomainException('Capital funding transactions are immutable financial records and cannot be deleted. Use reversal instead.');
+        });
+    }
 }

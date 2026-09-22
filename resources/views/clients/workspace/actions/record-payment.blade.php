@@ -23,6 +23,7 @@
 
         <form method="POST" action="{{ route('clients.payments.normal.store', $client) }}" class="notify-action-form">
             @csrf
+            <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
 
             <div class="notify-form-group">
                 <label class="notify-field-label">{{ __('notify.client_workspace.amount_due') }}</label>

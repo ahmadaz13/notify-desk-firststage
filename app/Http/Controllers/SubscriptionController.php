@@ -20,6 +20,11 @@ class SubscriptionController extends Controller
         $validated = $request->validate([
             'plan_price_id' => 'required|exists:plan_prices,id',
             'quantity' => 'required|integer|min:1|max:999',
+        ], [
+            'plan_price_id.required' => __('notify.subscriptions.plan_price_required') ?: 'يرجى اختيار خطة وسعر الاشتراك.',
+            'plan_price_id.exists' => __('notify.subscriptions.plan_price_invalid') ?: 'السعر أو الخطة المختارة غير صالحة.',
+        ], [
+            'plan_price_id' => __('notify.subscriptions.plan_price') ?: 'سعر الخطة',
         ]);
 
         $price = PlanPrice::with('plan')->findOrFail((int) $validated['plan_price_id']);
@@ -61,6 +66,11 @@ class SubscriptionController extends Controller
             'plan_price_id' => 'required|exists:plan_prices,id',
             'quantity' => 'required|integer|min:1|max:999',
             'start_date' => 'required|date',
+        ], [
+            'plan_price_id.required' => __('notify.subscriptions.plan_price_required') ?: 'يرجى اختيار خطة وسعر الاشتراك.',
+            'plan_price_id.exists' => __('notify.subscriptions.plan_price_invalid') ?: 'السعر أو الخطة المختارة غير صالحة.',
+        ], [
+            'plan_price_id' => __('notify.subscriptions.plan_price') ?: 'سعر الخطة',
         ]);
 
         $price = PlanPrice::with('plan')->findOrFail((int) $validated['plan_price_id']);
