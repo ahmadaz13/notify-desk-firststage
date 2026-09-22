@@ -17,7 +17,7 @@ class AdministrationController extends Controller
     protected function checkAdmin(): void
     {
         if (!auth()->check() || !auth()->user()->isAdmin()) {
-            abort(403, 'غير مصرح لك بالوصول إلى هذه الصفحة');
+            abort(403, __('notify.team.forbidden'));
         }
     }
 
@@ -90,7 +90,7 @@ class AdministrationController extends Controller
         ]);
 
         return redirect()->route('administration.team')
-            ->with('success', 'تم إنشاء حساب عضو الفريق بنجاح.');
+            ->with('success', __('notify.team.created'));
     }
 
     public function teamEdit(int $id): View
@@ -110,7 +110,7 @@ class AdministrationController extends Controller
 
         // Prevent demoting yourself
         if ($member->id === auth()->id() && $request->input('role') !== $member->role) {
-            return back()->withErrors(['role' => 'لا يمكنك تغيير دورك الخاص.']);
+            return back()->withErrors(['role' => __('notify.team.cannot_change_own_role')]);
         }
 
         $validated = $request->validate([
@@ -128,7 +128,7 @@ class AdministrationController extends Controller
         ]);
 
         return redirect()->route('administration.team')
-            ->with('success', 'تم تحديث بيانات عضو الفريق بنجاح.');
+            ->with('success', __('notify.team.updated'));
     }
 
     public function teamResetPassword(Request $request, int $id): RedirectResponse
@@ -146,7 +146,7 @@ class AdministrationController extends Controller
         ]);
 
         return redirect()->route('administration.team')
-            ->with('success', 'تمت إعادة تعيين كلمة المرور بنجاح.');
+            ->with('success', __('notify.team.password_reset'));
     }
 
     public function teamDeactivate(int $id): RedirectResponse
@@ -154,13 +154,13 @@ class AdministrationController extends Controller
         $this->checkAdmin();
 
         if ($id === auth()->id()) {
-            return back()->withErrors(['error' => 'لا يمكنك إلغاء تفعيل حسابك الخاص.']);
+            return back()->withErrors(['error' => __('notify.team.cannot_deactivate_self')]);
         }
 
         $member = User::whereIn('role', User::activeInternalRoles())->findOrFail($id);
         $member->update(['is_active' => false]);
 
         return redirect()->route('administration.team')
-            ->with('success', 'تم إلغاء تفعيل حساب عضو الفريق.');
+            ->with('success', __('notify.team.deactivated'));
     }
 }

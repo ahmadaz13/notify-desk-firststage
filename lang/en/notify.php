@@ -110,6 +110,8 @@ return array (
   'app_name' => 'Notify Desk',
   'appointments' =>
   array (
+    'systems_discussed' => 'Systems discussed',
+    'systems_discussed_placeholder' => 'For example: POS and inventory systems',
     'attended' => 'Attended on Time',
     'attended_late' => 'Attended Late',
     'attendees' => 'Attendees',
@@ -245,6 +247,7 @@ return array (
   ),
   'client_workspace' =>
   array (
+    'command_overview' => 'Client command overview',
     'credit_note_balance' => 'Credit Notes',
     'credits_refunds' => 'Credits & Refunds',
     'invoices' => 'Invoices',
@@ -401,6 +404,7 @@ return array (
       'same_product_conflict' => 'This product already has an active subscription or scheduled change.',
       'installment_count' => 'Choose the number of installments.',
       'due_day' => 'Choose the installment due day.',
+      'installments_disabled' => 'Annual installments are disabled in company settings.',
     ),
     'guided_subscription' =>
     array (
@@ -807,6 +811,17 @@ return array (
       'reports' => 'Reports',
       'advanced' => 'Advanced',
     ],
+    'section_navigation' => 'Finance sections', 'period' => 'Period', 'from' => 'From', 'to' => 'To', 'comparison' => 'Comparison',
+    'ranges' => ['today'=>'Today','this_month'=>'This month','previous_month'=>'Previous month','this_year'=>'This year','previous_year'=>'Previous year','custom_date_range'=>'Custom'],
+    'comparisons' => ['none'=>'No comparison','previous_period'=>'Previous period','previous_year_same_period'=>'Same period last year'],
+    'accounting_core_desc' => 'Verified accounting figures from the general ledger and actual cash movements.', 'view_reports' => 'View reports',
+    'cash_available' => 'Available cash', 'accounts_receivable' => 'Accounts receivable', 'overdue_receivables' => 'Overdue receivables', 'recognized_revenue' => 'Recognized revenue', 'operating_expenses' => 'Operating expenses', 'net_income' => 'Management net income',
+    'open_subscription_metrics' => 'Open subscription metrics', 'collections_desc' => 'Review receivables and continue collection work in the dedicated workspace.', 'open_collections' => 'Open collections workspace',
+    'outstanding_invoices' => 'Outstanding invoices', 'overdue_invoices' => 'Overdue invoices', 'partially_paid' => 'Partially paid', 'invoice' => 'Invoice', 'due_date' => 'Due date', 'open_client_collections' => 'Open client and collections', 'no_outstanding_invoices' => 'No outstanding invoices.',
+    'expenses_desc' => 'Record and review operating expenses in the dedicated workspace.', 'open_expenses' => 'Open expense management', 'company_funded' => 'Company-funded', 'personal_funded' => 'Personally funded', 'active_expenses' => 'Recent expenses',
+    'capital_assets_desc' => 'Manage capital funding and fixed assets in the dedicated workspace.', 'open_capital_assets' => 'Open capital & assets', 'capital_funding' => 'Capital funding', 'fixed_assets' => 'Fixed assets',
+    'reports_title' => 'Financial reports', 'reports_desc' => 'All financial exports are available here.', 'export_csv' => 'Export CSV', 'aging' => 'Receivables aging', 'recognized_revenue' => 'Recognized revenue', 'expense_breakdown' => 'Expense breakdown',
+    'advanced_desc' => 'Technical accounting tools are separated from day-to-day finance.', 'cash_accounts' => 'Cash & financial accounts', 'cash_accounts_desc' => 'Bank, cash, transfer, and reconciliation tools.', 'general_ledger' => 'General ledger', 'general_ledger_desc' => 'Chart of accounts, journals, periods, and revenue recognition.',
     'accounting_core' => 'Core Accounting Metrics (GL Authority)',
     'saas_block_title' => 'Commercial SaaS Metrics',
     'saas_block_subtitle' => 'Contract & subscription economics (MRR/ARR) are decoupled from accounting revenue and cash collections.',
@@ -971,19 +986,30 @@ return array (
   ),
   'settings' =>
   array (
-    'activity_log_subtitle' => 'Most recent 50 system activities with category filtering',
-    'activity_log_title' => 'Activity Log & Audit',
-    'all_activities' => 'All Activities',
-    'clients_count' => 'Clients Count',
-    'email' => 'Email Address',
-    'export_financial_excel' => 'Export Financial Report (Excel)',
-    'filter_activity' => 'Filter:',
-    'no_activity_logs' => 'No activity logs found at this time.',
-    'parameters_subtitle' => 'Authoritative system-wide calculation and settlement thresholds',
-    'parameters_title' => 'Operational Settings',
-    'subtitle' => 'Activity history and financial export tools.',
-    'title' => 'Control Center & Settings',
-    'user_or_client' => 'User / Client',
+    'subtitle' => 'Company-wide defaults for documents, operations, subscriptions, and contracts.',
+    'company_documents' => 'Company & Documents', 'operations' => 'Operations', 'subscriptions_contracts' => 'Subscriptions & Contracts',
+    'company_name_ar' => 'Company name (Arabic)', 'company_name_en' => 'Company name (English)', 'company_logo' => 'Company logo', 'company_phone' => 'Phone', 'company_email' => 'Email',
+    'company_address' => 'Address', 'registration_number' => 'Registration number', 'tax_number' => 'Tax number', 'authorized_signatory' => 'Authorized signatory',
+    'default_contract_terms' => 'Default contract terms', 'contract_prefix' => 'Contract prefix', 'invoice_prefix' => 'Invoice prefix',
+    'timezone' => 'Timezone', 'appointment_duration' => 'Appointment duration (minutes)', 'free_installation_duration' => 'Free installation duration (minutes)',
+    'post_install_followup_days' => 'Post-install follow-up (days)', 'workday_start' => 'Workday start', 'workday_end' => 'Workday end',
+    'currency' => 'Currency', 'default_billing_cycle' => 'Default billing cycle', 'auto_contract_on_paid_subscription' => 'Create a contract automatically for paid subscriptions',
+    'allow_monthly' => 'Allow monthly billing', 'allow_annual_installments' => 'Allow annual installments', 'initial_contract_status' => 'New contracts start as Draft.', 'saved' => 'Settings saved.',
+  ),
+  'administration' => array (
+    'title' => 'Administration', 'subtitle' => 'Manage systems, team permissions, imports, and company-wide settings.',
+    'systems' => 'Systems', 'systems_desc' => 'Manage available systems and their optional default prices.', 'active_count' => ':count active', 'total_count' => ':count total', 'manage_systems' => 'Manage systems',
+    'team_permissions' => 'Team & Permissions', 'team_desc' => 'Manage internal team members, roles, and password resets.', 'members_count' => ':count active members', 'manage_team' => 'Manage team',
+    'import' => 'Import', 'import_desc' => 'Import prospects and subscribers from CSV files.', 'import_data' => 'Import data', 'settings_desc' => 'Configure company documents, operations, subscriptions, and contracts.',
+  ),
+  'profile' => array (
+    'title' => 'Profile', 'personal_information' => 'Personal information', 'name' => 'Name', 'email' => 'Email', 'change_password' => 'Change password',
+    'current_password' => 'Current password', 'new_password' => 'New password', 'confirm_password' => 'Confirm password', 'update_password' => 'Update password',
+    'updated' => 'Profile updated.', 'password_updated' => 'Password updated.',
+  ),
+  'team' => array (
+    'title'=>'Team & Permissions','subtitle'=>'Manage internal team members and their roles.','add'=>'Add team member','name'=>'Name','email'=>'Email','role'=>'Role','status'=>'Status','you'=>'You','deactivate'=>'Deactivate','empty'=>'No team members found.','create_account'=>'Create account','edit_member'=>'Edit: :name','active_account'=>'Active account','reset_password'=>'Reset password',
+    'roles'=>['founder'=>'Founder','admin'=>'Administrator','staff'=>'Staff'], 'created'=>'Team member created.','updated'=>'Team member updated.','password_reset'=>'Password reset.','deactivated'=>'Team member deactivated.','cannot_change_own_role'=>'You cannot change your own role.','cannot_deactivate_self'=>'You cannot deactivate your own account.','forbidden'=>'You are not authorized to access this page.',
   ),
   'statuses' =>
   array (
@@ -1264,5 +1290,6 @@ return array (
   array (
     'collapse_sidebar' => 'Collapse sidebar',
     'expand_sidebar' => 'Expand sidebar',
+    'toggle_theme' => 'Toggle color theme',
   ),
 );

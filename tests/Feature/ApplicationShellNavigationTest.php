@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class ApplicationShellNavigationTest extends TestCase
@@ -51,7 +52,7 @@ class ApplicationShellNavigationTest extends TestCase
         $this->actingAs($staff)->get(route('finance.index'))->assertForbidden();
     }
 
-    public function test_founder_sees_grouped_management_and_advanced_destinations(): void
+    public function test_founder_sees_only_four_top_level_destinations(): void
     {
         $founder = User::factory()->create([
             'role' => User::ROLE_FOUNDER,
@@ -63,30 +64,12 @@ class ApplicationShellNavigationTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk();
 
-        $response->assertSee('data-nav-area="finance"', false);
-        $response->assertSee('data-nav-area="administration"', false);
-
-        foreach ([
-            'today',
-            'clients',
-            'finance',
-            'administration',
-            'subscription-management',
-            'products-pricing',
-            'collections',
-            'operating-expenses',
-            'capital-management',
-            'executive',
-            'saas-metrics',
-            'import',
-            'settings',
-        ] as $destination) {
+        foreach (['today', 'clients', 'finance', 'administration'] as $destination) {
             $response->assertSee('data-nav-destination="'.$destination.'"', false);
         }
-
-        // Subordinate engine isolation: Accounting and Financial Accounts are NOT top-level sidebar items
-        $response->assertDontSee('data-nav-destination="financial-accounts"', false);
-        $response->assertDontSee('data-nav-destination="accounting"', false);
+        foreach (['subscription-management','products-pricing','collections','operating-expenses','capital-management','executive','saas-metrics','import','settings','financial-accounts','accounting'] as $destination) {
+            $response->assertDontSee('data-nav-destination="'.$destination.'"', false);
+        }
     }
 
     public function test_daily_active_states_and_add_client_context_are_correct(): void
@@ -140,7 +123,7 @@ class ApplicationShellNavigationTest extends TestCase
         $this->assertSame(1, substr_count($content, 'data-shell-action="notifications"'));
     }
 
-    public function test_nested_management_and_advanced_destinations_keep_their_shell_context_active(): void
+    public function test_internal_pages_keep_their_top_level_shell_context_active(): void
     {
         $founder = User::factory()->create([
             'role' => User::ROLE_FOUNDER,
@@ -151,15 +134,15 @@ class ApplicationShellNavigationTest extends TestCase
             ->withSession(['locale' => 'en'])
             ->get(route('settings.index'))
             ->assertOk();
-        $this->assertDestinationIsCurrent($settings->getContent(), 'settings');
-        $settings->assertSee('data-nav-area="administration"', false);
+        $this->assertDestinationIsCurrent($settings->getContent(), 'administration');
+        $settings->assertDontSee('data-nav-area="administration"', false);
 
         $finance = $this->actingAs($founder)
             ->withSession(['locale' => 'en'])
             ->get(route('finance.index'))
             ->assertOk();
         $this->assertDestinationIsCurrent($finance->getContent(), 'finance');
-        $finance->assertSee('data-nav-area="finance"', false);
+        $finance->assertDontSee('data-nav-area="finance"', false);
     }
 
     public function test_arabic_shell_uses_canonical_daily_labels(): void
@@ -178,6 +161,20 @@ class ApplicationShellNavigationTest extends TestCase
             ->assertSee('اليوم')
             ->assertSee('العملاء')
             ->assertSee('المزيد');
+    }
+
+    public function test_header_exposes_persistent_theme_language_and_profile_controls(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'password' => Hash::make('old-password')]);
+        $response = $this->actingAs($admin)->withSession(['locale' => 'en'])->get(route('dashboard'))->assertOk();
+        $response->assertSee("localStorage.getItem('notify_theme')", false)
+            ->assertSee("localStorage.setItem('notify_theme'", false)
+            ->assertSee(route('locale.switch', 'ar'), false)
+            ->assertSee(route('profile.edit'), false);
+
+        $this->actingAs($admin)->put(route('profile.update'), ['name' => 'Updated Owner', 'email' => 'owner@example.test'])->assertRedirect();
+        $this->actingAs($admin)->put(route('profile.password'), ['current_password' => 'old-password', 'password' => 'new-password-123', 'password_confirmation' => 'new-password-123'])->assertRedirect();
+        $this->assertTrue(Hash::check('new-password-123', $admin->fresh()->password));
     }
 
     private function assertDestinationIsCurrent(string $content, string $destination): void

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\PlanPrice;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Services\PaymentScheduleService;
 use App\Services\SubscriptionBillingService;
 use App\Support\ClientLifecycle;
@@ -88,7 +89,7 @@ class GuidedSubscriptionController extends Controller
         ], $request->user()->id);
 
         $response = redirect()->route('clients.show', $client)->with('success', __('notify.subscriptions.converted'));
-        if ($contractResult['status'] !== 'ready') {
+        if (! in_array($contractResult['status'], ['ready', 'disabled'], true)) {
             $response->with('warning', __('notify.subscriptions.contract_recovery'));
         }
 
@@ -97,10 +98,11 @@ class GuidedSubscriptionController extends Controller
 
     private function validateInputs(Request $request): array
     {
+        $allowedIntervals = Setting::get('allow_monthly', '1') === '1' ? [PlanPrice::MONTHLY, PlanPrice::ANNUAL] : [PlanPrice::ANNUAL];
         return $request->validate([
             'system_ids' => ['required', 'array', 'min:1'],
             'system_ids.*' => ['integer', 'distinct', 'exists:products,id'],
-            'billing_interval' => ['required', Rule::in([PlanPrice::MONTHLY, PlanPrice::ANNUAL])],
+            'billing_interval' => ['required', Rule::in($allowedIntervals)],
             'agreed_value_jod' => ['required', 'string', 'regex:/^\d+(\.\d{1,3})?$/', 'not_in:0,0.0,0.00,0.000'],
             'start_date' => ['nullable', 'date'],
             'payment_terms' => ['nullable', Rule::in(['full', 'installments'])],
@@ -123,6 +125,9 @@ class GuidedSubscriptionController extends Controller
 
         $count = (int) ($data['installments_count'] ?? 0);
         $dueDay = (int) ($data['installment_due_day'] ?? 0);
+        if (Setting::get('allow_annual_installments', '1') !== '1') {
+            throw ValidationException::withMessages(['payment_terms' => __('notify.client_workspace.validation.installments_disabled')]);
+        }
         if ($count < 2 || $count > 12) {
             throw ValidationException::withMessages(['installments_count' => __('notify.client_workspace.validation.installment_count')]);
         }

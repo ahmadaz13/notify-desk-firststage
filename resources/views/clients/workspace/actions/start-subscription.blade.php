@@ -11,7 +11,7 @@
             <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.actions.cancel') }}">×</button>
         </div>
 
-        <form method="POST" action="{{ route('clients.guided-subscription.store', $client) }}" class="notify-action-form" x-data="{ cycle: @js(old('billing_interval', 'monthly')), terms: @js(old('payment_terms', 'full')) }">
+        <form method="POST" action="{{ route('clients.guided-subscription.store', $client) }}" class="notify-action-form" x-data="{ cycle: @js(old('billing_interval', \App\Models\Setting::get('default_billing_cycle', 'monthly'))), terms: @js(old('payment_terms', 'full')) }">
             @csrf
             <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
 
@@ -30,7 +30,7 @@
                 <div class="notify-form-group">
                     <label for="subscription-cycle">{{ __('notify.subscriptions.billing_cycle') }}</label>
                     <select id="subscription-cycle" name="billing_interval" x-model="cycle" required class="notify-form-select">
-                        <option value="monthly">{{ __('notify.subscriptions.monthly') }}</option>
+                        @if(\App\Models\Setting::get('allow_monthly', '1') === '1')<option value="monthly">{{ __('notify.subscriptions.monthly') }}</option>@endif
                         <option value="annual">{{ __('notify.subscriptions.annual') }}</option>
                     </select>
                 </div>
@@ -50,7 +50,7 @@
                     <label for="payment-terms">{{ __('notify.subscriptions.payment_terms') }}</label>
                     <select id="payment-terms" name="payment_terms" x-model="terms" class="notify-form-select">
                         <option value="full">{{ __('notify.subscriptions.full_payment') }}</option>
-                        <option value="installments">{{ __('notify.subscriptions.installments') }}</option>
+                        @if(\App\Models\Setting::get('allow_annual_installments', '1') === '1')<option value="installments">{{ __('notify.subscriptions.installments') }}</option>@endif
                     </select>
                 </div>
                 <template x-if="terms === 'installments'">

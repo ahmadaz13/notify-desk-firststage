@@ -8,8 +8,6 @@
     'isClients' => false,
     'isFinance' => false,
     'isAdministration' => false,
-    'financeSubLinks' => [],
-    'adminSubLinks' => [],
     'moreActive' => false,
     'targetLocale',
     'targetLocaleLabel',
@@ -89,57 +87,24 @@
         </header>
 
         <div class="notify-mobile-nav__more-content">
-            @if(!$isStaff)
-                @if(!empty($financeSubLinks))
-                    <div class="notify-mobile-nav__layer" data-mobile-nav-layer="finance">
-                        <p class="notify-mobile-nav__layer-label">{{ $labels['finance'] }}</p>
-                        <div class="notify-mobile-nav__group-links">
-                            @foreach($financeSubLinks as $link)
-                                <a
-                                    class="notify-mobile-nav__more-link {{ $link['active'] ? 'is-active' : '' }}"
-                                    href="{{ $link['href'] }}"
-                                    data-nav-destination="{{ $link['id'] }}"
-                                    @if($link['active']) aria-current="page" @endif
-                                >
-                                    <span class="notify-mobile-nav__more-link-main">
-                                        <x-notify.icon :name="$link['icon']" />
-                                        <span>{{ $link['label'] }}</span>
-                                    </span>
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-
-                @if(!empty($adminSubLinks))
-                    <div class="notify-mobile-nav__layer" data-mobile-nav-layer="administration">
-                        <p class="notify-mobile-nav__layer-label">{{ $labels['administration'] }}</p>
-                        <div class="notify-mobile-nav__group-links">
-                            @foreach($adminSubLinks as $link)
-                                <a
-                                    class="notify-mobile-nav__more-link {{ $link['active'] ? 'is-active' : '' }}"
-                                    href="{{ $link['href'] }}"
-                                    data-nav-destination="{{ $link['id'] }}"
-                                    @if($link['active']) aria-current="page" @endif
-                                >
-                                    <span class="notify-mobile-nav__more-link-main">
-                                        <x-notify.icon :name="$link['icon']" />
-                                        <span>{{ $link['label'] }}</span>
-                                    </span>
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
+            @if(!$isStaff && $canViewAdministration)
+                <div class="notify-mobile-nav__layer" data-mobile-nav-layer="administration">
+                    <a class="notify-mobile-nav__more-link {{ $isAdministration ? 'is-active' : '' }}" href="{{ route('administration.index') }}">
+                        <span class="notify-mobile-nav__more-link-main"><x-notify.icon name="settings" /><span>{{ $labels['administration'] }}</span></span>
+                    </a>
+                </div>
             @endif
 
             <div class="notify-mobile-nav__layer notify-mobile-nav__layer--account" data-mobile-nav-layer="account">
                 <p class="notify-mobile-nav__layer-label">{{ $labels['account'] }}</p>
-                <a class="notify-mobile-nav__more-link" href="{{ route('locale.switch', $targetLocale) }}">
+                <a class="notify-mobile-nav__more-link" href="{{ route('profile.edit') }}">
                     <span class="notify-mobile-nav__more-link-main">
-                        <x-notify.icon name="languages" />
-                        <span>{{ $targetLocaleLabel }}</span>
+                        <x-notify.icon name="user" />
+                        <span>{{ $labels['profile'] }}</span>
                     </span>
+                </a>
+                <a class="notify-mobile-nav__more-link" href="{{ route('profile.edit') }}#password">
+                    <span class="notify-mobile-nav__more-link-main"><x-notify.icon name="settings" /><span>{{ $labels['change_password'] }}</span></span>
                 </a>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf

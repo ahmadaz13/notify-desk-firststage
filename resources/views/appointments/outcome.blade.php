@@ -46,8 +46,8 @@
             </div>
 
             <div class="field">
-                <label>الباقة التي تمت مناقشتها</label>
-                <input name="package_discussed" placeholder="مثال: الباقة الشهرية، باقة المتاجر...">
+                <label>{{ __('notify.appointments.systems_discussed') }}</label>
+                <input name="package_discussed" placeholder="{{ __('notify.appointments.systems_discussed_placeholder') }}">
             </div>
 
             <div class="field full" style="display:flex;flex-direction:row;gap:24px;padding:8px 0">

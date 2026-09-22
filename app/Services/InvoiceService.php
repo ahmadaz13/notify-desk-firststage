@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\Setting;
 use App\Models\Subscription;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -119,7 +120,7 @@ class InvoiceService
     private function assignNumberAndIssue(Invoice $invoice, Carbon $issueDate): void
     {
         $invoice->update([
-            'invoice_number' => sprintf('INV-%s-%06d', $issueDate->format('Y'), $invoice->id),
+            'invoice_number' => sprintf('%s-%s-%06d', strtoupper((string) Setting::get('invoice_prefix', 'INV')), $issueDate->format('Y'), $invoice->id),
             'status' => Invoice::STATUS_ISSUED,
             'issued_at' => now(),
         ]);

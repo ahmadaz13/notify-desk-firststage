@@ -29,6 +29,7 @@
         'phone' => 'phone',
         'plus' => 'plus',
         'settings' => 'settings',
+        'theme' => 'sun-moon',
         'user' => 'user',
         'users' => 'users',
         'wallet' => 'wallet',

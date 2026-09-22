@@ -54,6 +54,9 @@
         'open_notifications' => __('notify.actions.open_notifications'),
         'collapse_sidebar' => __('notify.shell.collapse_sidebar') ?: 'Collapse sidebar',
         'expand_sidebar' => __('notify.shell.expand_sidebar') ?: 'Expand sidebar',
+        'theme' => __('notify.shell.toggle_theme'),
+        'profile' => __('notify.navigation.profile'),
+        'change_password' => __('notify.profile.change_password'),
     ];
 
     $unreadNotificationsCount = $unreadCount ?? 0;
@@ -70,7 +73,7 @@
     $isWork = request()->routeIs('dashboard') && request()->query('mode') === 'work';
     $isTodayArea = request()->routeIs('dashboard');
     $isTodayTab = $isTodayArea && ! $isWork;
-    $isClients = request()->routeIs('clients.*') && ! request()->routeIs('clients.import*');
+    $isClients = (request()->routeIs('clients.*') && ! request()->routeIs('clients.import*')) || request()->routeIs('custom-projects.*');
 
     $isFinance = request()->routeIs('finance.*')
         || request()->routeIs('collections.*')
@@ -85,129 +88,10 @@
     $isAdministration = request()->routeIs('commercial-catalog.*')
         || request()->routeIs('administration.*')
         || request()->routeIs('settings.*')
-        || request()->routeIs('custom-projects.*')
-        || request()->routeIs('clients.custom-projects.*')
         || request()->routeIs('clients.import*');
 
     $canViewFinance = auth()->check() && ! $isStaff && ($allows(FinancialPermissions::VIEW_FINANCIAL_STATEMENTS) || $allows(FinancialPermissions::VIEW_FINANCIAL_REPORTS) || $admin);
     $canViewAdministration = auth()->check() && ! $isStaff && ($admin || $allows(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG) || $allows(FinancialPermissions::MANAGE_FINANCIAL_SETTINGS));
-
-    $financeSubLinks = [];
-    if ($canViewFinance) {
-        if ($allows(FinancialPermissions::VIEW_FINANCIAL_REPORTS)) {
-            $financeSubLinks[] = [
-                'id' => 'collections',
-                'label' => $labels['collections'],
-                'href' => route('collections.index'),
-                'icon' => 'wallet',
-                'active' => $isRoute(['collections.*']),
-            ];
-        }
-        if ($allows(FinancialPermissions::VIEW_EXPENSE_MANAGEMENT)) {
-            $financeSubLinks[] = [
-                'id' => 'operating-expenses',
-                'label' => $labels['expenses'],
-                'href' => route('operating-expenses.index'),
-                'icon' => 'clipboard-list',
-                'active' => $isRoute(['operating-expenses.*', 'expense-categories.*', 'vendors.*', 'recurring-expense-*']),
-            ];
-        }
-        if ($allows(FinancialPermissions::VIEW_CAPITAL_MANAGEMENT)) {
-            $financeSubLinks[] = [
-                'id' => 'capital-management',
-                'label' => $labels['capital_management'],
-                'href' => route('capital-management.index'),
-                'icon' => 'landmark',
-                'active' => $isRoute(['capital-management.*', 'funding-sources.*', 'capital-funding-transactions.*', 'asset-categories.*', 'fixed-assets.*']),
-            ];
-        }
-        if ($allows(FinancialPermissions::RUN_SUBSCRIPTION_BILLING)) {
-            $financeSubLinks[] = [
-                'id' => 'subscription-management',
-                'label' => $labels['subscription_management'],
-                'href' => route('subscription-billing.index'),
-                'icon' => 'briefcase',
-                'active' => $isRoute(['subscription-billing.*']),
-            ];
-        }
-        if ($allows(FinancialPermissions::VIEW_EXECUTIVE_DASHBOARD)) {
-            $financeSubLinks[] = [
-                'id' => 'executive',
-                'label' => $labels['executive'],
-                'href' => route('executive.index'),
-                'icon' => 'chart',
-                'active' => $isRoute(['executive.*']),
-            ];
-        }
-        if ($allows(FinancialPermissions::VIEW_SAAS_METRICS)) {
-            $financeSubLinks[] = [
-                'id'     => 'saas-metrics',
-                'label'  => $labels['saas'],
-                'href'   => route('saas-metrics.index'),
-                'icon'   => 'activity',
-                'active' => $isRoute(['saas-metrics.*']),
-            ];
-        }
-        // Finance > Advanced (accounting console – isolated from normal finance navigation)
-        if ($allows(FinancialPermissions::VIEW_ACCOUNTING)) {
-            $financeSubLinks[] = [
-                'id'     => 'finance-advanced',
-                'label'  => __('notify.finance.sections.advanced') ?: 'Advanced',
-                'href'   => route('finance.index', ['section' => 'advanced']),
-                'icon'   => 'settings',
-                'active' => $isRoute(['financial-accounts.*', 'accounting.*']) || (request()->routeIs('finance.*') && request()->query('section') === 'advanced'),
-            ];
-        }
-    }
-
-    $adminSubLinks = [];
-    if ($canViewAdministration) {
-        if ($allows(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG)) {
-            $adminSubLinks[] = [
-                'id'     => 'products-pricing',
-                'label'  => $labels['products_pricing'],
-                'href'   => route('commercial-catalog.index'),
-                'icon'   => 'package',
-                'active' => $isRoute(['commercial-catalog.*']),
-            ];
-        }
-        if ($admin) {
-            $adminSubLinks[] = [
-                'id'     => 'team',
-                'label'  => __('notify.navigation.team') ?: 'الفريق',
-                'href'   => route('administration.team'),
-                'icon'   => 'users',
-                'active' => $isRoute(['administration.team*']),
-            ];
-        }
-        if ($canCreateClient) {
-            $adminSubLinks[] = [
-                'id'     => 'import',
-                'label'  => $labels['import'],
-                'href'   => route('clients.import'),
-                'icon'   => 'clipboard-list',
-                'active' => $isRoute(['clients.import*']),
-            ];
-        }
-        if ($allows(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG)) {
-            $adminSubLinks[] = [
-                'id'     => 'custom-projects',
-                'label'  => __('notify.navigation.custom_projects') ?: 'المشاريع المخصصة',
-                'href'   => route('custom-projects.index'),
-                'icon'   => 'briefcase',
-                'active' => $isRoute(['custom-projects.*', 'clients.custom-projects.*']),
-            ];
-        }
-        if ($allows(FinancialPermissions::MANAGE_FINANCIAL_SETTINGS)) {
-            $adminSubLinks[] = [
-                'id'     => 'settings',
-                'label'  => $labels['settings'],
-                'href'   => route('settings.index'),
-                'icon'   => 'settings',
-                'active' => $isRoute(['settings.*']),
-            ];
-        }
-    }
 
     // Determine page context & title
     $pageContextLabel = $labels['workspace'];
@@ -220,12 +104,10 @@
         $pageTitle = $labels['clients'];
     } elseif ($isFinance) {
         $pageContextLabel = $labels['finance'];
-        $activeSub = collect($financeSubLinks)->first(fn ($l) => $l['active']);
-        $pageTitle = $activeSub ? $activeSub['label'] : $labels['finance'];
+        $pageTitle = $labels['finance'];
     } elseif ($isAdministration) {
         $pageContextLabel = $labels['administration'];
-        $activeSub = collect($adminSubLinks)->first(fn ($l) => $l['active']);
-        $pageTitle = $activeSub ? $activeSub['label'] : $labels['administration'];
+        $pageTitle = $labels['administration'];
     } elseif (request()->routeIs('notifications.*')) {
         $pageContextLabel = $labels['workspace'];
         $pageTitle = $labels['notifications'];
@@ -242,6 +124,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title }}</title>
+    <script>document.documentElement.dataset.theme=localStorage.getItem('notify_theme')==='dark'?'dark':'light';</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -252,10 +135,17 @@
     class="notify-shell"
     x-data="{
         sidebarCollapsed: localStorage.getItem('notify_sidebar_collapsed') === 'true',
+        profileOpen: false,
+        theme: document.documentElement.dataset.theme,
         toggleSidebar() {
             this.sidebarCollapsed = !this.sidebarCollapsed;
             localStorage.setItem('notify_sidebar_collapsed', this.sidebarCollapsed.toString());
-        }
+        },
+        toggleTheme() {
+            this.theme = this.theme === 'dark' ? 'light' : 'dark';
+            document.documentElement.dataset.theme = this.theme;
+            localStorage.setItem('notify_theme', this.theme);
+        },
     }"
     :class="{ 'notify-shell--collapsed': sidebarCollapsed }"
 >
@@ -284,46 +174,12 @@
                         @if(!$isStaff)
                             {{-- Area 3: Finance --}}
                             @if($canViewFinance)
-                                <div class="notify-nav-area notify-nav-area--finance" data-nav-area="finance">
-                                    <x-notify.nav-item data-nav-destination="finance" :href="route('finance.index')" :label="$labels['finance']" icon="chart" :active="$isFinance" />
-                                    @if(!empty($financeSubLinks))
-                                        <div class="notify-nav__sub">
-                                            @foreach($financeSubLinks as $link)
-                                                <a
-                                                    class="notify-nav__sub-link {{ $link['active'] ? 'is-active' : '' }}"
-                                                    href="{{ $link['href'] }}"
-                                                    data-nav-destination="{{ $link['id'] }}"
-                                                    @if($link['active']) aria-current="page" @endif
-                                                >
-                                                    <x-notify.icon :name="$link['icon']" :size="14" />
-                                                    <span>{{ $link['label'] }}</span>
-                                                </a>
-                                            @endforeach
-                                        </div>
-                                    @endif
-                                </div>
+                                <x-notify.nav-item data-nav-destination="finance" :href="route('finance.index')" :label="$labels['finance']" icon="chart" :active="$isFinance" />
                             @endif
 
                             {{-- Area 4: Administration --}}
                             @if($canViewAdministration)
-                                <div class="notify-nav-area notify-nav-area--admin" data-nav-area="administration">
-                                    <x-notify.nav-item data-nav-destination="administration" :href="route('administration.index')" :label="$labels['administration']" icon="settings" :active="$isAdministration" />
-                                    @if(!empty($adminSubLinks))
-                                        <div class="notify-nav__sub">
-                                            @foreach($adminSubLinks as $link)
-                                                <a
-                                                    class="notify-nav__sub-link {{ $link['active'] ? 'is-active' : '' }}"
-                                                    href="{{ $link['href'] }}"
-                                                    data-nav-destination="{{ $link['id'] }}"
-                                                    @if($link['active']) aria-current="page" @endif
-                                                >
-                                                    <x-notify.icon :name="$link['icon']" :size="14" />
-                                                    <span>{{ $link['label'] }}</span>
-                                                </a>
-                                            @endforeach
-                                        </div>
-                                    @endif
-                                </div>
+                                <x-notify.nav-item data-nav-destination="administration" :href="route('administration.index')" :label="$labels['administration']" icon="settings" :active="$isAdministration" />
                             @endif
                         @endif
                     </nav>
@@ -378,12 +234,25 @@
                             <x-notify.icon name="languages" :size="16" />
                             <span>{{ $targetLocaleLabel }}</span>
                         </a>
+                        <button type="button" class="notify-icon-button" @click="toggleTheme()" title="{{ $labels['theme'] }}" aria-label="{{ $labels['theme'] }}">
+                            <x-notify.icon name="theme" :size="18" />
+                        </button>
                         <x-notify.button data-shell-action="notifications" :href="route('notifications.index')" variant="ghost" icon="bell" hide-label-on-mobile="true" aria-label="{{ $labels['open_notifications'] }}">
                             {{ $labels['notifications'] }}
                             @if($unreadNotificationsCount > 0)
                                 <x-notify.badge variant="danger">{{ $unreadNotificationsCount }}</x-notify.badge>
                             @endif
                         </x-notify.button>
+                        <div class="notify-profile-menu" @click.outside="profileOpen=false">
+                            <button type="button" class="notify-icon-button" @click="profileOpen=!profileOpen" :aria-expanded="profileOpen.toString()" aria-label="{{ $labels['profile'] }}">
+                                <x-notify.icon name="user" :size="18" />
+                            </button>
+                            <div class="notify-profile-menu__panel" x-show="profileOpen" x-cloak>
+                                <a href="{{ route('profile.edit') }}">{{ $labels['profile'] }}</a>
+                                <a href="{{ route('profile.edit') }}#password">{{ $labels['change_password'] }}</a>
+                                <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit">{{ $labels['logout'] }}</button></form>
+                            </div>
+                        </div>
                     </div>
                 </header>
             @endauth
@@ -396,7 +265,7 @@
                     <div class="notify-flash notify-flash--error">{{ session('warning') }}</div>
                 @endif
                 @if($errors->any())
-                    <div class="notify-flash notify-flash--error">{{ $errors->first() ?? 'Please review the submitted information.' }}</div>
+                    <div class="notify-flash notify-flash--error">{{ $errors->first() ?? __('notify.common.review_errors') }}</div>
                 @endif
                 {{ $slot }}
             </main>
@@ -414,8 +283,6 @@
             :is-clients="$isClients"
             :is-finance="$isFinance"
             :is-administration="$isAdministration"
-            :finance-sub-links="$financeSubLinks"
-            :admin-sub-links="$adminSubLinks"
             :more-active="$isFinance || $isAdministration"
             :target-locale="$targetLocale"
             :target-locale-label="$targetLocaleLabel"

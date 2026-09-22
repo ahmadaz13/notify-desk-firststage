@@ -110,6 +110,8 @@ return array (
   'app_name' => 'نوتيفاي ديسك',
   'appointments' =>
   array (
+    'systems_discussed' => 'الأنظمة التي تمت مناقشتها',
+    'systems_discussed_placeholder' => 'مثال: نظام نقاط البيع ونظام المخزون',
     'attended' => 'حضر الاجتماع في الموعد',
     'attended_late' => 'حضر متأخراً',
     'attendees' => 'المسؤولون',
@@ -245,6 +247,7 @@ return array (
   ),
   'client_workspace' =>
   array (
+    'command_overview' => 'ملخص إجراءات العميل',
     'credit_note_balance' => 'إشعارات دائنة',
     'credits_refunds' => 'إشعارات الدائن والاسترداد',
     'invoices' => 'الفواتير',
@@ -401,6 +404,7 @@ return array (
       'same_product_conflict' => 'يوجد اشتراك نشط أو تغيير مجدول لهذا المنتج.',
       'installment_count' => 'اختر عدد الأقساط.',
       'due_day' => 'اختر يوم استحقاق القسط.',
+      'installments_disabled' => 'الأقساط السنوية معطلة في إعدادات الشركة.',
     ),
     'guided_subscription' =>
     array (
@@ -807,6 +811,17 @@ return array (
       'reports' => 'التقارير',
       'advanced' => 'متقدم',
     ],
+    'section_navigation' => 'أقسام المالية', 'period' => 'الفترة', 'from' => 'من', 'to' => 'إلى', 'comparison' => 'المقارنة',
+    'ranges' => ['today'=>'اليوم','this_month'=>'هذا الشهر','previous_month'=>'الشهر السابق','this_year'=>'هذا العام','previous_year'=>'العام السابق','custom_date_range'=>'مخصص'],
+    'comparisons' => ['none'=>'بدون مقارنة','previous_period'=>'الفترة السابقة','previous_year_same_period'=>'الفترة نفسها من العام السابق'],
+    'accounting_core_desc' => 'أرقام محاسبية معتمدة من دفتر الأستاذ وحركات النقد الفعلية.', 'view_reports' => 'عرض التقارير',
+    'cash_available' => 'النقد المتاح', 'accounts_receivable' => 'ذمم العملاء', 'overdue_receivables' => 'الذمم المتأخرة', 'recognized_revenue' => 'الإيراد المعترف به', 'operating_expenses' => 'المصاريف التشغيلية', 'net_income' => 'صافي الدخل الإداري',
+    'open_subscription_metrics' => 'فتح مقاييس الاشتراكات', 'collections_desc' => 'مراجعة الذمم ومتابعة التحصيل في مساحة العمل المخصصة.', 'open_collections' => 'فتح مساحة التحصيلات',
+    'outstanding_invoices' => 'الفواتير المستحقة', 'overdue_invoices' => 'الفواتير المتأخرة', 'partially_paid' => 'مدفوعة جزئياً', 'invoice' => 'الفاتورة', 'due_date' => 'تاريخ الاستحقاق', 'open_client_collections' => 'فتح العميل والتحصيلات', 'no_outstanding_invoices' => 'لا توجد فواتير مستحقة.',
+    'expenses_desc' => 'تسجيل ومراجعة المصاريف التشغيلية في مساحة العمل المخصصة.', 'open_expenses' => 'فتح إدارة المصاريف', 'company_funded' => 'ممولة من الشركة', 'personal_funded' => 'ممولة شخصياً', 'active_expenses' => 'المصاريف الأخيرة',
+    'capital_assets_desc' => 'إدارة التمويل الرأسمالي والأصول الثابتة في مساحة العمل المخصصة.', 'open_capital_assets' => 'فتح التمويل والأصول', 'capital_funding' => 'التمويل الرأسمالي', 'fixed_assets' => 'الأصول الثابتة',
+    'reports_title' => 'التقارير المالية', 'reports_desc' => 'جميع عمليات تصدير التقارير المالية متاحة هنا.', 'export_csv' => 'تصدير CSV', 'aging' => 'أعمار الذمم', 'recognized_revenue' => 'الإيراد المعترف به', 'expense_breakdown' => 'تفصيل المصاريف',
+    'advanced_desc' => 'أدوات المحاسبة التقنية منفصلة عن العمل المالي اليومي.', 'cash_accounts' => 'الحسابات المالية والنقد', 'cash_accounts_desc' => 'أدوات البنوك والنقد والتحويلات والمطابقة.', 'general_ledger' => 'دفتر الأستاذ العام', 'general_ledger_desc' => 'دليل الحسابات والقيود والفترات والاعتراف بالإيراد.',
     'accounting_core' => 'المؤشرات المحاسبية الأساسية (دفتر الأستاذ المعتمد)',
     'saas_block_title' => 'مقاييس الاشتراكات التجارية (SaaS)',
     'saas_block_subtitle' => 'اقتصاديات الاشتراكات (MRR/ARR) مستقلة تماماً عن الإيراد المحاسبي المعترف به والتحصيلات النقدية.',
@@ -971,19 +986,30 @@ return array (
   ),
   'settings' =>
   array (
-    'activity_log_subtitle' => 'أحدث 50 حركة مسجلة في النظام مع إمكانية التصفية حسب النوع',
-    'activity_log_title' => 'سجل النشاطات والتدقيق',
-    'all_activities' => 'جميع النشاطات',
-    'clients_count' => 'عدد العملاء',
-    'email' => 'البريد الإلكتروني',
-    'export_financial_excel' => 'تصدير التقرير المالي الشامل',
-    'filter_activity' => 'تصفية:',
-    'no_activity_logs' => 'لا توجد سجلات لعرضها حالياً.',
-    'parameters_subtitle' => 'المعايير المعتمدة للاحتساب والتسويات في النظام',
-    'parameters_title' => 'الإعدادات التشغيلية',
-    'subtitle' => 'سجل النشاطات وأدوات تصدير البيانات المالية.',
-    'title' => 'مركز التحكم والإعدادات',
-    'user_or_client' => 'المستخدم / العميل',
+    'subtitle' => 'الإعدادات العامة لوثائق الشركة والعمليات والاشتراكات والعقود.',
+    'company_documents' => 'الشركة والوثائق', 'operations' => 'العمليات', 'subscriptions_contracts' => 'الاشتراكات والعقود',
+    'company_name_ar' => 'اسم الشركة بالعربية', 'company_name_en' => 'اسم الشركة بالإنجليزية', 'company_logo' => 'شعار الشركة', 'company_phone' => 'الهاتف', 'company_email' => 'البريد الإلكتروني',
+    'company_address' => 'العنوان', 'registration_number' => 'رقم التسجيل', 'tax_number' => 'الرقم الضريبي', 'authorized_signatory' => 'المفوّض بالتوقيع',
+    'default_contract_terms' => 'شروط العقد الافتراضية', 'contract_prefix' => 'بادئة رقم العقد', 'invoice_prefix' => 'بادئة رقم الفاتورة',
+    'timezone' => 'المنطقة الزمنية', 'appointment_duration' => 'مدة الموعد (دقيقة)', 'free_installation_duration' => 'مدة التركيب المجاني (دقيقة)',
+    'post_install_followup_days' => 'المتابعة بعد التركيب (أيام)', 'workday_start' => 'بداية يوم العمل', 'workday_end' => 'نهاية يوم العمل',
+    'currency' => 'العملة', 'default_billing_cycle' => 'دورة الفوترة الافتراضية', 'auto_contract_on_paid_subscription' => 'إنشاء عقد تلقائياً للاشتراك المدفوع',
+    'allow_monthly' => 'السماح بالفوترة الشهرية', 'allow_annual_installments' => 'السماح بالأقساط السنوية', 'initial_contract_status' => 'تبدأ العقود الجديدة بحالة مسودة.', 'saved' => 'تم حفظ الإعدادات.',
+  ),
+  'administration' => array (
+    'title' => 'الإدارة', 'subtitle' => 'إدارة الأنظمة وصلاحيات الفريق والاستيراد والإعدادات العامة.',
+    'systems' => 'الأنظمة', 'systems_desc' => 'إدارة الأنظمة المتاحة وأسعارها الافتراضية الاختيارية.', 'active_count' => ':count فعّال', 'total_count' => ':count إجمالي', 'manage_systems' => 'إدارة الأنظمة',
+    'team_permissions' => 'الفريق والصلاحيات', 'team_desc' => 'إدارة أعضاء الفريق والأدوار وإعادة تعيين كلمات المرور.', 'members_count' => ':count عضو فعّال', 'manage_team' => 'إدارة الفريق',
+    'import' => 'الاستيراد', 'import_desc' => 'استيراد العملاء المحتملين والمشتركين من ملفات CSV.', 'import_data' => 'استيراد البيانات', 'settings_desc' => 'إعداد وثائق الشركة والعمليات والاشتراكات والعقود.',
+  ),
+  'profile' => array (
+    'title' => 'الملف الشخصي', 'personal_information' => 'المعلومات الشخصية', 'name' => 'الاسم', 'email' => 'البريد الإلكتروني', 'change_password' => 'تغيير كلمة المرور',
+    'current_password' => 'كلمة المرور الحالية', 'new_password' => 'كلمة المرور الجديدة', 'confirm_password' => 'تأكيد كلمة المرور', 'update_password' => 'تحديث كلمة المرور',
+    'updated' => 'تم تحديث الملف الشخصي.', 'password_updated' => 'تم تحديث كلمة المرور.',
+  ),
+  'team' => array (
+    'title'=>'الفريق والصلاحيات','subtitle'=>'إدارة أعضاء الفريق الداخلي وأدوارهم.','add'=>'إضافة عضو فريق','name'=>'الاسم','email'=>'البريد الإلكتروني','role'=>'الدور','status'=>'الحالة','you'=>'أنت','deactivate'=>'إلغاء التفعيل','empty'=>'لا يوجد أعضاء فريق.','create_account'=>'إنشاء الحساب','edit_member'=>'تعديل: :name','active_account'=>'الحساب فعّال','reset_password'=>'إعادة تعيين كلمة المرور',
+    'roles'=>['founder'=>'مؤسس','admin'=>'مدير','staff'=>'موظف'], 'created'=>'تم إنشاء عضو الفريق.','updated'=>'تم تحديث عضو الفريق.','password_reset'=>'تمت إعادة تعيين كلمة المرور.','deactivated'=>'تم إلغاء تفعيل عضو الفريق.','cannot_change_own_role'=>'لا يمكنك تغيير دورك الخاص.','cannot_deactivate_self'=>'لا يمكنك إلغاء تفعيل حسابك الخاص.','forbidden'=>'غير مصرح لك بالوصول إلى هذه الصفحة.',
   ),
   'statuses' =>
   array (
@@ -1264,5 +1290,6 @@ return array (
   array (
     'collapse_sidebar' => 'طي القائمة',
     'expand_sidebar' => 'توسيع القائمة',
+    'toggle_theme' => 'تبديل المظهر اللوني',
   ),
 );

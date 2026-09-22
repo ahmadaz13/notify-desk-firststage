@@ -61,8 +61,8 @@ class Phase2FinalShellTodayBoardTest extends TestCase
             ->assertSee('data-nav-destination="clients"', false)
             ->assertSee('data-nav-destination="finance"', false)
             ->assertSee('data-nav-destination="administration"', false)
-            ->assertSee('data-nav-area="finance"', false)
-            ->assertSee('data-nav-area="administration"', false);
+            ->assertDontSee('data-nav-area="finance"', false)
+            ->assertDontSee('data-nav-area="administration"', false);
 
         // Subordinate engine isolation
         $response->assertDontSee('data-nav-destination="financial-accounts"', false)

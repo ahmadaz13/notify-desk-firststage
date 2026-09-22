@@ -29,7 +29,7 @@
             <div style="display:flex;align-items:center;gap:10px">
                 <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#16A34A;color:#fff;font-size:12px;font-weight:bold">✓</span>
                 <div>
-                    <strong style="color:#15803D;font-size:13px">{{ __('notify.subscriptions.activated_success') ?? 'تم تفعيل الاشتراك وإنشاء الفاتورة ومسودة العقد بنجاح' }}</strong>
+                    <strong style="color:#15803D;font-size:13px">{{ __('notify.subscriptions.activated_success') }}</strong>
                     <small style="display:block;color:#166534;margin-top:2px">{{ __('notify.client_workspace.subscription_activated_detail') }}</small>
                 </div>
             </div>
@@ -40,7 +40,7 @@
     @endif
 
     {{-- SECTION 1, 2, 3, 4, 5, 6: Operational Command Card (Hero) --}}
-    <section class="notify-workspace-command-card" aria-label="Command Overview">
+    <section class="notify-workspace-command-card" aria-label="{{ __('notify.client_workspace.command_overview') }}">
         <div class="notify-workspace-command-card__header">
             {{-- 1. Client Identity --}}
             <div class="notify-workspace-identity">
@@ -315,30 +315,10 @@
         </div>
     </section>
 
-    @if(\App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_COMMERCIAL_CATALOG))
-        <section class="notify-workspace-card" style="margin-block:16px" aria-label="{{ __('custom_projects.title') }}">
-            <div class="notify-workspace-card__head">
-                <h2 class="notify-workspace-card__title">{{ __('custom_projects.title') }}</h2>
-                <a class="notify-button notify-button--soft notify-button--sm" href="{{ route('custom-projects.create', ['client_id' => $client->id]) }}">{{ __('custom_projects.create') }}</a>
-            </div>
-            <div class="notify-workspace-card__body">
-                @forelse($customProjects as $project)
-                    <div style="display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;margin-block:8px">
-                        <a href="{{ route('custom-projects.show', $project) }}">{{ $project->name }}</a>
-                        <span>{{ $project->statusLabel() }} · {{ $project->agreedValueFormatted() }} {{ __('notify.common.currency_jod') }}</span>
-                    </div>
-                @empty
-                    <p class="notify-muted">{{ __('custom_projects.empty') }}</p>
-                @endforelse
-                <a href="{{ route('clients.custom-projects.index', $client) }}">{{ __('custom_projects.view_all') }}</a>
-            </div>
-        </section>
-    @endif
-
     {{-- Operational Summaries Grid (Sections 7, 8, 9) --}}
     <div class="notify-workspace-summary-grid">
         {{-- 7. Subscriptions by Product (UX-D04) --}}
-        <section class="notify-workspace-card notify-workspace-card--subscriptions" aria-label="Subscriptions Summary">
+        <section class="notify-workspace-card notify-workspace-card--subscriptions" aria-label="{{ __('notify.client_workspace.subscriptions_by_product') }}">
             <div class="notify-workspace-card__head">
                 <h2 class="notify-workspace-card__title">{{ __('notify.client_workspace.subscriptions_by_product') }}</h2>
             </div>
@@ -413,59 +393,8 @@
             </div>
         </section>
 
-        {{-- 8. Amount Due Summary & Latest Payment (Lightweight Financial Summary) --}}
-        <section class="notify-workspace-card notify-workspace-card--due" aria-label="Amount Due Summary">
-            <div class="notify-workspace-card__head">
-                <h2 class="notify-workspace-card__title">{{ __('notify.client_workspace.amount_due') }}</h2>
-            </div>
-            <div class="notify-workspace-card__body">
-                <div class="notify-amount-due-box">
-                    <small class="notify-amount-due-box__label">{{ __('notify.client_workspace.total_due') }}</small>
-                    <div class="notify-amount-due-box__val-row">
-                        <span class="notify-amount-due-box__val @if(!empty($amountDue['total_minor']) && $amountDue['total_minor'] > 0) notify-text-danger @else notify-text-success @endif">
-                            {{ $amountDue['total_formatted'] }} {{ $amountDue['currency'] }}
-                        </span>
-                        @if(!empty($amountDue['is_paid']))
-                            <span class="notify-badge notify-badge--success">{{ __('notify.client_workspace.paid_in_full') }}</span>
-                        @endif
-                    </div>
-
-                    {{-- Latest Payment (Lightweight) --}}
-                    <div class="notify-latest-payment-box" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--notify-border, #E2E8F0)">
-                        <small class="notify-amount-due-box__label" style="display:block;margin-bottom:4px">{{ __('notify.client_workspace.latest_payment') }}</small>
-                        @if(!empty($amountDue['latest_payment']))
-                            <div style="display:flex;justify-content:space-between;align-items:center">
-                                <strong class="notify-text-success">{{ $amountDue['latest_payment']['amount_formatted'] }}</strong>
-                                <span class="notify-badge notify-badge--neutral" dir="ltr">{{ $amountDue['latest_payment']['paid_at'] }}</span>
-                            </div>
-                            <small class="notify-muted" style="display:block;margin-top:2px">{{ $amountDue['latest_payment']['method'] }} @if(!empty($amountDue['latest_payment']['reference'])) · #{{ $amountDue['latest_payment']['reference'] }} @endif</small>
-                        @else
-                            <p class="notify-muted" style="margin:2px 0 0;font-size:12px">{{ __('notify.client_workspace.no_payments_yet') }}</p>
-                        @endif
-                    </div>
-
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px">
-                        @if(!empty($amountDue['total_minor']) && $amountDue['total_minor'] > 0 && !empty($amountDue['can_record_payment']))
-                            <button type="button"
-                               class="notify-button notify-button--primary notify-button--sm"
-                               data-trigger-record-payment>
-                                <span>{{ __('notify.client_workspace.action_record_payment') }}</span>
-                            </button>
-                        @endif
-
-                        @if(!empty($amountDue['can_view_financial_details']))
-                            <a href="{{ $amountDue['view_financial_details_url'] ?? route('collections.index', ['client_id' => $client->id]) }}"
-                               class="notify-button notify-button--ghost notify-button--sm">
-                                <span>{{ __('notify.client_workspace.view_financial_details') }} →</span>
-                            </a>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        {{-- 9. Contract Status and Access --}}
-        <section class="notify-workspace-card notify-workspace-card--contracts" aria-label="Contracts Summary">
+        {{-- 8. Contract Status and Access --}}
+        <section class="notify-workspace-card notify-workspace-card--contracts" aria-label="{{ __('notify.client_workspace.contract_status') }}">
             <div class="notify-workspace-card__head">
                 <h2 class="notify-workspace-card__title">{{ __('notify.client_workspace.contract_status') }}</h2>
             </div>
@@ -495,7 +424,7 @@
                                     @if(!empty($contract['can_download']))
                                         <a href="{{ $contract['download_pdf_url'] ?? route('contracts.download-pdf', $contract['id']) }}"
                                            class="notify-button notify-button--ghost notify-button--sm">
-                                            <span>تحميل PDF</span>
+                                            <span>{{ __('notify.contracts.download_pdf') }}</span>
                                         </a>
                                     @endif
                                     @if(!empty($contract['print_url']))
@@ -512,10 +441,31 @@
                 @endif
             </div>
         </section>
+
+        {{-- 9. Amount Due Summary & Latest Payment --}}
+        <section class="notify-workspace-card notify-workspace-card--due" aria-label="{{ __('notify.client_workspace.amount_due') }}">
+            <div class="notify-workspace-card__head"><h2 class="notify-workspace-card__title">{{ __('notify.client_workspace.amount_due') }}</h2></div>
+            <div class="notify-workspace-card__body"><div class="notify-amount-due-box">
+                <small class="notify-amount-due-box__label">{{ __('notify.client_workspace.total_due') }}</small>
+                <div class="notify-amount-due-box__val-row"><span class="notify-amount-due-box__val @if(!empty($amountDue['total_minor']) && $amountDue['total_minor'] > 0) notify-text-danger @else notify-text-success @endif">{{ $amountDue['total_formatted'] }} {{ $amountDue['currency'] }}</span>@if(!empty($amountDue['is_paid']))<span class="notify-badge notify-badge--success">{{ __('notify.client_workspace.paid_in_full') }}</span>@endif</div>
+                <div class="notify-latest-payment-box" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--notify-border)"><small class="notify-amount-due-box__label">{{ __('notify.client_workspace.latest_payment') }}</small>@if(!empty($amountDue['latest_payment']))<div style="display:flex;justify-content:space-between;align-items:center"><strong class="notify-text-success">{{ $amountDue['latest_payment']['amount_formatted'] }}</strong><span class="notify-badge notify-badge--neutral" dir="ltr">{{ $amountDue['latest_payment']['paid_at'] }}</span></div><small class="notify-muted">{{ $amountDue['latest_payment']['method'] }} @if(!empty($amountDue['latest_payment']['reference'])) · #{{ $amountDue['latest_payment']['reference'] }} @endif</small>@else<p class="notify-muted">{{ __('notify.client_workspace.no_payments_yet') }}</p>@endif</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">@if(!empty($amountDue['total_minor']) && $amountDue['total_minor'] > 0 && !empty($amountDue['can_record_payment']))<button type="button" class="notify-button notify-button--primary notify-button--sm" data-trigger-record-payment>{{ __('notify.client_workspace.action_record_payment') }}</button>@endif @if(!empty($amountDue['can_view_financial_details']))<a href="{{ $amountDue['view_financial_details_url'] ?? route('collections.index', ['client_id' => $client->id]) }}" class="notify-button notify-button--ghost notify-button--sm">{{ __('notify.client_workspace.view_financial_details') }} →</a>@endif</div>
+            </div></div>
+        </section>
     </div>
 
+    @if(\App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_COMMERCIAL_CATALOG))
+        <section class="notify-workspace-card" style="margin-block:16px" aria-label="{{ __('custom_projects.title') }}">
+            <div class="notify-workspace-card__head"><h2 class="notify-workspace-card__title">{{ __('custom_projects.title') }}</h2><a class="notify-button notify-button--soft notify-button--sm" href="{{ route('custom-projects.create', ['client_id' => $client->id]) }}">{{ __('custom_projects.create') }}</a></div>
+            <div class="notify-workspace-card__body">
+                @forelse($customProjects as $project)<div style="display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;margin-block:8px"><a href="{{ route('custom-projects.show', $project) }}">{{ $project->name }}</a><span>{{ $project->statusLabel() }} · {{ $project->agreedValueFormatted() }} {{ __('notify.common.currency_jod') }}</span></div>@empty<p class="notify-muted">{{ __('custom_projects.empty') }}</p>@endforelse
+                <a href="{{ route('clients.custom-projects.index', $client) }}">{{ __('custom_projects.view_all') }}</a>
+            </div>
+        </section>
+    @endif
+
     {{-- 10. Last 3 Activities --}}
-    <section class="notify-workspace-card notify-workspace-card--recent-activity" aria-label="Recent Activities">
+    <section class="notify-workspace-card notify-workspace-card--recent-activity" aria-label="{{ __('notify.client_workspace.recent_activity') }}">
         <div class="notify-workspace-card__head">
             <h2 class="notify-workspace-card__title">{{ __('notify.client_workspace.recent_activity') }}</h2>
         </div>

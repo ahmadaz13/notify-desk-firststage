@@ -14,7 +14,7 @@
             <p class="p4-subtitle">{{ __('notify.finance.subtitle') }}</p>
 
             {{-- 6 Consolidated Cockpit Sections Tabs --}}
-            <nav class="notify-mode-tabs" aria-label="Finance Cockpit Sections" style="margin-top: 14px; overflow-x: auto; max-width: 100%; white-space: nowrap;">
+            <nav class="notify-mode-tabs" aria-label="{{ __('notify.finance.section_navigation') }}" style="margin-top: 14px; overflow-x: auto; max-width: 100%; white-space: nowrap;">
                 @foreach([
                     'overview' => __('notify.finance.sections.overview'),
                     'collections' => __('notify.finance.sections.collections'),
@@ -39,30 +39,32 @@
                 <form method="GET" action="{{ route('finance.index') }}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
                     <input type="hidden" name="section" value="{{ $section }}">
                     <div class="p4-field">
-                        <label>الفترة</label>
+                        <label>{{ __('notify.finance.period') }}</label>
                         <select name="range" class="p4-select" style="min-width:130px">
-                            @foreach(['today' => 'اليوم', 'this_month' => 'هذا الشهر', 'previous_month' => 'الشهر السابق', 'this_year' => 'هذا العام', 'previous_year' => 'العام السابق', 'custom_date_range' => 'مخصص'] as $value => $label)
+                            @foreach(['today','this_month','previous_month','this_year','previous_year','custom_date_range'] as $value)
+                                @php($label = __('notify.finance.ranges.'.$value))
                                 <option value="{{ $value }}" @selected($period->range === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="p4-field">
-                        <label>من</label>
+                        <label>{{ __('notify.finance.from') }}</label>
                         <input type="date" name="date_from" class="p4-input" value="{{ request('date_from', $period->start->toDateString()) }}">
                     </div>
                     <div class="p4-field">
-                        <label>إلى</label>
+                        <label>{{ __('notify.finance.to') }}</label>
                         <input type="date" name="date_to" class="p4-input" value="{{ request('date_to', $period->end->toDateString()) }}">
                     </div>
                     <div class="p4-field">
-                        <label>المقارنة</label>
+                        <label>{{ __('notify.finance.comparison') }}</label>
                         <select name="comparison" class="p4-select" style="min-width:130px">
-                            @foreach(['none' => 'بدون مقارنة', 'previous_period' => 'الفترة السابقة', 'previous_year_same_period' => 'العام السابق'] as $value => $label)
+                            @foreach(['none','previous_period','previous_year_same_period'] as $value)
+                                @php($label = __('notify.finance.comparisons.'.$value))
                                 <option value="{{ $value }}" @selected($period->comparisonMode === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <button class="p4-btn p4-btn-primary" type="submit">تطبيق</button>
+                    <button class="p4-btn p4-btn-primary" type="submit">{{ __('notify.actions.apply') }}</button>
                 </form>
             </div>
         @endif

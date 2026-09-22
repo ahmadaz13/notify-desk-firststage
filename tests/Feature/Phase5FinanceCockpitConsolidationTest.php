@@ -43,12 +43,7 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
         $response->assertSee('data-finance-tab="advanced"', false);
 
         // Core Accounting KPIs
-        $response->assertSee('النقد المتاح');
-        $response->assertSee('ذمم العملاء');
-        $response->assertSee('الذمم المتأخرة');
-        $response->assertSee('الإيراد المعترف به');
-        $response->assertSee('المصاريف التشغيلية');
-        $response->assertSee('صافي الدخل الإداري');
+        foreach (['cash_available','accounts_receivable','overdue_receivables','recognized_revenue','operating_expenses','net_income'] as $key) $response->assertSee(__('notify.finance.'.$key));
 
         // Separate Commercial SaaS block
         $response->assertSee(__('notify.finance.saas_block_title'));
@@ -58,9 +53,7 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
         $response->assertSee(__('notify.finance.upcoming_renewals'));
 
         // Executive Statements Summary
-        $response->assertSee(__('notify.finance.profit_loss'));
-        $response->assertSee(__('notify.finance.balance_sheet'));
-        $response->assertSee(__('notify.finance.cash_flow'));
+        $response->assertSee(__('notify.finance.view_reports'));
     }
 
     public function test_finance_cockpit_collections_workspace(): void
@@ -86,10 +79,10 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
         $response = $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'collections']));
 
         $response->assertOk();
-        $response->assertSee('مساحة متابعة تحصيل الذمم');
+        $response->assertSee(__('notify.finance.collections_workspace'));
         $response->assertSee('Al-Amal Medical Center');
         $response->assertSee('INV-AMAL-001');
-        $response->assertSee('فتح ملف العميل والتحصيل');
+        $response->assertSee(__('notify.finance.open_client_collections'));
     }
 
     private function createClient(array $overrides = []): Client
@@ -115,11 +108,8 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
         $response = $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'expenses']));
 
         $response->assertOk();
-        $response->assertSee('تسجيل مصروف تشغيلي');
-        $response->assertSee('مصدر الدفع (Paid From)');
-        $response->assertSee('حساب الشركة (Company Account)');
-        $response->assertSee('دفع شخصي (Personal / Founder)');
-        $response->assertSee('خيارات إضافية');
+        $response->assertSee(__('notify.finance.expenses_workspace'));
+        $response->assertSee(__('notify.finance.open_expenses'));
     }
 
     public function test_finance_cockpit_capital_and_assets_workspace(): void
@@ -127,11 +117,8 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
         $response = $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'capital_assets']));
 
         $response->assertOk();
-        $response->assertSee('تسجيل تمويل رأسمالي أو قرض');
-        $response->assertSee('مساهمة مؤسس (رأس مال / Equity)');
-        $response->assertSee('قرض مؤسس / تمويل دَين (Loan Payable)');
-        $response->assertSee('استثمار ملكية خارجي (External Equity)');
-        $response->assertSee('تسجيل اقتناء أصل ثابت (Fixed Asset)');
+        $response->assertSee(__('notify.finance.capital_assets_workspace'));
+        $response->assertSee(__('notify.finance.open_capital_assets'));
         $response->assertSee(__('notify.finance.capital_invariants_note'));
     }
 
@@ -140,11 +127,11 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
         $response = $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'reports']));
 
         $response->assertOk();
-        $response->assertSee('القوائم المالية الإدارية');
+        $response->assertSee(__('notify.finance.reports_title'));
         $response->assertSee(__('notify.finance.profit_loss'));
         $response->assertSee(__('notify.finance.balance_sheet'));
         $response->assertSee(__('notify.finance.cash_flow'));
-        $response->assertSee('تقارير الاشتراكات التجارية (Commercial SaaS Reports)');
+        $response->assertSee(__('notify.finance.export_csv'));
     }
 
     public function test_finance_cockpit_advanced_workspace(): void
@@ -152,11 +139,9 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
         $response = $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'advanced']));
 
         $response->assertOk();
-        $response->assertSee('وحدة الأدوات المحاسبية والعمليات المتقدمة');
-        $response->assertSee('الحسابات المالية ودفتر حركة النقد');
-        $response->assertSee('شجرة الحسابات ودفتر الأستاذ العام');
-        $response->assertSee('محرك الاعتراف بالإيراد (Revenue Recognition)');
-        $response->assertSee('مصفوفة المطابقة والتدقيق بين الدفاتر والأستاذ');
+        $response->assertSee(__('notify.finance.advanced_console'));
+        $response->assertSee(__('notify.finance.cash_accounts'));
+        $response->assertSee(__('notify.finance.general_ledger'));
     }
 
     public function test_staff_cannot_access_finance_cockpit(): void

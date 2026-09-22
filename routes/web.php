@@ -30,6 +30,7 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MeetingOutcomeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperatingExpenseController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OfferController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SaasMetricsController;
@@ -49,6 +50,9 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
     // Daily Notes
     Route::put('/daily-notes', [DailyNoteController::class, 'save'])->name('daily-notes.save');
@@ -199,7 +203,7 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/accounting/revenue-recognition/run', [AccountingController::class, 'recognizeRevenue'])->name('accounting.revenue-recognition.run');
     Route::post('/accounting/revenue-recognition/schedules/{schedule}/confirm', [AccountingController::class, 'confirmRevenueRecognition'])->name('accounting.revenue-recognition.confirm');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
-    Route::get('/settings/export', [SettingsController::class, 'export'])->name('settings.export');
+    Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');

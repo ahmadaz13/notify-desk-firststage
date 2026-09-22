@@ -50,7 +50,7 @@ class Phase09ManagementSeparationTest extends TestCase
         $this->actingAs($staff)->get(route('settings.index'))->assertForbidden();
     }
 
-    public function test_founder_sees_grouped_management_and_subordinate_advanced_layers(): void
+    public function test_founder_sees_four_top_level_areas_without_nested_sidebar_layers(): void
     {
         $founder = User::factory()->create([
             'role' => User::ROLE_FOUNDER,
@@ -68,22 +68,9 @@ class Phase09ManagementSeparationTest extends TestCase
             ->assertSee('data-nav-destination="finance"', false)
             ->assertSee('data-nav-destination="administration"', false);
 
-        // Sub-items for Finance
-        $response->assertSee('data-nav-destination="collections"', false)
-            ->assertSee('data-nav-destination="operating-expenses"', false)
-            ->assertSee('data-nav-destination="capital-management"', false)
-            ->assertSee('data-nav-destination="subscription-management"', false)
-            ->assertSee('data-nav-destination="executive"', false)
-            ->assertSee('data-nav-destination="saas-metrics"', false);
-
-        // Sub-items for Administration
-        $response->assertSee('data-nav-destination="products-pricing"', false)
-            ->assertSee('data-nav-destination="import"', false)
-            ->assertSee('data-nav-destination="settings"', false);
-
-        // Subordinate engine isolation: Accounting and Financial Accounts are NOT top-level sidebar items
-        $response->assertDontSee('data-nav-destination="financial-accounts"', false);
-        $response->assertDontSee('data-nav-destination="accounting"', false);
+        foreach (['collections','operating-expenses','capital-management','subscription-management','executive','saas-metrics','products-pricing','import','settings','financial-accounts','accounting'] as $destination) {
+            $response->assertDontSee('data-nav-destination="'.$destination.'"', false);
+        }
     }
 
     public function test_mobile_bottom_nav_has_exact_items_per_role_and_notifications_in_header_only(): void

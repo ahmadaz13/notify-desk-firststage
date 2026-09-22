@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Client;
 use App\Models\Contract;
+use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Support\Money;
@@ -18,9 +19,10 @@ class ContractService
     public function generateNextContractNumber(): string
     {
         $year = now()->format('Y');
+        $prefix = strtoupper((string) Setting::get('contract_prefix', 'ND'));
 
-        return DB::transaction(function () use ($year) {
-            $latest = Contract::where('contract_number', 'like', "ND-{$year}-%")
+        return DB::transaction(function () use ($year, $prefix) {
+            $latest = Contract::where('contract_number', 'like', "{$prefix}-{$year}-%")
                 ->orderByDesc('id')
                 ->lockForUpdate()
                 ->first();
@@ -28,12 +30,13 @@ class ContractService
             $nextSequence = 1;
             if ($latest) {
                 $parts = explode('-', $latest->contract_number);
-                if (isset($parts[2]) && is_numeric($parts[2])) {
-                    $nextSequence = ((int) $parts[2]) + 1;
+                $sequence = end($parts);
+                if (is_numeric($sequence)) {
+                    $nextSequence = ((int) $sequence) + 1;
                 }
             }
 
-            return sprintf('ND-%s-%04d', $year, $nextSequence);
+            return sprintf('%s-%s-%04d', $prefix, $year, $nextSequence);
         });
     }
 
@@ -127,12 +130,17 @@ class ContractService
 
         return [
             'provider' => [
-                'name' => 'Notify',
-                'name_ar' => 'منظومة Notify لإدارة العمليات والاتصالات الذكية',
+                'name' => Setting::get('company_name_en', 'Notify'),
+                'name_ar' => Setting::get('company_name_ar', 'نوتيفاي'),
                 'country' => 'المملكة الأردنية الهاشمية',
                 'city' => 'عمان',
-                'email' => 'support@notify.local',
-                'legal_notice' => 'مسودة تشغيلية للمراجعة القانونية والاعتماد الداخلي',
+                'email' => Setting::get('company_email', 'support@notify.local'),
+                'phone' => Setting::get('company_phone', ''),
+                'address' => Setting::get('company_address', ''),
+                'registration_number' => Setting::get('registration_number', ''),
+                'tax_number' => Setting::get('tax_number', ''),
+                'authorized_signatory' => Setting::get('authorized_signatory', ''),
+                'legal_notice' => Setting::get('default_contract_terms', 'مسودة تشغيلية للمراجعة القانونية والاعتماد الداخلي'),
             ],
             'client' => [
                 'id' => $client->id,

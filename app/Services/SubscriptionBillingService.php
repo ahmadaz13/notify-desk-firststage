@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Models\PlanPrice;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\SubscriptionBillingPeriod;
 use App\Models\SubscriptionEvent;
@@ -139,7 +140,9 @@ class SubscriptionBillingService
             return [$subscription->fresh(['billingPeriods', 'lifecycleEvents']), $invoice];
         });
 
-        $contractResult = $this->createInitialContractDraft($client->fresh(), $subscription, $userId);
+        $contractResult = Setting::get('auto_contract_on_paid_subscription', '1') === '1'
+            ? $this->createInitialContractDraft($client->fresh(), $subscription, $userId)
+            : ['status' => 'disabled', 'contract' => null];
 
         return [$subscription, $invoice, $contractResult];
     }
@@ -273,7 +276,9 @@ class SubscriptionBillingService
             return [$subscription->fresh(['systems', 'billingPeriods', 'lifecycleEvents']), $invoice];
         });
 
-        $contractResult = $this->createInitialContractDraft($client->fresh(), $subscription, $userId);
+        $contractResult = Setting::get('auto_contract_on_paid_subscription', '1') === '1'
+            ? $this->createInitialContractDraft($client->fresh(), $subscription, $userId)
+            : ['status' => 'disabled', 'contract' => null];
 
         return [$subscription, $invoice, $contractResult];
     }
