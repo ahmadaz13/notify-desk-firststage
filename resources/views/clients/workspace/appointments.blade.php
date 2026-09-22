@@ -22,7 +22,7 @@
                     @endphp
                     <div class="list-row notify-action-row">
                         <span class="badge {{ $appointment->status === 'completed' ? 'green' : ($appointment->status === 'confirmed' ? 'green' : ($appointment->status === 'cancelled' ? 'red' : 'gold')) }}" @if($isInstallationAppointment) style="background:#e0f2fe;color:#0369a1" @endif>
-                            {{ $appointment->status }}
+                            {{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($appointment->status) }}
                         </span>
                         <div class="list-main">
                             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">

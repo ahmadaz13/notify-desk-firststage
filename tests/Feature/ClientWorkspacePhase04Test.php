@@ -63,6 +63,43 @@ class ClientWorkspacePhase04Test extends TestCase
             ->assertSee('data-trigger-call-outcome', false);
     }
 
+    public function test_workspace_labels_are_localized_without_internal_queue_codes(): void
+    {
+        $client = $this->createClient([
+            'business_name' => 'Phase 9 Merchant',
+            'business_category' => 'Retail',
+            'city_area' => 'Amman',
+        ]);
+
+        $english = $this->actingAs($this->admin)
+            ->withSession(['locale' => 'en'])
+            ->get(route('clients.show', $client));
+
+        $english->assertOk()
+            ->assertSee('Next Action')
+            ->assertSee('Call client')
+            ->assertSee('WhatsApp')
+            ->assertDontSee('notify.action_call')
+            ->assertDontSee('notify.action_whatsapp')
+            ->assertDontSee('notify.next_action')
+            ->assertDontSee('active_contact_queue')
+            ->assertViewHas('clientWorkspaceViewModel', function ($workspace) {
+                return $workspace->stage['label'] === 'Prospect'
+                    && $workspace->nextAction['label'] === 'Call client'
+                    && $workspace->nextAction['context'] === null;
+            });
+
+        $arabic = $this->actingAs($this->admin)
+            ->withSession(['locale' => 'ar'])
+            ->get(route('clients.show', $client));
+
+        $arabic->assertOk()
+            ->assertSee('الإجراء القادم')
+            ->assertSee('الاتصال بالعميل')
+            ->assertDontSee('active_contact_queue')
+            ->assertViewHas('clientWorkspaceViewModel', fn ($workspace) => $workspace->stage['label'] === 'فرصة جديدة');
+    }
+
     public function test_appointment_scheduled_client_renders_appointment_context(): void
     {
         $client = $this->createClient(['stage' => ClientLifecycle::APPOINTMENT]);

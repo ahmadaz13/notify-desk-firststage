@@ -23,9 +23,10 @@ class ExampleTest extends TestCase
             ->get('/')
             ->assertOk()
             ->assertSee('صباح الخير')
-            ->assertSee('صافي نتيجة الشهر')
-            ->assertSee('تحصيلات اليوم')
-            ->assertSee('استيراد CSV');
+            ->assertSee(__('notify.today.tab_today'))
+            ->assertSee(__('notify.work.my_work'))
+            ->assertSee(__('notify.today.all_clear'))
+            ->assertDontSee('صافي نتيجة الشهر');
     }
 
     public function test_authenticated_user_can_view_client_detail_workspace(): void

@@ -97,7 +97,7 @@ class ClientListViewModel
         return $translated !== $key ? $translated : ($fallbacks[$stage] ?? str($stage)->headline()->toString());
     }
 
-    private static function nextActionLabel(string $label): string
+    public static function nextActionLabel(string $label): string
     {
         $key = match ($label) {
             'Attend appointment' => 'attend_appointment',

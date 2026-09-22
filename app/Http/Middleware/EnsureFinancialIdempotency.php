@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Database\Events\TransactionCommitted;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,10 +31,23 @@ class EnsureFinancialIdempotency
             $payload = $this->cleanedPayload($request);
             $idempotencyKey = 'syn_'.substr(hash('sha256', ($userId ?? 'anon').'|'.$request->method().'|'.$request->path().'|'.json_encode($payload)), 0, 48);
         } else {
+            if (str_starts_with(trim((string) $rawKey), 'syn_')) {
+                return $this->conflictResponse($request, 'Idempotency keys beginning with syn_ are reserved.');
+            }
             $idempotencyKey = substr(trim((string) $rawKey), 0, 64);
         }
 
         $requestHash = $this->calculateRequestHash($request);
+
+        // Completed synthetic requests retain replay protection for one day. Never
+        // release an uncertain processing or committed-error claim automatically.
+        if (str_starts_with($idempotencyKey, 'syn_')) {
+            DB::table('idempotency_keys')
+                ->where('key', $idempotencyKey)
+                ->whereIn('status', ['completed', 'failed'])
+                ->where('expires_at', '<=', now())
+                ->delete();
+        }
 
         // Atomically claim the idempotency key
         try {
@@ -47,7 +61,7 @@ class EnsureFinancialIdempotency
                 'updated_at' => now(),
             ]);
             $isOriginalClaim = true;
-        } catch (\Throwable $e) {
+        } catch (UniqueConstraintViolationException $e) {
             $isOriginalClaim = false;
         }
 
@@ -55,7 +69,7 @@ class EnsureFinancialIdempotency
             $record = DB::table('idempotency_keys')->where('key', $idempotencyKey)->first();
 
             if (! $record) {
-                return $next($request);
+                return $this->conflictResponse($request, 'Financial request claim could not be verified. Please retry.');
             }
 
             // Verify key owner (prevent cross-user key collision, response leak, or authorization bypass)
@@ -93,12 +107,17 @@ class EnsureFinancialIdempotency
             }
 
             // If failed without business commit, allow retry
-            DB::table('idempotency_keys')
+            $claimed = DB::table('idempotency_keys')
                 ->where('key', $idempotencyKey)
+                ->where('status', 'failed')
                 ->update([
                     'status' => 'processing',
                     'updated_at' => now(),
                 ]);
+
+            if ($claimed !== 1) {
+                return $this->conflictResponse($request, 'A duplicate financial request is currently processing. Please wait.');
+            }
         }
 
         $businessTransactionCommitted = false;

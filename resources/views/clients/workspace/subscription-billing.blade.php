@@ -81,7 +81,7 @@
                                     <div class="p3-item-top">
                                         <div style="display:flex;align-items:center;gap:8px">
                                             <span class="p3-badge {{ $sub->status === 'active' ? 'p3-badge-success' : ($sub->status === 'cancelled' ? 'p3-badge-danger' : 'p3-badge-warning') }}">
-                                                {{ $sub->status === 'active' ? 'نشط' : ($sub->status === 'cancelled' ? 'ملغي' : $sub->status) }}
+                                                {{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($sub->status) }}
                                             </span>
                                             <strong class="p3-item-title">
                                                 {{ $sub->billing_interval_v2 === 'annual' ? ($installmentProjection ? 'سنوي بالتقسيط' : 'سنوي مدفوع بالكامل') : 'شهري' }}
@@ -122,7 +122,7 @@
                                             @foreach($sub->billingPeriods->take(4) as $period)
                                                 <div style="font-size:11px;color:#475569;margin-bottom:2px">
                                                     #{{ $period->period_number }} · {{ $period->period_start->format('Y-m-d') }} → {{ $period->period_end->format('Y-m-d') }}
-                                                    · <span class="p3-badge p3-badge-neutral" style="padding:1px 5px;font-size:10px">{{ $period->status }}</span>
+                                                    · <span class="p3-badge p3-badge-neutral" style="padding:1px 5px;font-size:10px">{{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($period->status) }}</span>
                                                     @if($period->invoice) · فاتورة: <strong class="ltr" style="direction:ltr">{{ $period->invoice->invoice_number }}</strong> @endif
                                                 </div>
                                             @endforeach
@@ -140,7 +140,7 @@
                                             @foreach($installmentProjection['rows'] as $installment)
                                                 <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11px;color:#475569;margin-top:4px">
                                                     <span>#{{ $installment['sequence'] }} · {{ $installment['due_date']->format('Y-m-d') }} · {{ \App\Support\Money::fromMinorUnits($installment['amount_minor'])->format() }} د.أ</span>
-                                                    <span class="p3-badge {{ $installment['status'] === 'paid' ? 'p3-badge-success' : (in_array($installment['status'], ['overdue', 'partially_paid'], true) ? 'p3-badge-danger' : 'p3-badge-warning') }}">{{ $installment['status'] }}</span>
+                                                    <span class="p3-badge {{ $installment['status'] === 'paid' ? 'p3-badge-success' : (in_array($installment['status'], ['overdue', 'partially_paid'], true) ? 'p3-badge-danger' : 'p3-badge-warning') }}">{{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($installment['status']) }}</span>
                                                 </div>
                                             @endforeach
                                         </div>
@@ -399,7 +399,7 @@
                                 <div class="p3-item-top">
                                     <div>
                                         <span class="p3-badge {{ $invoice->status === 'issued' ? 'p3-badge-primary' : ($invoice->status === 'voided' ? 'p3-badge-danger' : 'p3-badge-warning') }}" style="margin-inline-end:6px">
-                                            {{ $invoice->status }}
+                                            {{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($invoice->status) }}
                                         </span>
                                         <strong class="ltr p3-item-title" style="direction:ltr">{{ $invoice->invoice_number ?? ('INV-DRAFT-'.$invoice->id) }}</strong>
                                     </div>
@@ -415,7 +415,7 @@
                                         دفعات: {{ $invoiceProjection['allocated'] }} د.أ
                                         · رصيد دائن مطبق: {{ $invoiceProjection['credit_applied'] }} د.أ
                                         · مستحق قائم: <strong style="color:{{ $invoiceProjection['outstanding_minor'] > 0 ? '#B42318' : '#16A34A' }}">{{ $invoiceProjection['outstanding'] }} د.أ</strong>
-                                        · الحالة: {{ $invoiceProjection['settlement_status'] }}
+                                        · {{ __('notify.common.status') }}: {{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($invoiceProjection['settlement_status']) }}
                                     </div>
                                 @endif
 
@@ -693,7 +693,7 @@
                                         <div class="p3-item-top">
                                             <div>
                                                 <span class="p3-badge {{ $schedule->status === 'paid' ? 'p3-badge-success' : (\Carbon\Carbon::parse($schedule->due_date)->isPast() ? 'p3-badge-danger' : 'p3-badge-warning') }}" style="margin-inline-end:6px">
-                                                    {{ $schedule->status }}
+                                                    {{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($schedule->status) }}
                                                 </span>
                                                 <strong class="p3-item-title">{{ number_format($schedule->amount_due, 2) }} د.أ</strong>
                                             </div>
@@ -889,7 +889,7 @@
                                 <div class="p3-item-top">
                                     <div>
                                         <span class="p3-badge {{ $creditNote->status === 'issued' ? 'p3-badge-primary' : ($creditNote->status === 'voided' ? 'p3-badge-danger' : 'p3-badge-warning') }}" style="margin-inline-end:6px">
-                                            {{ $creditNote->status }}
+                                            {{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($creditNote->status) }}
                                         </span>
                                         <strong class="ltr p3-item-title" style="direction:ltr">{{ $creditNote->credit_note_number }}</strong>
                                     </div>
@@ -1160,7 +1160,7 @@
                                 <div class="p3-item-top">
                                     <div>
                                         <span class="p3-badge {{ $entry->status === 'reversed' ? 'p3-badge-danger' : 'p3-badge-primary' }}" style="margin-inline-end:6px">
-                                            {{ $entry->status }}
+                                            {{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($entry->status) }}
                                         </span>
                                         <strong class="ltr p3-item-title" style="direction:ltr">{{ $entry->journal_number }}</strong>
                                     </div>

@@ -30,7 +30,7 @@
                 <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#16A34A;color:#fff;font-size:12px;font-weight:bold">✓</span>
                 <div>
                     <strong style="color:#15803D;font-size:13px">{{ __('notify.subscriptions.activated_success') ?? 'تم تفعيل الاشتراك وإنشاء الفاتورة ومسودة العقد بنجاح' }}</strong>
-                    <small style="display:block;color:#166534;margin-top:2px">تم تحديث حالة العميل إلى مشترك، والعقد جاهز للاستعراض والطباعة والاعتماد.</small>
+                    <small style="display:block;color:#166534;margin-top:2px">{{ __('notify.client_workspace.subscription_activated_detail') }}</small>
                 </div>
             </div>
             <a href="#sec-subscriptions" class="notify-button notify-button--soft notify-button--sm" data-scroll-to="#sec-subscriptions">
@@ -86,10 +86,10 @@
                         @if(!empty($prefContact['call_href']))
                             <a class="notify-button notify-button--soft notify-button--sm notify-contact-action"
                                href="{{ $prefContact['call_href'] }}"
-                               aria-label="{{ __('notify.action_call') }}"
-                               title="{{ __('notify.action_call') }}">
+                               aria-label="{{ __('notify.actions.call') }}"
+                               title="{{ __('notify.actions.call') }}">
                                 <span class="notify-icon-symbol">📞</span>
-                                <span>{{ __('notify.action_call') }}</span>
+                                <span>{{ __('notify.actions.call') }}</span>
                             </a>
                         @endif
                         @if(!empty($prefContact['whatsapp_url']))
@@ -97,10 +97,10 @@
                                href="{{ $prefContact['whatsapp_url'] }}"
                                target="_blank"
                                rel="noopener noreferrer"
-                               aria-label="{{ __('notify.action_whatsapp') }}"
-                               title="{{ __('notify.action_whatsapp') }}">
+                               aria-label="{{ __('notify.actions.whatsapp') }}"
+                               title="{{ __('notify.actions.whatsapp') }}">
                                 <span class="notify-icon-symbol">💬</span>
-                                <span>{{ __('notify.action_whatsapp') }}</span>
+                                <span>{{ __('notify.actions.whatsapp') }}</span>
                             </a>
                         @endif
                     </div>
@@ -112,13 +112,10 @@
         @if($nextAction && !empty($nextAction['label']))
             <div class="notify-workspace-next-action-card">
                 <div class="notify-workspace-next-action-card__main">
-                    <span class="notify-workspace-next-action-badge">{{ __('notify.next_action') }}</span>
+                    <span class="notify-workspace-next-action-badge">{{ __('notify.clients.next_action') }}</span>
                     <strong class="notify-workspace-next-action-label">{{ $nextAction['label'] }}</strong>
                     @if(!empty($nextAction['at']))
                         <span class="notify-workspace-next-action-time" dir="ltr">⏱ {{ $nextAction['at'] }}</span>
-                    @endif
-                    @if(!empty($nextAction['context']))
-                        <p class="notify-workspace-next-action-context">{{ $nextAction['context'] }}</p>
                     @endif
                 </div>
             </div>

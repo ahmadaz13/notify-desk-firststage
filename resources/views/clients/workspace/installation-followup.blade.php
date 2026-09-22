@@ -17,7 +17,7 @@
                     @forelse($installationAppointments as $appointment)
                         <article class="notify-action-row">
                             <span class="badge {{ in_array($appointment->status, \App\Support\AppointmentTypes::activeStatuses(), true) ? 'gold' : ($appointment->status === 'completed' ? 'green' : 'red') }}">
-                                {{ $appointment->status }}
+                                {{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($appointment->status) }}
                             </span>
                             <div class="list-main">
                                 <strong>{{ $appointment->appointment_date }} · {{ $appointment->appointment_time }}</strong>

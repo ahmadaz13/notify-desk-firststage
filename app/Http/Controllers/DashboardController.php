@@ -5,9 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use App\Models\DailyNote;
 use App\Models\User;
-use App\Services\DailyOperationalService;
 use App\Services\FreeInstallationService;
-use App\Services\OperationalQueueService;
 use App\Services\UnifiedOperationalWorkProjection;
 use App\Support\AppointmentTypes;
 use App\ViewModels\TodayViewModel;
@@ -19,30 +17,13 @@ use Illuminate\Validation\Rule;
 class DashboardController extends Controller
 {
     public function __construct(
-        protected DailyOperationalService $dailyOpsService,
-        protected OperationalQueueService $operationalQueueService,
         protected UnifiedOperationalWorkProjection $unifiedWorkProjection
     ) {}
 
     public function index()
     {
         $user = auth()->user();
-        $today = Carbon::today();
-
-        // Unread notifications for current user
-        $unreadNotifications = DB::table('notifications')
-            ->where('user_id', auth()->id())
-            ->whereNull('read_at')
-            ->orderByDesc('created_at')
-            ->limit(5)
-            ->get();
-
-
         $businessNow = Carbon::now('Asia/Amman');
-
-        // Operational Cockpit Metrics
-        $dailySnapshot = $this->dailyOpsService->getTodaySnapshot($user);
-        $operationalQueues = $this->operationalQueueService->queues($user, $today->copy()->endOfDay());
         $dailyNote = DailyNote::where('user_id', $user->id)->whereDate('date', $businessNow->toDateString())->first();
 
         $requestedMode = request()->query('mode', 'daily');
@@ -57,9 +38,6 @@ class DashboardController extends Controller
         $workProjection = $this->unifiedWorkProjection->work($user, $requestedFilter, $businessNow, $scope);
 
         $todayViewModel = TodayViewModel::make(
-            $dailySnapshot,
-            $operationalQueues,
-            $unreadNotifications,
             $todayProjection,
             $workProjection
         );

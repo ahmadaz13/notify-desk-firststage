@@ -42,6 +42,7 @@ class EmptyStatesTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('لا توجد مواعيد اليوم');
-        $response->assertSee('لم تسجل مصاريف اليوم بعد');
+        $response->assertSee(__('notify.today.all_clear'));
+        $response->assertDontSee('لم تسجل مصاريف اليوم بعد');
     }
 }

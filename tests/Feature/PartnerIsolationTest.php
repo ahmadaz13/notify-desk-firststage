@@ -26,12 +26,12 @@ class PartnerIsolationTest extends TestCase
             'investor_name' => 'مستثمر وهمي',
             'amount' => 5000.00,
             'entry_date' => now()->toDateString(),
-        ])->assertForbidden();
+        ])->assertNotFound();
         $this->actingAs($partnerUser)->post('/capital-expenses', [
             'description' => 'صرف رأسمالي غير مصرح',
             'amount' => 1200.00,
             'expense_date' => now()->toDateString(),
-        ])->assertForbidden();
+        ])->assertNotFound();
     }
 
     public function test_active_notifications_are_internal_only(): void
@@ -122,7 +122,7 @@ class PartnerIsolationTest extends TestCase
         ]);
     }
 
-    public function test_admin_legacy_financial_write_endpoints_remain_deprecated(): void
+    public function test_admin_legacy_financial_write_endpoints_are_removed(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
 
@@ -130,12 +130,12 @@ class PartnerIsolationTest extends TestCase
             'investor_name' => 'مستثمر حقيقي',
             'amount' => 10000.00,
             'entry_date' => now()->toDateString(),
-        ])->assertStatus(410);
+        ])->assertNotFound();
 
         $this->actingAs($admin)->post('/capital-expenses', [
             'description' => 'شراء حواسيب للعمليات',
             'amount' => 2500.00,
             'expense_date' => now()->toDateString(),
-        ])->assertStatus(410);
+        ])->assertNotFound();
     }
 }

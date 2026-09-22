@@ -14,7 +14,7 @@
                     <span aria-hidden="true"></span>
                     <div>
                         <strong>{{ $event['description'] }}</strong>
-                        <small>{{ $event['at'] }} · {{ $event['type'] }}</small>
+                        <small>{{ $event['at'] }}</small>
                     </div>
                 </article>
             @empty

@@ -572,6 +572,47 @@ class Phase1FinancialSafetyTest extends TestCase
         $this->assertDatabaseCount('expenses', 1);
     }
 
+    public function test_expired_completed_synthetic_claim_can_be_reused_and_pruned(): void
+    {
+        $category = ExpenseCategory::firstOrCreate(
+            ['key' => 'expired_synthetic_claim'],
+            ['name' => 'Expired Claim', 'name_ar' => 'مطالبة منتهية', 'is_active' => true]
+        );
+
+        $payload = [
+            'amount' => '11.000',
+            'category_id' => $category->id,
+            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
+            'financial_account_id' => $this->cashAccount->id,
+            'incurred_on' => now()->toDateString(),
+            'paid_at' => now()->toDateString(),
+            'description' => 'Expired synthetic request',
+        ];
+
+        $cleaned = collect($payload)->sortKeys()->toArray();
+        $hash = hash('sha256', $this->admin->id.'|POST|operating-expenses|'.json_encode($cleaned));
+        $key = 'syn_'.substr($hash, 0, 48);
+
+        DB::table('idempotency_keys')->insert([
+            'key' => $key,
+            'request_hash' => $hash,
+            'status' => 'completed',
+            'user_id' => $this->admin->id,
+            'response_code' => 302,
+            'expires_at' => now()->subMinute(),
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($this->admin)->post(route('operating-expenses.store'), $payload)->assertRedirect();
+        $this->assertDatabaseCount('expenses', 1);
+        $this->assertDatabaseHas('idempotency_keys', ['key' => $key, 'status' => 'completed']);
+
+        DB::table('idempotency_keys')->where('key', $key)->update(['expires_at' => now()->subMinute()]);
+        $this->artisan('financial-idempotency:prune')->assertSuccessful();
+        $this->assertDatabaseMissing('idempotency_keys', ['key' => $key]);
+    }
+
     public function test_transaction_crash_window_blocks_retry_if_committed_with_error(): void
     {
         $category = ExpenseCategory::firstOrCreate(

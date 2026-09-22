@@ -65,7 +65,7 @@ class ClientWorkspaceViewModel
     ): self {
         $actor ??= auth()->user();
         $stage = ClientLifecycle::normalizeStage($client->stage ?? null, $client->status ?? null);
-        $stageLabel = $lifecycleLabels[$stage] ?? str($stage)->headline()->toString();
+        $stageLabel = __('notify.clients.stages.'.$stage);
         $stageVariant = self::stageVariant($stage);
 
         $preferredContactData = $client->preferredOperationalContact();
@@ -85,8 +85,8 @@ class ClientWorkspaceViewModel
         // 1. Identity
         $identity = [
             'business_name' => (string) $client->business_name,
-            'business_category' => (string) ($client->business_category ?: $client->business_type ?: 'غير محدد'),
-            'location_summary' => trim(collect([$client->city_area ?: $client->city, $client->area])->filter()->join(' · ')) ?: 'غير محدد',
+            'business_category' => (string) ($client->business_category ?: $client->business_type ?: __('notify.common.unspecified')),
+            'location_summary' => trim(collect([$client->city_area ?: $client->city, $client->area])->filter()->join(' · ')) ?: __('notify.common.unspecified'),
         ];
 
         // 2. Preferred Contact
@@ -109,9 +109,9 @@ class ClientWorkspaceViewModel
 
         // 4. Next Action
         $nextActionInfo = [
-            'label' => $nextAction ? (string) ($nextAction['label'] ?? 'Open client') : __('notify.client_workspace.no_recent_activity'),
+            'label' => $nextAction ? ClientListViewModel::nextActionLabel((string) ($nextAction['label'] ?? 'Open client')) : __('notify.clients.next_actions.open_client'),
             'at' => $nextAction && !empty($nextAction['at']) ? self::dateLabel($nextAction['at']) : null,
-            'context' => $nextAction['queue'] ?? null,
+            'context' => null,
         ];
 
         // 5 & 6. Context Actions Resolver (UX-D05)
@@ -180,13 +180,7 @@ class ClientWorkspaceViewModel
                 'id' => $contract->id,
                 'number' => $contract->contract_number,
                 'status' => $contract->status,
-                'status_label' => match ($contract->status) {
-                    'issued' => __('notify.statuses.issued'),
-                    'draft' => __('notify.statuses.draft'),
-                    'voided' => __('notify.statuses.voided'),
-                    'superseded' => __('notify.statuses.superseded'),
-                    default => $contract->status,
-                },
+                'status_label' => self::statusLabel($contract->status),
                 'status_variant' => match ($contract->status) {
                     'issued' => 'success',
                     'voided' => 'danger',
@@ -228,7 +222,9 @@ class ClientWorkspaceViewModel
             'amount_minor' => (int) ($latestPaymentModel->amount_minor ?? round($latestPaymentModel->amount * 1000)),
             'amount_formatted' => Money::fromMinorUnits((int) ($latestPaymentModel->amount_minor ?? round($latestPaymentModel->amount * 1000)))->format() . ' ' . __('notify.common.currency_jod'),
             'paid_at' => $latestPaymentModel->paid_at ? Carbon::parse($latestPaymentModel->paid_at)->format('Y-m-d') : null,
-            'method' => $latestPaymentModel->payment_method ? (\App\Support\PaymentMethods::labels()[$latestPaymentModel->payment_method] ?? $latestPaymentModel->payment_method) : '—',
+            'method' => $latestPaymentModel->payment_method
+                ? __('notify.client_workspace.payment_methods.'.$latestPaymentModel->payment_method)
+                : '—',
             'reference' => $latestPaymentModel->reference ?: ($latestPaymentModel->reference_number ?: null),
         ] : null;
 
@@ -255,13 +251,7 @@ class ClientWorkspaceViewModel
                 'id' => $contract->id,
                 'number' => $contract->contract_number,
                 'status' => $contract->status,
-                'status_label' => match ($contract->status) {
-                    'issued' => 'معتمد',
-                    'draft' => 'مسودة',
-                    'voided' => 'ملغي',
-                    'superseded' => 'مستبدل',
-                    default => $contract->status,
-                },
+                'status_label' => self::statusLabel($contract->status),
                 'status_variant' => match ($contract->status) {
                     'issued' => 'success',
                     'voided' => 'danger',
@@ -669,6 +659,17 @@ class ClientWorkspaceViewModel
             ClientLifecycle::INSTALLATION_SCHEDULED => 'warning',
             default => 'info',
         };
+    }
+
+    public static function statusLabel(?string $status): string
+    {
+        if (blank($status)) {
+            return '—';
+        }
+
+        $key = 'notify.statuses.'.$status;
+
+        return trans()->has($key) ? __($key) : str($status)->replace('_', ' ')->headline()->toString();
     }
 
     private static function timelineVariant(string $type): string
