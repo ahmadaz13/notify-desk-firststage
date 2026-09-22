@@ -23,6 +23,8 @@
 
     $priority = $item['priority'] ?? 'today';
     $isOverdue = $priority === 'overdue';
+    $responsibleStaff = $item['responsible_staff'] ?? null;
+    $area = $item['area'] ?? null;
 @endphp
 
 <article {{ $attributes->merge(['class' => 'notify-work-card notify-work-card--' . $type . ($isOverdue ? ' notify-work-card--overdue' : '')]) }}>
@@ -32,6 +34,9 @@
                 <x-notify.icon :name="$icon" :size="16" />
             </span>
             <span class="notify-work-card__client">{{ $item['client_name'] }}</span>
+            @if(!empty($area))
+                <span class="notify-work-card__area">{{ $area }}</span>
+            @endif
         </div>
         @if(!empty($item['due_formatted']))
             <span class="notify-work-card__due {{ $isOverdue ? 'is-overdue' : '' }}">
@@ -48,6 +53,12 @@
         @if(!empty($item['context']))
             <p class="notify-work-card__context">{{ $item['context'] }}</p>
         @endif
+        @if(!empty($responsibleStaff))
+            <div class="notify-work-card__staff" data-responsible-staff>
+                <x-notify.icon name="user" :size="13" />
+                <span>{{ $responsibleStaff }}</span>
+            </div>
+        @endif
     </div>
 
     <div class="notify-work-card__actions">
@@ -56,6 +67,7 @@
                 :href="$item['primary_action']['href']"
                 variant="primary"
                 class="notify-work-card__primary-btn"
+                data-card-primary-action
             >
                 {{ $item['primary_action']['label'] }}
             </x-notify.button>

@@ -40,12 +40,18 @@ class UnifiedOperationalWorkProjection
      * 2. Next: due now or within next 2 hours, plus nearest upcoming and undated prospects needing first contact
      * 3. Later Today: remaining work due today after the Next window
      */
-    public function today(User $user, ?Carbon $now = null): array
+    public function today(User $user, ?Carbon $now = null, string $scope = 'all'): array
     {
         $now = $this->businessTime($now);
         $nextWindowEnd = $now->copy()->addHours(2);
 
         $allItems = $this->projectAll($user, $now);
+
+        if ($scope === 'my') {
+            $allItems = $allItems->filter(function ($item) use ($user) {
+                return in_array($user->id, $item['assigned_user_ids'] ?? [], true);
+            })->values();
+        }
 
         // Filter items relevant for Today:
         // Overdue items, items due today, and undated items (actionable today). Future items (after today) are excluded.
@@ -97,6 +103,7 @@ class UnifiedOperationalWorkProjection
         $laterToday = $laterToday->sortBy(fn ($i) => $i['due_at']->timestamp)->values();
 
         return [
+            'scope' => $scope,
             'overdue' => $overdue,
             'next' => $next,
             'later_today' => $laterToday,
@@ -117,7 +124,7 @@ class UnifiedOperationalWorkProjection
      * 2. Today: due_at is today and >= now, plus undated items
      * 3. Upcoming: due_at > end of today
      */
-    public function work(User $user, ?string $filter = self::FILTER_ALL, ?Carbon $now = null): array
+    public function work(User $user, ?string $filter = self::FILTER_ALL, ?Carbon $now = null, string $scope = 'all'): array
     {
         $now = $this->businessTime($now);
         $filter = strtolower(trim($filter ?? self::FILTER_ALL));
@@ -136,6 +143,12 @@ class UnifiedOperationalWorkProjection
         }
 
         $allItems = $this->projectAll($user, $now);
+
+        if ($scope === 'my') {
+            $allItems = $allItems->filter(function ($item) use ($user) {
+                return in_array($user->id, $item['assigned_user_ids'] ?? [], true);
+            })->values();
+        }
 
         // Filter items
         $filteredItems = $allItems->filter(function ($item) use ($filter) {
@@ -279,7 +292,7 @@ class UnifiedOperationalWorkProjection
 
     protected function fetchAppointments(): Collection
     {
-        return Appointment::with(['client', 'users'])
+        return Appointment::with(['client.primaryOwner', 'users'])
             ->whereIn('status', AppointmentTypes::activeStatuses())
             ->whereHas('client', fn ($q) => $q->where('status', '!=', 'archived'))
             ->get();
@@ -298,6 +311,17 @@ class UnifiedOperationalWorkProjection
 
         $client = $apt->client;
         $clientName = $client ? $client->business_name : ($apt->branch_name ?: 'عميل');
+        $area = $client?->city_area ?: ($client?->area ?: ($client?->city ?: null));
+
+        $attendees = $apt->users;
+        $assignedUserIds = $attendees->pluck('id')->all();
+        $responsibleStaff = $attendees->isNotEmpty()
+            ? $attendees->pluck('name')->join(', ')
+            : ($client?->primaryOwner?->name ?? null);
+        if ($client?->primary_owner_id) {
+            $assignedUserIds[] = $client->primary_owner_id;
+        }
+        $assignedUserIds = array_values(array_unique($assignedUserIds));
 
         $timeFormatted = $dueAt ? $dueAt->format('g:i A') : '';
         $dateFormatted = $dueAt ? $dueAt->format('Y-m-d') : '';
@@ -332,6 +356,9 @@ class UnifiedOperationalWorkProjection
             'subtype' => $apt->appointment_type,
             'client_id' => $apt->client_id,
             'client_name' => $clientName,
+            'area' => $area,
+            'responsible_staff' => $responsibleStaff,
+            'assigned_user_ids' => $assignedUserIds,
             'label' => $label,
             'context' => $context,
             'due_at' => $dueAt,
@@ -350,6 +377,8 @@ class UnifiedOperationalWorkProjection
     {
         return DB::table('follow_ups')
             ->join('clients', 'clients.id', '=', 'follow_ups.client_id')
+            ->leftJoin('users as assigned_user', 'assigned_user.id', '=', 'follow_ups.user_id')
+            ->leftJoin('users as owner_user', 'owner_user.id', '=', 'clients.primary_owner_id')
             ->whereNull('follow_ups.completed_at')
             ->where('clients.status', '!=', 'archived')
             ->where('clients.stage', '!=', ClientLifecycle::CLOSED)
@@ -357,7 +386,11 @@ class UnifiedOperationalWorkProjection
                 'follow_ups.*',
                 'clients.business_name',
                 'clients.phone as client_phone',
-                'clients.stage as client_stage'
+                'clients.stage as client_stage',
+                'clients.city_area as client_city_area',
+                'clients.primary_owner_id',
+                'assigned_user.name as assigned_user_name',
+                'owner_user.name as owner_user_name'
             )
             ->get();
     }
@@ -385,6 +418,9 @@ class UnifiedOperationalWorkProjection
             : (__('notify.work.callback_label') ?: 'متابعة هاتفية / اتصال');
 
         $context = $fu->reason ?: ($fu->notes ?: ($fu->next_action ?: 'متابعة مجدولة'));
+        $responsibleStaff = $fu->assigned_user_name ?: ($fu->owner_user_name ?? null);
+        $assignedUserIds = array_values(array_filter(array_unique([$fu->user_id, $fu->primary_owner_id])));
+        $area = $fu->client_city_area ?? null;
 
         $primaryAction = [
             'label' => __('notify.actions.record_follow_up') ?: 'تسجيل المتابعة',
@@ -398,6 +434,9 @@ class UnifiedOperationalWorkProjection
             'subtype' => $subtype,
             'client_id' => $fu->client_id,
             'client_name' => $fu->business_name,
+            'area' => $area,
+            'responsible_staff' => $responsibleStaff,
+            'assigned_user_ids' => $assignedUserIds,
             'label' => $label,
             'context' => $context,
             'due_at' => $dueAt,
@@ -426,7 +465,7 @@ class UnifiedOperationalWorkProjection
 
     protected function fetchPendingReviews(): Collection
     {
-        return ClientReviewItem::with('client')
+        return ClientReviewItem::with(['client.primaryOwner'])
             ->where('status', ClientReviewItem::STATUS_PENDING)
             ->whereHas('client', fn ($q) => $q->where('status', '!=', 'archived'))
             ->get();
@@ -437,6 +476,9 @@ class UnifiedOperationalWorkProjection
         $dueAt = $rev->created_at ? Carbon::parse($rev->created_at, 'Asia/Amman') : $now;
         $client = $rev->client;
         $clientName = $client ? $client->business_name : 'عميل';
+        $area = $client?->city_area ?: ($client?->area ?: null);
+        $responsibleStaff = $client?->primaryOwner?->name ?? null;
+        $assignedUserIds = array_values(array_filter([$client?->primary_owner_id]));
 
         $label = __('notify.work.review_required') ?: 'مراجعة مطلوبة';
         $context = $rev->note ?: 'مراجعة حالة العميل';
@@ -447,6 +489,9 @@ class UnifiedOperationalWorkProjection
             'subtype' => 'client_review',
             'client_id' => $rev->client_id,
             'client_name' => $clientName,
+            'area' => $area,
+            'responsible_staff' => $responsibleStaff,
+            'assigned_user_ids' => $assignedUserIds,
             'label' => $label,
             'context' => $context,
             'due_at' => $dueAt,
@@ -477,7 +522,7 @@ class UnifiedOperationalWorkProjection
             ->pluck('client_id')
             ->all();
 
-        return Client::query()
+        return Client::with('primaryOwner')
             ->where('status', '!=', 'archived')
             ->whereIn('stage', [ClientLifecycle::PROSPECT, ClientLifecycle::CONTACTING])
             ->whereNotIn('id', array_unique(array_merge($futureFollowClientIds, $pendingReviewClientIds)))
@@ -491,6 +536,9 @@ class UnifiedOperationalWorkProjection
         $contact = $client->preferredOperationalContact();
         $contactDetail = !empty($contact['name']) ? $contact['name'] . (!empty($contact['phone']) ? ' · ' . $contact['phone'] : '') : ($contact['phone'] ?? null);
         $context = $contactDetail ?: ($client->phone ?: ($client->city_area ?: 'عميل محتمل'));
+        $area = $client->city_area ?: ($client->area ?: ($client->city ?: null));
+        $responsibleStaff = $client->primaryOwner?->name ?? null;
+        $assignedUserIds = array_values(array_filter([$client->primary_owner_id]));
 
         $label = __('notify.work.call_prospect', ['name' => $client->business_name]) ?: "اتصال بـ {$client->business_name}";
 
@@ -500,6 +548,9 @@ class UnifiedOperationalWorkProjection
             'subtype' => 'active_contact',
             'client_id' => $client->id,
             'client_name' => $client->business_name,
+            'area' => $area,
+            'responsible_staff' => $responsibleStaff,
+            'assigned_user_ids' => $assignedUserIds,
             'label' => $label,
             'context' => $context,
             'due_at' => null, // Undated new prospect
@@ -534,7 +585,13 @@ class UnifiedOperationalWorkProjection
             : $now;
 
         $client = $invoice->client;
+        if ($client && ! $client->relationLoaded('primaryOwner') && $client->primary_owner_id) {
+            $client->load('primaryOwner');
+        }
         $clientName = $client ? $client->business_name : 'عميل';
+        $area = $client?->city_area ?: ($client?->area ?: ($client?->city ?: null));
+        $responsibleStaff = $client?->primaryOwner?->name ?? null;
+        $assignedUserIds = array_values(array_filter([$client?->primary_owner_id]));
 
         $amountFormatted = $projection['outstanding'] ?? '';
         $label = __('notify.work.collection_due', ['amount' => $amountFormatted]) ?: "تحصيل مستحق — {$amountFormatted}";
@@ -549,6 +606,9 @@ class UnifiedOperationalWorkProjection
             'subtype' => 'receivable_invoice',
             'client_id' => $invoice->client_id,
             'client_name' => $clientName,
+            'area' => $area,
+            'responsible_staff' => $responsibleStaff,
+            'assigned_user_ids' => $assignedUserIds,
             'label' => $label,
             'context' => $context,
             'due_at' => $dueAt,

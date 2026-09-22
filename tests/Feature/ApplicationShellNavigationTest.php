@@ -34,18 +34,17 @@ class ApplicationShellNavigationTest extends TestCase
             ->get(route('dashboard', ['mode' => 'daily']))
             ->assertOk();
 
+        // Staff sees ONLY Today, Clients, and mobile More
         $response
             ->assertSee('data-nav-destination="today"', false)
             ->assertSee('data-nav-destination="clients"', false)
-            ->assertSee('data-nav-destination="work"', false)
             ->assertSee('data-nav-destination="more"', false)
-            ->assertSee('data-nav-group="operations-admin"', false)
-            ->assertSee('data-nav-destination="import"', false)
-            ->assertDontSee('data-nav-group="commercial"', false)
-            ->assertDontSee('data-nav-group="money"', false)
-            ->assertDontSee('data-nav-group="reports"', false)
-            ->assertDontSee('data-nav-group="system"', false)
-            ->assertDontSee('data-mobile-nav-layer="advanced"', false)
+            ->assertDontSee('data-nav-destination="finance"', false)
+            ->assertDontSee('data-nav-destination="administration"', false)
+            ->assertDontSee('data-nav-area="finance"', false)
+            ->assertDontSee('data-nav-area="administration"', false)
+            ->assertDontSee('data-mobile-nav-layer="finance"', false)
+            ->assertDontSee('data-mobile-nav-layer="administration"', false)
             ->assertDontSee('data-nav-destination="financial-accounts"', false)
             ->assertDontSee('data-nav-destination="accounting"', false);
 
@@ -64,16 +63,18 @@ class ApplicationShellNavigationTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk();
 
-        foreach (['commercial', 'money', 'reports', 'operations-admin', 'system'] as $group) {
-            $response->assertSee('data-nav-group="'.$group.'"', false);
-        }
+        $response->assertSee('data-nav-area="finance"', false);
+        $response->assertSee('data-nav-area="administration"', false);
 
         foreach ([
+            'today',
+            'clients',
+            'finance',
+            'administration',
             'subscription-management',
             'products-pricing',
             'partners',
             'collections',
-            'finance',
             'operating-expenses',
             'capital-management',
             'executive',
@@ -81,11 +82,13 @@ class ApplicationShellNavigationTest extends TestCase
             'import',
             'conflicts',
             'settings',
-            'financial-accounts',
-            'accounting',
         ] as $destination) {
             $response->assertSee('data-nav-destination="'.$destination.'"', false);
         }
+
+        // Subordinate engine isolation: Accounting and Financial Accounts are NOT top-level sidebar items
+        $response->assertDontSee('data-nav-destination="financial-accounts"', false);
+        $response->assertDontSee('data-nav-destination="accounting"', false);
     }
 
     public function test_daily_active_states_and_add_client_context_are_correct(): void
@@ -106,7 +109,8 @@ class ApplicationShellNavigationTest extends TestCase
             ->withSession(['locale' => 'en'])
             ->get(route('dashboard', ['mode' => 'work']))
             ->assertOk();
-        $this->assertDestinationIsCurrent($work->getContent(), 'work');
+        // Today remains the active top-level area because Work is an internal Today mode
+        $this->assertDestinationIsCurrent($work->getContent(), 'today');
         $work->assertDontSee('data-shell-action="add-client"', false);
 
         $clients = $this->actingAs($founder)
@@ -150,17 +154,14 @@ class ApplicationShellNavigationTest extends TestCase
             ->get(route('settings.index'))
             ->assertOk();
         $this->assertDestinationIsCurrent($settings->getContent(), 'settings');
-        $this->assertMatchesRegularExpression(
-            '/class="notify-nav-group is-active" data-nav-group="system"[^>]*\sopen\s/',
-            $settings->getContent(),
-        );
+        $settings->assertSee('data-nav-area="administration"', false);
 
-        $accounting = $this->actingAs($founder)
+        $finance = $this->actingAs($founder)
             ->withSession(['locale' => 'en'])
-            ->get(route('accounting.index'))
+            ->get(route('finance.index'))
             ->assertOk();
-        $this->assertDestinationIsCurrent($accounting->getContent(), 'accounting');
-        $accounting->assertSee('class="notify-mobile-nav__item is-active"', false);
+        $this->assertDestinationIsCurrent($finance->getContent(), 'finance');
+        $finance->assertSee('data-nav-area="finance"', false);
     }
 
     public function test_arabic_shell_uses_canonical_daily_labels(): void
@@ -178,7 +179,6 @@ class ApplicationShellNavigationTest extends TestCase
             ->assertSee('dir="rtl"', false)
             ->assertSee('اليوم')
             ->assertSee('العملاء')
-            ->assertSee('العمل')
             ->assertSee('المزيد');
     }
 

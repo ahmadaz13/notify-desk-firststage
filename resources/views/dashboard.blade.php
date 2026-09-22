@@ -36,34 +36,57 @@
         </div>
     </div>
 
-    {{-- Operational Mode Tabs (Today & Work) --}}
-    <div class="notify-mode-tabs" role="tablist" aria-label="{{ __('notify.navigation.mobile_navigation') }}">
-        <a
-            href="{{ route('dashboard', ['mode' => 'daily']) }}"
-            role="tab"
-            aria-selected="{{ $currentMode === 'daily' ? 'true' : 'false' }}"
-            class="notify-mode-tab {{ $currentMode === 'daily' ? 'is-active' : '' }}"
-        >
-            {{ __('notify.today.tab_today') }}
-        </a>
-        <a
-            href="{{ route('dashboard', ['mode' => 'work']) }}"
-            role="tab"
-            aria-selected="{{ $currentMode === 'work' ? 'true' : 'false' }}"
-            class="notify-mode-tab {{ $currentMode === 'work' ? 'is-active' : '' }}"
-        >
-            {{ __('notify.work.title') }}
-        </a>
-        @if($currentMode === 'financial')
+    {{-- Operational Controls: Mode Tabs & Team Scope Filter --}}
+    <div class="notify-operational-toolbar">
+        <div class="notify-mode-tabs" role="tablist" aria-label="{{ __('notify.navigation.mobile_navigation') }}">
             <a
-                href="{{ route('dashboard', ['mode' => 'financial']) }}"
+                href="{{ route('dashboard', array_filter(['mode' => 'daily', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
                 role="tab"
-                aria-selected="true"
-                class="notify-mode-tab notify-mode-tab--deprecated is-active"
+                aria-selected="{{ $currentMode === 'daily' ? 'true' : 'false' }}"
+                class="notify-mode-tab {{ $currentMode === 'daily' ? 'is-active' : '' }}"
+                data-today-tab="today"
             >
-                {{ __('notify.today.tab_financial_deprecated') }}
+                {{ __('notify.today.tab_today') }}
             </a>
-        @endif
+            <a
+                href="{{ route('dashboard', array_filter(['mode' => 'work', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
+                role="tab"
+                aria-selected="{{ $currentMode === 'work' ? 'true' : 'false' }}"
+                class="notify-mode-tab {{ $currentMode === 'work' ? 'is-active' : '' }}"
+                data-today-tab="work"
+            >
+                {{ __('notify.work.all_work') ?: __('notify.work.title') }}
+            </a>
+            @if($currentMode === 'financial')
+                <a
+                    href="{{ route('dashboard', ['mode' => 'financial']) }}"
+                    role="tab"
+                    aria-selected="true"
+                    class="notify-mode-tab notify-mode-tab--deprecated is-active"
+                >
+                    {{ __('notify.today.tab_financial_deprecated') }}
+                </a>
+            @endif
+        </div>
+
+        <div class="notify-team-filter" role="group" aria-label="{{ __('notify.work.team_filter') ?: 'تصفية الفريق' }}">
+            <a
+                href="{{ request()->fullUrlWithQuery(['scope' => 'all']) }}"
+                class="notify-team-filter__btn {{ ($scope ?? 'all') !== 'my' ? 'is-active' : '' }}"
+                data-team-scope="all"
+            >
+                <x-notify.icon name="users" :size="14" />
+                <span>{{ __('notify.work.all_work') ?: 'كل العمل' }}</span>
+            </a>
+            <a
+                href="{{ request()->fullUrlWithQuery(['scope' => 'my']) }}"
+                class="notify-team-filter__btn {{ ($scope ?? 'all') === 'my' ? 'is-active' : '' }}"
+                data-team-scope="my"
+            >
+                <x-notify.icon name="user" :size="14" />
+                <span>{{ __('notify.work.my_work') ?: 'عملي' }}</span>
+            </a>
+        </div>
     </div>
 
     @if($currentMode === 'daily')
@@ -71,6 +94,9 @@
     {{-- 1. PRIMARY OPERATIONAL TODAY FEED (mode === 'daily')                      --}}
     {{-- ========================================================================= --}}
     <section class="notify-today-board">
+        {{-- Embedded Personal Daily Notes (Asia/Amman, Autosaving) --}}
+        <x-notify.daily-notes :daily-note="$dailyNote" />
+
         @php
             $overdueItems = $todayViewModel->overdueItems();
             $nextItems = $todayViewModel->nextItems();
@@ -81,7 +107,7 @@
         @if($hasAnyTodayWork)
             {{-- 1. Overdue Section --}}
             @if($overdueItems->isNotEmpty())
-                <section class="notify-work-section" aria-labelledby="today-overdue-title">
+                <section class="notify-work-section" aria-labelledby="today-overdue-title" data-today-section="overdue">
                     <div class="notify-work-section__head">
                         <h2 class="notify-work-section__title" id="today-overdue-title">
                             <span class="notify-badge notify-badge--danger">{{ $overdueItems->count() }}</span>
@@ -97,7 +123,7 @@
             @endif
 
             {{-- 2. Next Section --}}
-            <section class="notify-work-section" aria-labelledby="today-next-title">
+            <section class="notify-work-section" aria-labelledby="today-next-title" data-today-section="next">
                 <div class="notify-work-section__head">
                     <h2 class="notify-work-section__title" id="today-next-title">
                         <span class="notify-badge notify-badge--info">{{ $nextItems->count() }}</span>
@@ -121,7 +147,7 @@
 
             {{-- 3. Later Today Section --}}
             @if($laterTodayItems->isNotEmpty())
-                <section class="notify-work-section" aria-labelledby="today-later-title">
+                <section class="notify-work-section" aria-labelledby="today-later-title" data-today-section="later_today">
                     <div class="notify-work-section__head">
                         <h2 class="notify-work-section__title" id="today-later-title">
                             <span class="notify-badge notify-badge--neutral">{{ $laterTodayItems->count() }}</span>
@@ -165,7 +191,7 @@
         {{-- Filter Chips --}}
         <div class="notify-work-filters" role="tablist" aria-label="{{ __('notify.work.title') }}">
             <a
-                href="{{ route('dashboard', ['mode' => 'work', 'filter' => 'all']) }}"
+                href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'all', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
                 class="notify-work-filter-chip {{ $currentFilter === 'all' ? 'is-active' : '' }}"
             >
                 {{ __('notify.work.filters.all') }}
@@ -174,7 +200,7 @@
                 @endif
             </a>
             <a
-                href="{{ route('dashboard', ['mode' => 'work', 'filter' => 'calls']) }}"
+                href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'calls', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
                 class="notify-work-filter-chip {{ $currentFilter === 'calls' ? 'is-active' : '' }}"
             >
                 {{ __('notify.work.filters.calls') }}
@@ -183,7 +209,7 @@
                 @endif
             </a>
             <a
-                href="{{ route('dashboard', ['mode' => 'work', 'filter' => 'appointments']) }}"
+                href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'appointments', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
                 class="notify-work-filter-chip {{ $currentFilter === 'appointments' ? 'is-active' : '' }}"
             >
                 {{ __('notify.work.filters.appointments') }}
@@ -192,7 +218,7 @@
                 @endif
             </a>
             <a
-                href="{{ route('dashboard', ['mode' => 'work', 'filter' => 'installations']) }}"
+                href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'installations', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
                 class="notify-work-filter-chip {{ $currentFilter === 'installations' ? 'is-active' : '' }}"
             >
                 {{ __('notify.work.filters.installations') }}
@@ -201,7 +227,7 @@
                 @endif
             </a>
             <a
-                href="{{ route('dashboard', ['mode' => 'work', 'filter' => 'follow_ups']) }}"
+                href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'follow_ups', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
                 class="notify-work-filter-chip {{ $currentFilter === 'follow_ups' ? 'is-active' : '' }}"
             >
                 {{ __('notify.work.filters.follow_ups') }}
@@ -211,7 +237,7 @@
             </a>
             @if($canViewCollections)
                 <a
-                    href="{{ route('dashboard', ['mode' => 'work', 'filter' => 'collections']) }}"
+                    href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'collections', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
                     class="notify-work-filter-chip {{ $currentFilter === 'collections' ? 'is-active' : '' }}"
                 >
                     {{ __('notify.work.filters.collections') }}

@@ -4831,3 +4831,419 @@ table {
   color: #fff;
 }
 
+/* ==========================================================================
+   Phase 2: Final Shell, 4-Area Navigation, Collapsible Sidebar & Daily Notes
+   ========================================================================== */
+
+/* 1. Collapsible Desktop Sidebar */
+.notify-shell--collapsed {
+  --notify-sidebar-width: 64px;
+}
+
+.notify-shell--collapsed .notify-brand__text,
+.notify-shell--collapsed .notify-nav-item__text,
+.notify-shell--collapsed .notify-nav__sub,
+.notify-shell--collapsed .notify-user__identity,
+.notify-shell--collapsed .notify-logout-btn__text,
+.notify-shell--collapsed .notify-sidebar__collapse-text {
+  display: none !important;
+}
+
+.notify-shell--collapsed .notify-sidebar {
+  padding: 16px 8px;
+  align-items: center;
+}
+
+.notify-shell--collapsed .notify-brand {
+  justify-content: center;
+}
+
+.notify-shell--collapsed .notify-nav-item {
+  justify-content: center;
+  padding-inline: 0;
+  width: 48px;
+  height: 48px;
+}
+
+.notify-shell--collapsed .notify-user {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.notify-shell--collapsed .notify-user__main {
+  justify-content: center;
+}
+
+.notify-sidebar__collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--notify-border);
+  color: var(--notify-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.notify-sidebar__collapse-toggle:hover {
+  background: var(--notify-canvas);
+  color: var(--notify-text);
+}
+
+.notify-shell--collapsed .notify-sidebar__collapse-toggle {
+  justify-content: center;
+  padding: 8px;
+  width: 44px;
+}
+
+/* 2. Desktop Navigation 4 Clean Areas */
+.notify-nav-area {
+  display: grid;
+  gap: 2px;
+}
+
+.notify-nav__sub {
+  display: grid;
+  gap: 2px;
+  margin-inline-start: 24px;
+  padding-inline-start: 8px;
+  border-inline-start: 1px solid var(--notify-border);
+  margin-top: 2px;
+  margin-bottom: 6px;
+}
+
+.notify-nav__sub-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: var(--radius-xs);
+  color: var(--notify-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.notify-nav__sub-link:hover {
+  color: var(--notify-primary);
+  background: var(--notify-info-soft);
+}
+
+.notify-nav__sub-link.is-active {
+  color: var(--notify-primary);
+  font-weight: 700;
+  background: var(--notify-info-soft);
+}
+
+/* 3. Mobile Bottom Navigation Grids */
+.notify-mobile-nav__grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.notify-mobile-nav__grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+/* 4. Operational Toolbar & Team Filter */
+.notify-operational-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.notify-mode-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--notify-surface);
+  border: 1px solid var(--notify-border);
+}
+
+.notify-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  border-radius: var(--radius-xs);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--notify-muted);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.notify-mode-tab:hover {
+  color: var(--notify-text);
+  background: var(--notify-canvas);
+}
+
+.notify-mode-tab.is-active {
+  background: var(--notify-primary);
+  color: #ffffff;
+}
+
+.notify-mode-tab--deprecated {
+  color: var(--notify-warning);
+  font-size: 12px;
+}
+
+.notify-team-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--notify-surface);
+  border: 1px solid var(--notify-border);
+}
+
+.notify-team-filter__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-xs);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--notify-muted);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.notify-team-filter__btn:hover {
+  color: var(--notify-text);
+  background: var(--notify-canvas);
+}
+
+.notify-team-filter__btn.is-active {
+  background: var(--notify-info-soft);
+  color: var(--notify-primary);
+  font-weight: 700;
+}
+
+/* 5. Embedded Daily Notes Component */
+.notify-daily-notes {
+  background: var(--notify-surface);
+  border: 1px solid var(--notify-border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  box-shadow: var(--notify-shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.notify-daily-notes:focus-within {
+  border-color: var(--notify-primary);
+  box-shadow: 0 0 0 3px var(--notify-focus-ring);
+}
+
+.notify-daily-notes__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.notify-daily-notes__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.notify-daily-notes__icon-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notify-daily-notes__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  background: var(--notify-info-soft);
+  color: var(--notify-primary);
+}
+
+.notify-daily-notes__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--notify-text);
+}
+
+.notify-daily-notes__date {
+  font-size: 12px;
+  color: var(--notify-muted);
+  font-weight: 600;
+}
+
+.notify-daily-notes__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notify-notes-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.notify-notes-badge--saving {
+  background: var(--notify-warning-soft);
+  color: #B54708;
+}
+
+.notify-notes-badge--saved {
+  background: var(--notify-success-soft);
+  color: var(--notify-success);
+}
+
+.notify-notes-badge--error {
+  background: var(--notify-danger-soft);
+  color: var(--notify-danger);
+}
+
+.notify-notes-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: notify-spin 0.6s linear infinite;
+}
+
+@keyframes notify-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.notify-daily-notes__retry-btn {
+  border: 0;
+  background: transparent;
+  color: var(--notify-primary);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0 4px;
+}
+
+.notify-daily-notes__retry-btn:hover {
+  color: var(--notify-primary-hover);
+}
+
+.notify-daily-notes__editor {
+  position: relative;
+}
+
+.notify-daily-notes__textarea {
+  width: 100%;
+  min-height: 72px;
+  max-height: 240px;
+  padding: 10px 12px;
+  border: 1px solid var(--notify-border);
+  border-radius: var(--radius-sm);
+  background: var(--notify-canvas);
+  color: var(--notify-text);
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.notify-daily-notes__textarea:focus {
+  outline: none;
+  border-color: var(--notify-primary);
+  background: var(--notify-surface);
+}
+
+/* 6. Work card badges & details */
+.notify-work-card__area {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--notify-canvas);
+  color: var(--notify-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.notify-work-card__staff {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--notify-info-soft);
+  color: var(--notify-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 7. Responsive Breakpoint Rules (390px, 768px, 1440px) */
+@media (max-width: 768px) {
+  .notify-operational-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .notify-mode-tabs,
+  .notify-team-filter {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .notify-mode-tab,
+  .notify-team-filter__btn {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .notify-daily-notes {
+    padding: 14px;
+  }
+
+  .notify-daily-notes__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .notify-content {
+    max-width: 1280px;
+    margin-inline: auto;
+  }
+}

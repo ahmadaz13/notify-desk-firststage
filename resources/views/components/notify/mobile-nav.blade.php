@@ -1,11 +1,15 @@
 @props([
     'labels',
     'canViewClients' => false,
+    'canViewFinance' => false,
+    'canViewAdministration' => false,
+    'isStaff' => false,
     'isToday' => false,
     'isClients' => false,
-    'isWork' => false,
-    'managementGroups' => [],
-    'advancedLinks' => [],
+    'isFinance' => false,
+    'isAdministration' => false,
+    'financeSubLinks' => [],
+    'adminSubLinks' => [],
     'moreActive' => false,
     'targetLocale',
     'targetLocaleLabel',
@@ -85,51 +89,48 @@
         </header>
 
         <div class="notify-mobile-nav__more-content">
-            @if($managementGroups !== [])
-                <div class="notify-mobile-nav__layer" data-mobile-nav-layer="management">
-                    <p class="notify-mobile-nav__layer-label">{{ $labels['management'] }}</p>
-                    @foreach($managementGroups as $group)
-                        <section class="notify-mobile-nav__group" data-nav-group="{{ $group['id'] }}" aria-labelledby="notify-mobile-group-{{ $group['id'] }}">
-                            <h3 id="notify-mobile-group-{{ $group['id'] }}">{{ $group['label'] }}</h3>
-                            <div class="notify-mobile-nav__group-links">
-                                @foreach($group['links'] as $link)
-                                    <a
-                                        class="notify-mobile-nav__more-link {{ $link['active'] ? 'is-active' : '' }}"
-                                        href="{{ $link['href'] }}"
-                                        data-nav-destination="{{ $link['id'] }}"
-                                        @if($link['active']) aria-current="page" @endif
-                                    >
-                                        <span class="notify-mobile-nav__more-link-main">
-                                            <x-notify.icon :name="$link['icon']" />
-                                            <span>{{ $link['label'] }}</span>
-                                        </span>
-                                    </a>
-                                @endforeach
-                            </div>
-                        </section>
-                    @endforeach
-                </div>
-            @endif
-
-            @if($advancedLinks !== [])
-                <div class="notify-mobile-nav__layer notify-mobile-nav__layer--advanced" data-mobile-nav-layer="advanced">
-                    <p class="notify-mobile-nav__layer-label">{{ $labels['advanced'] }}</p>
-                    <div class="notify-mobile-nav__group-links">
-                        @foreach($advancedLinks as $link)
-                            <a
-                                class="notify-mobile-nav__more-link {{ $link['active'] ? 'is-active' : '' }}"
-                                href="{{ $link['href'] }}"
-                                data-nav-destination="{{ $link['id'] }}"
-                                @if($link['active']) aria-current="page" @endif
-                            >
-                                <span class="notify-mobile-nav__more-link-main">
-                                    <x-notify.icon :name="$link['icon']" />
-                                    <span>{{ $link['label'] }}</span>
-                                </span>
-                            </a>
-                        @endforeach
+            @if(!$isStaff)
+                @if(!empty($financeSubLinks))
+                    <div class="notify-mobile-nav__layer" data-mobile-nav-layer="finance">
+                        <p class="notify-mobile-nav__layer-label">{{ $labels['finance'] }}</p>
+                        <div class="notify-mobile-nav__group-links">
+                            @foreach($financeSubLinks as $link)
+                                <a
+                                    class="notify-mobile-nav__more-link {{ $link['active'] ? 'is-active' : '' }}"
+                                    href="{{ $link['href'] }}"
+                                    data-nav-destination="{{ $link['id'] }}"
+                                    @if($link['active']) aria-current="page" @endif
+                                >
+                                    <span class="notify-mobile-nav__more-link-main">
+                                        <x-notify.icon :name="$link['icon']" />
+                                        <span>{{ $link['label'] }}</span>
+                                    </span>
+                                </a>
+                            @endforeach
+                        </div>
                     </div>
-                </div>
+                @endif
+
+                @if(!empty($adminSubLinks))
+                    <div class="notify-mobile-nav__layer" data-mobile-nav-layer="administration">
+                        <p class="notify-mobile-nav__layer-label">{{ $labels['administration'] }}</p>
+                        <div class="notify-mobile-nav__group-links">
+                            @foreach($adminSubLinks as $link)
+                                <a
+                                    class="notify-mobile-nav__more-link {{ $link['active'] ? 'is-active' : '' }}"
+                                    href="{{ $link['href'] }}"
+                                    data-nav-destination="{{ $link['id'] }}"
+                                    @if($link['active']) aria-current="page" @endif
+                                >
+                                    <span class="notify-mobile-nav__more-link-main">
+                                        <x-notify.icon :name="$link['icon']" />
+                                        <span>{{ $link['label'] }}</span>
+                                    </span>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             @endif
 
             <div class="notify-mobile-nav__layer notify-mobile-nav__layer--account" data-mobile-nav-layer="account">
@@ -153,11 +154,15 @@
         </div>
     </section>
 
-    <div class="notify-mobile-nav__grid">
+    {{-- Bottom Nav Grid: Staff has 3 items, Admin/Finance has 4 items --}}
+    <div class="notify-mobile-nav__grid {{ $isStaff ? 'notify-mobile-nav__grid--3' : 'notify-mobile-nav__grid--4' }}">
+        {{-- Item 1: Today --}}
         <a class="notify-mobile-nav__item {{ $isToday ? 'is-active' : '' }}" data-nav-destination="today" href="{{ route('dashboard', ['mode' => 'daily']) }}" @if($isToday) aria-current="page" @endif>
             <x-notify.icon name="home" />
             <span class="notify-mobile-nav__label">{{ $labels['today'] }}</span>
         </a>
+
+        {{-- Item 2: Clients --}}
         @if($canViewClients)
             <a class="notify-mobile-nav__item {{ $isClients ? 'is-active' : '' }}" data-nav-destination="clients" href="{{ route('clients.index') }}" @if($isClients) aria-current="page" @endif>
                 <x-notify.icon name="users" />
@@ -169,10 +174,16 @@
                 <span class="notify-mobile-nav__label">{{ $labels['clients'] }}</span>
             </span>
         @endif
-        <a class="notify-mobile-nav__item {{ $isWork ? 'is-active' : '' }}" data-nav-destination="work" href="{{ route('dashboard', ['mode' => 'work']) }}#mobile-work" @if($isWork) aria-current="page" @endif>
-            <x-notify.icon name="briefcase" />
-            <span class="notify-mobile-nav__label">{{ $labels['work'] }}</span>
-        </a>
+
+        {{-- Item 3: Finance (Only for non-staff with finance access) --}}
+        @if(!$isStaff && $canViewFinance)
+            <a class="notify-mobile-nav__item {{ $isFinance ? 'is-active' : '' }}" data-nav-destination="finance" href="{{ route('finance.index') }}" @if($isFinance) aria-current="page" @endif>
+                <x-notify.icon name="chart" />
+                <span class="notify-mobile-nav__label">{{ $labels['finance'] }}</span>
+            </a>
+        @endif
+
+        {{-- More: Item 3 for Staff, Item 4 for Finance/Admin --}}
         <button
             class="notify-mobile-nav__item {{ $moreActive ? 'is-active' : '' }}"
             data-nav-destination="more"

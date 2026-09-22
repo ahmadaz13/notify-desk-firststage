@@ -51,21 +51,17 @@ class DashboardController extends Controller
             ->orderBy('appointment_time')
             ->first(['appointments.*', 'clients.business_name', 'clients.phone']);
 
-        // Financial KPIs
-        $todayCollections = (float) DB::table('payments')->whereDate('paid_at', $today)->sum('amount');
-        $monthIncome = (float) DB::table('payments')->whereBetween('paid_at', [$monthStart->startOfDay(), $today->copy()->endOfDay()])->sum('amount');
-        $monthExpenses = (float) DB::table('expenses')->whereBetween('date', [$monthStart->toDateString(), $today->toDateString()])->sum('amount');
-        $netCashResult = $monthIncome - $monthExpenses;
-        $overdueCollections = (float) DB::table('payment_schedules')
-            ->whereNull('schedule_engine_version')
-            ->whereDate('due_date', '<', $today)
-            ->whereNotIn('status', ['paid', 'cancelled'])
-            ->sum('amount_due');
+        // Financial KPIs decoupled from Today execution path (zero legacy float queries)
+        $todayCollections = 0.0;
+        $monthIncome = 0.0;
+        $monthExpenses = 0.0;
+        $netCashResult = 0.0;
+        $overdueCollections = 0.0;
 
         // Backward compatibility mappings
-        $collected = $monthIncome;
-        $expenses = $monthExpenses;
-        $overdue = $overdueCollections;
+        $collected = 0.0;
+        $expenses = 0.0;
+        $overdue = 0.0;
 
         // Unread notifications for current user
         $unreadNotifications = DB::table('notifications')
@@ -77,13 +73,15 @@ class DashboardController extends Controller
 
         $reminders = DB::table('clients')->whereNotNull('status')->where('status', '!=', 'archived')->orderBy('updated_at', 'desc')->limit(4)->get();
 
+        $businessNow = Carbon::now('Asia/Amman');
+
         // Operational Cockpit Metrics
         $dailySnapshot = $this->dailyOpsService->getTodaySnapshot($user);
         $operationalQueues = $this->operationalQueueService->queues($user, $today->copy()->endOfDay());
         $recentExpenses = $this->dailyOpsService->getRecentExpenses($user, 5);
         $todayAppointments = $this->dailyOpsService->getTodayAppointments($user);
         $pendingFollowUps = $this->dailyOpsService->getPendingFollowUps($user);
-        $dailyNote = DailyNote::where('user_id', $user->id)->whereDate('date', $today)->first();
+        $dailyNote = DailyNote::where('user_id', $user->id)->whereDate('date', $businessNow->toDateString())->first();
         $expenseCategories = ExpenseCategory::active()->get();
         $teamUsers = User::query()
             ->where('is_active', true)
@@ -96,7 +94,7 @@ class DashboardController extends Controller
         $paymentMethodOptions = PaymentMethods::labels();
 
         $legacyFinancialSummary = $this->legacyFinancialSummary();
-        $investments = DB::table('investments')->orderByDesc('entry_date')->get();
+        $investments = collect();
 
         $isPartner = false;
         $partner = null;
@@ -108,10 +106,12 @@ class DashboardController extends Controller
         $mode = in_array($requestedMode, ['daily', 'work', 'financial'], true) ? $requestedMode : 'daily';
         $currentMode = $mode;
 
-        $businessNow = Carbon::now('Asia/Amman');
-        $todayProjection = $this->unifiedWorkProjection->today($user, $businessNow);
+        $requestedScope = request()->query('scope', 'all');
+        $scope = in_array($requestedScope, ['all', 'my'], true) ? $requestedScope : 'all';
+
+        $todayProjection = $this->unifiedWorkProjection->today($user, $businessNow, $scope);
         $requestedFilter = request()->query('filter', UnifiedOperationalWorkProjection::FILTER_ALL);
-        $workProjection = $this->unifiedWorkProjection->work($user, $requestedFilter, $businessNow);
+        $workProjection = $this->unifiedWorkProjection->work($user, $requestedFilter, $businessNow, $scope);
 
         $todayViewModel = TodayViewModel::make(
             $dailySnapshot,
@@ -129,7 +129,7 @@ class DashboardController extends Controller
             'unreadNotifications', 'investments',
             'isPartner', 'partner', 'totalClientPayments', 'netRevenue', 'earnedShare',
             'dailySnapshot', 'recentExpenses', 'todayAppointments', 'pendingFollowUps', 'dailyNote', 'expenseCategories', 'teamUsers',
-            'currentMode', 'mode', 'paymentMethodOptions', 'legacyFinancialSummary', 'todayViewModel',
+            'currentMode', 'mode', 'scope', 'paymentMethodOptions', 'legacyFinancialSummary', 'todayViewModel',
             'todayProjection', 'workProjection'
         ));
     }

@@ -88,6 +88,7 @@ return array (
     'preview' => 'معاينة',
     'refresh' => 'تحديث البيانات',
     'reset' => 'إعادة تعيين',
+    'retry' => 'إعادة المحاولة',
     'reverse' => 'عكس الحركة',
     'save' => 'حفظ',
     'saved' => 'تم الحفظ',
@@ -1204,5 +1205,23 @@ return array (
     'empty_group' => 'لا توجد عناصر مفتوحة في هذا القسم',
     'empty_filter' => 'لا توجد عناصر تطابق هذا الفلتر',
     'no_work' => 'لا توجد أعمال تشغيلية مفتوحة',
+    'all_work' => 'كل العمل',
+    'my_work' => 'عملي',
+    'team_filter' => 'تصفية الفريق',
+    'responsible_staff' => 'الموظف المسؤول',
+  ),
+  'daily_notes' =>
+  array (
+    'title' => 'ملاحظات اليوم',
+    'saving' => 'جاري الحفظ...',
+    'saved' => 'تم الحفظ',
+    'save_failed' => 'فشل الحفظ. المحتوى محفوظ محلياً.',
+    'placeholder' => 'اكتب ملاحظاتك اليومية هنا...',
+    'restored_unsaved' => 'تم استرجاع تعديلات غير محفوظة',
+  ),
+  'shell' =>
+  array (
+    'collapse_sidebar' => 'طي القائمة',
+    'expand_sidebar' => 'توسيع القائمة',
   ),
 );

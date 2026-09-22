@@ -22,17 +22,16 @@ class Phase09ManagementSeparationTest extends TestCase
             ->get(route('dashboard', ['mode' => 'daily']))
             ->assertOk();
 
-        // Daily navigation items are visible
+        // Staff sees only Today, Clients, and More
         $response->assertSee('data-nav-destination="today"', false)
             ->assertSee('data-nav-destination="clients"', false)
-            ->assertSee('data-nav-destination="work"', false)
             ->assertSee('data-nav-destination="more"', false);
 
-        // Owner-level management groups are hidden
-        $response->assertDontSee('data-nav-group="commercial"', false)
-            ->assertDontSee('data-nav-group="money"', false)
-            ->assertDontSee('data-nav-group="reports"', false)
-            ->assertDontSee('data-nav-group="system"', false);
+        // Finance and Administration are hidden from staff
+        $response->assertDontSee('data-nav-destination="finance"', false)
+            ->assertDontSee('data-nav-destination="administration"', false)
+            ->assertDontSee('data-nav-area="finance"', false)
+            ->assertDontSee('data-nav-area="administration"', false);
 
         // Advanced engine layer is hidden
         $response->assertDontSee('data-mobile-nav-layer="advanced"', false)
@@ -63,41 +62,80 @@ class Phase09ManagementSeparationTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk();
 
-        // Daily navigation remains simple
+        // 4 Clean Areas
         $response->assertSee('data-nav-destination="today"', false)
             ->assertSee('data-nav-destination="clients"', false)
-            ->assertSee('data-nav-destination="work"', false);
-
-        // Management groups visible and separated
-        $response->assertSee('data-nav-group="commercial"', false)
-            ->assertSee('data-nav-destination="subscription-management"', false)
-            ->assertSee('data-nav-destination="products-pricing"', false)
-            ->assertSee('data-nav-destination="partners"', false);
-
-        $response->assertSee('data-nav-group="money"', false)
-            ->assertSee('data-nav-destination="collections"', false)
             ->assertSee('data-nav-destination="finance"', false)
-            ->assertSee('data-nav-destination="operating-expenses"', false)
-            ->assertSee('data-nav-destination="capital-management"', false);
+            ->assertSee('data-nav-destination="administration"', false);
 
-        $response->assertSee('data-nav-group="reports"', false)
+        // Sub-items for Finance
+        $response->assertSee('data-nav-destination="collections"', false)
+            ->assertSee('data-nav-destination="operating-expenses"', false)
+            ->assertSee('data-nav-destination="capital-management"', false)
+            ->assertSee('data-nav-destination="subscription-management"', false)
             ->assertSee('data-nav-destination="executive"', false)
             ->assertSee('data-nav-destination="saas-metrics"', false);
 
-        $response->assertSee('data-nav-group="operations-admin"', false)
+        // Sub-items for Administration
+        $response->assertSee('data-nav-destination="products-pricing"', false)
+            ->assertSee('data-nav-destination="partners"', false)
             ->assertSee('data-nav-destination="import"', false)
-            ->assertSee('data-nav-destination="conflicts"', false);
-
-        $response->assertSee('data-nav-group="system"', false)
+            ->assertSee('data-nav-destination="conflicts"', false)
             ->assertSee('data-nav-destination="settings"', false);
 
-        // Advanced engine grouped separately
-        $response->assertSee('data-nav-layer="advanced"', false)
-            ->assertSee('data-nav-destination="financial-accounts"', false)
-            ->assertSee('data-nav-destination="accounting"', false);
+        // Subordinate engine isolation: Accounting and Financial Accounts are NOT top-level sidebar items
+        $response->assertDontSee('data-nav-destination="financial-accounts"', false);
+        $response->assertDontSee('data-nav-destination="accounting"', false);
     }
 
-    public function test_mobile_bottom_nav_has_exact_four_items_and_notifications_in_header_only(): void
+    public function test_mobile_bottom_nav_has_exact_items_per_role_and_notifications_in_header_only(): void
+    {
+        $staff = User::factory()->create([
+            'role' => User::ROLE_STAFF,
+            'is_active' => true,
+        ]);
+
+        // Staff mobile navigation: Exactly 3 items (Today, Clients, More)
+        $staffResponse = $this->actingAs($staff)
+            ->withSession(['locale' => 'en'])
+            ->get(route('dashboard'))
+            ->assertOk();
+
+        $staffHtml = $staffResponse->getContent();
+        $this->assertSame(1, substr_count($staffHtml, 'class="notify-mobile-nav__grid notify-mobile-nav__grid--3"'));
+        $staffMobileGrid = str($staffHtml)->between('class="notify-mobile-nav__grid notify-mobile-nav__grid--3"', '</nav>')->toString();
+        $this->assertSame(1, substr_count($staffMobileGrid, 'data-nav-destination="today"'));
+        $this->assertSame(1, substr_count($staffMobileGrid, 'data-nav-destination="clients"'));
+        $this->assertSame(1, substr_count($staffMobileGrid, 'data-nav-destination="more"'));
+        $this->assertSame(0, substr_count($staffMobileGrid, 'data-nav-destination="finance"'));
+        $this->assertSame(0, substr_count($staffMobileGrid, 'data-nav-destination="work"'));
+
+        // Admin mobile navigation: Exactly 4 items (Today, Clients, Finance, More)
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'is_active' => true,
+        ]);
+
+        $adminResponse = $this->actingAs($admin)
+            ->withSession(['locale' => 'en'])
+            ->get(route('dashboard'))
+            ->assertOk();
+
+        $adminHtml = $adminResponse->getContent();
+        $this->assertSame(1, substr_count($adminHtml, 'class="notify-mobile-nav__grid notify-mobile-nav__grid--4"'));
+        $adminMobileGrid = str($adminHtml)->between('class="notify-mobile-nav__grid notify-mobile-nav__grid--4"', '</nav>')->toString();
+        $this->assertSame(1, substr_count($adminMobileGrid, 'data-nav-destination="today"'));
+        $this->assertSame(1, substr_count($adminMobileGrid, 'data-nav-destination="clients"'));
+        $this->assertSame(1, substr_count($adminMobileGrid, 'data-nav-destination="finance"'));
+        $this->assertSame(1, substr_count($adminMobileGrid, 'data-nav-destination="more"'));
+        $this->assertSame(0, substr_count($adminMobileGrid, 'data-nav-destination="work"'));
+
+        // Notifications is header only, never a bottom nav tab
+        $this->assertSame(1, substr_count($adminHtml, 'data-shell-action="notifications"'));
+        $this->assertSame(0, substr_count($adminHtml, 'data-nav-destination="notifications"'));
+    }
+
+    public function test_desktop_daily_nav_not_polluted_by_finance_or_admin(): void
     {
         $staff = User::factory()->create([
             'role' => User::ROLE_STAFF,
@@ -110,44 +148,17 @@ class Phase09ManagementSeparationTest extends TestCase
             ->assertOk();
 
         $html = $response->getContent();
-
-        // Exact 4 items in bottom nav grid
-        $this->assertSame(1, substr_count($html, 'class="notify-mobile-nav__grid"'));
-        $mobileGrid = str($html)->between('class="notify-mobile-nav__grid"', '</nav>')->toString();
-        $this->assertSame(1, substr_count($mobileGrid, 'data-nav-destination="today"'));
-        $this->assertSame(1, substr_count($mobileGrid, 'data-nav-destination="clients"'));
-        $this->assertSame(1, substr_count($mobileGrid, 'data-nav-destination="work"'));
-        $this->assertSame(1, substr_count($mobileGrid, 'data-nav-destination="more"'));
-
-        // Notifications is header only, never a bottom nav tab
-        $this->assertSame(1, substr_count($html, 'data-shell-action="notifications"'));
-        $this->assertSame(0, substr_count($html, 'data-nav-destination="notifications"'));
-    }
-
-    public function test_desktop_daily_nav_not_polluted_by_finance_or_admin(): void
-    {
-        $founder = User::factory()->create([
-            'role' => User::ROLE_FOUNDER,
-            'is_active' => true,
-        ]);
-
-        $response = $this->actingAs($founder)
-            ->withSession(['locale' => 'en'])
-            ->get(route('dashboard'))
-            ->assertOk();
-
-        // Daily section contains only today, clients, work
-        $html = $response->getContent();
-        $start = strpos($html, '<section class="notify-nav__section notify-nav__section--daily"');
+        $start = strpos($html, '<nav class="notify-nav notify-nav--primary"');
         $this->assertNotFalse($start);
-        $end = strpos($html, '</section>', $start);
+        $end = strpos($html, '</nav>', $start);
         $this->assertNotFalse($end);
-        $dailySection = substr($html, $start, $end - $start + strlen('</section>'));
+        $dailySection = substr($html, $start, $end - $start + strlen('</nav>'));
 
+        // Staff desktop shows ONLY Today and Clients
         $this->assertStringContainsString('data-nav-destination="today"', $dailySection);
         $this->assertStringContainsString('data-nav-destination="clients"', $dailySection);
-        $this->assertStringContainsString('data-nav-destination="work"', $dailySection);
         $this->assertStringNotContainsString('data-nav-destination="finance"', $dailySection);
+        $this->assertStringNotContainsString('data-nav-destination="administration"', $dailySection);
         $this->assertStringNotContainsString('data-nav-destination="accounting"', $dailySection);
         $this->assertStringNotContainsString('data-nav-destination="settings"', $dailySection);
         $this->assertStringNotContainsString('data-nav-destination="subscription-management"', $dailySection);

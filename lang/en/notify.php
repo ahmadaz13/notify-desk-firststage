@@ -88,6 +88,7 @@ return array (
     'preview' => 'Preview',
     'refresh' => 'Refresh',
     'reset' => 'Reset',
+    'retry' => 'Retry',
     'reverse' => 'Reverse',
     'save' => 'Save',
     'saved' => 'Saved',
@@ -1204,5 +1205,23 @@ return array (
     'empty_group' => 'No open items in this section',
     'empty_filter' => 'No operational items match this filter',
     'no_work' => 'No open operational work',
+    'all_work' => 'All Work',
+    'my_work' => 'My Work',
+    'team_filter' => 'Team Filter',
+    'responsible_staff' => 'Responsible Staff',
+  ),
+  'daily_notes' =>
+  array (
+    'title' => 'Daily Notes',
+    'saving' => 'Saving...',
+    'saved' => 'Saved',
+    'save_failed' => 'Save failed. Draft preserved locally.',
+    'placeholder' => 'Write your personal daily notes here...',
+    'restored_unsaved' => 'Restored unsaved draft',
+  ),
+  'shell' =>
+  array (
+    'collapse_sidebar' => 'Collapse sidebar',
+    'expand_sidebar' => 'Expand sidebar',
   ),
 );
