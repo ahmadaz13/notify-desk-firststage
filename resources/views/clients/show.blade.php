@@ -23,6 +23,22 @@
         </a>
     </div>
 
+    {{-- Post-Subscription Contract Success State --}}
+    @if(session('lastStartedSubscriptionId'))
+        <div class="notify-card notify-card--success-banner" style="margin-bottom:16px;padding:12px 16px;border-radius:8px;background:#F0FDF4;border:1px solid #86EFAC;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#16A34A;color:#fff;font-size:12px;font-weight:bold">✓</span>
+                <div>
+                    <strong style="color:#15803D;font-size:13px">{{ __('notify.subscriptions.activated_success') ?? 'تم تفعيل الاشتراك وإنشاء الفاتورة ومسودة العقد بنجاح' }}</strong>
+                    <small style="display:block;color:#166534;margin-top:2px">تم تحديث حالة العميل إلى مشترك، والعقد جاهز للاستعراض والطباعة والاعتماد.</small>
+                </div>
+            </div>
+            <a href="#sec-subscriptions" class="notify-button notify-button--soft notify-button--sm" data-scroll-to="#sec-subscriptions">
+                <span>{{ __('notify.client_workspace.view_subscription') }} ↓</span>
+            </a>
+        </div>
+    @endif
+
     {{-- SECTION 1, 2, 3, 4, 5, 6: Operational Command Card (Hero) --}}
     <section class="notify-workspace-command-card" aria-label="Command Overview">
         <div class="notify-workspace-command-card__header">
@@ -346,9 +362,30 @@
                                         </div>
                                     @endif
                                     @if(!empty($sub['contract']))
-                                        <div class="notify-sub-card__detail-item">
-                                            <small>{{ __('notify.client_workspace.contract_access_title') }}</small>
-                                            <span>{{ $sub['contract']['status_label'] }}</span>
+                                        <div class="notify-sub-card__detail-item notify-sub-card__detail-item--contract" style="grid-column:1 / -1;margin-top:6px;padding-top:8px;border-top:1px dashed var(--notify-border, #E2E8F0)">
+                                            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                                                <div style="display:flex;align-items:center;gap:6px">
+                                                    <small style="color:var(--nd-muted, #64748B)">{{ __('notify.client_workspace.contract_number') }}:</small>
+                                                    <span class="font-mono text-xs font-semibold" dir="ltr">{{ $sub['contract']['number'] }}</span>
+                                                    <span class="notify-badge notify-badge--{{ $sub['contract']['status_variant'] }} notify-badge--sm">{{ $sub['contract']['status_label'] }}</span>
+                                                </div>
+                                                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                                                    <a href="{{ $sub['contract']['print_url'] }}" target="_blank" class="notify-button notify-button--ghost notify-button--sm">
+                                                        <span>{{ __('notify.contracts.print') }}</span>
+                                                    </a>
+                                                    <a href="{{ $sub['contract']['download_pdf_url'] }}" class="notify-button notify-button--ghost notify-button--sm">
+                                                        <span>PDF</span>
+                                                    </a>
+                                                    @if($sub['contract']['status'] === 'draft' && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING))
+                                                        <form method="POST" action="{{ route('contracts.issue', $sub['contract']['id']) }}" style="display:inline">
+                                                            @csrf
+                                                            <button type="submit" class="notify-button notify-button--soft notify-button--sm">
+                                                                <span>{{ __('notify.contracts.issue') }}</span>
+                                                            </button>
+                                                        </form>
+                                                    @endif
+                                                </div>
+                                            </div>
                                         </div>
                                     @endif
                                 </div>

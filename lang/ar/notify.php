@@ -679,6 +679,9 @@ return array (
   ),
   'contracts' =>
   array (
+    'print' => 'طباعة',
+    'download_pdf' => 'تحميل PDF',
+    'issue' => 'اعتماد وإصدار',
     'supersede' => 'استبدال',
     'void' => '● لاغٍ',
     'void_action' => 'إلغاء',

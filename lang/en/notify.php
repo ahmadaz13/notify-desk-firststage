@@ -679,6 +679,9 @@ return array (
   ),
   'contracts' =>
   array (
+    'print' => 'Print',
+    'download_pdf' => 'Download PDF',
+    'issue' => 'Issue Contract',
     'supersede' => 'Supersede',
     'void' => '● Void',
     'void_action' => 'Void',

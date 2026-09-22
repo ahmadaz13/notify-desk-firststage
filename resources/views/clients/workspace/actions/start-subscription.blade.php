@@ -40,24 +40,17 @@
                 </div>
             </div>
 
-            {{-- Step 2: Term and Start Date --}}
-            <div class="notify-form-grid" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
-                <div class="notify-form-group">
-                    <label class="notify-field-label" for="guided-sub-interval"><strong>{{ __('notify.client_workspace.guided_subscription.billing_interval_label') }}</strong></label>
-                    <select name="billing_interval" id="guided-sub-interval" class="notify-form-select" required disabled>
-                        <option value="">{{ __('notify.client_workspace.guided_subscription.select_interval') }}</option>
-                        <option value="monthly">{{ __('notify.client_workspace.guided_subscription.monthly') }}</option>
-                        <option value="annual">{{ __('notify.client_workspace.guided_subscription.annual') }}</option>
-                    </select>
-                </div>
-
-                <div class="notify-form-group">
-                    <label class="notify-field-label" for="guided-sub-start-date"><strong>{{ __('notify.client_workspace.guided_subscription.start_date_label') }}</strong></label>
-                    <input type="date" name="start_date" id="guided-sub-start-date" value="{{ date('Y-m-d') }}" class="notify-form-input" required>
-                </div>
+            {{-- Step 2: Billing Interval --}}
+            <div class="notify-form-group" style="margin-top:12px">
+                <label class="notify-field-label" for="guided-sub-interval"><strong>{{ __('notify.client_workspace.guided_subscription.billing_interval_label') }}</strong></label>
+                <select name="billing_interval" id="guided-sub-interval" class="notify-form-select" required disabled>
+                    <option value="">{{ __('notify.client_workspace.guided_subscription.select_interval') }}</option>
+                    <option value="monthly">{{ __('notify.client_workspace.guided_subscription.monthly') }}</option>
+                    <option value="annual">{{ __('notify.client_workspace.guided_subscription.annual') }}</option>
+                </select>
             </div>
 
-            {{-- Step 3: Annual Payment Terms (Conditional) --}}
+            {{-- Step 3: Annual Payment Terms (Conditional, shown for Annual) --}}
             <div id="guided-annual-terms-container" style="margin-top:12px;display:none">
                 <div class="p3-box-nested" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:12px">
                     <div class="notify-form-group">
@@ -92,21 +85,19 @@
                 </div>
             </div>
 
-            {{-- Branch Quantity Authority Badge --}}
-            <div style="margin-top:12px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:6px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
-                <div>
-                    <span style="font-size:12px;font-weight:700;color:#0369A1">{{ __('notify.client_workspace.guided_subscription.branches_count') }}:</span>
-                    <span style="font-size:13px;font-weight:800;color:#0C4A6E;margin-inline-start:6px">{{ $clientBranches }} {{ $clientBranches === 1 ? 'فرع' : 'فروع' }}</span>
-                    <p style="font-size:11px;color:#0284C7;margin:2px 0 0">{{ __('notify.client_workspace.guided_subscription.branches_notice') }}</p>
+            {{-- More Options (Collapsible) --}}
+            <details style="margin-top:14px;border:1px dashed #CBD5E1;border-radius:6px;padding:8px 12px">
+                <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--nd-muted, #64748B)">{{ __('notify.client_workspace.more_options') ?? 'خيارات إضافية' }}</summary>
+                <div class="notify-form-group" style="margin-top:10px">
+                    <label class="notify-field-label" for="guided-sub-start-date">{{ __('notify.client_workspace.guided_subscription.start_date_label') }}</label>
+                    <input type="date" name="start_date" id="guided-sub-start-date" value="{{ \Carbon\Carbon::now('Asia/Amman')->toDateString() }}" class="notify-form-input">
+                    <small style="display:block;color:var(--nd-muted, #64748B);margin-top:3px;font-size:11px">الافتراضي هو تاريخ اليوم بتوقيت عمان.</small>
                 </div>
-                <a href="{{ route('clients.edit', $client->id) }}" target="_blank" style="font-size:11px;color:#0055CC;text-decoration:none;font-weight:600">تعديل الفروع ↗</a>
-            </div>
-
-            {{-- Notes --}}
-            <div class="notify-form-group" style="margin-top:12px">
-                <label class="notify-field-label" for="guided-sub-notes">{{ __('notify.client_workspace.guided_subscription.notes_label') }}</label>
-                <textarea name="notes" id="guided-sub-notes" class="notify-form-textarea" rows="2" placeholder="{{ __('notify.client_workspace.guided_subscription.notes_placeholder') }}"></textarea>
-            </div>
+                <div class="notify-form-group" style="margin-top:10px">
+                    <label class="notify-field-label" for="guided-sub-notes">{{ __('notify.client_workspace.guided_subscription.notes_label') }}</label>
+                    <textarea name="notes" id="guided-sub-notes" class="notify-form-textarea" rows="2" placeholder="{{ __('notify.client_workspace.guided_subscription.notes_placeholder') }}"></textarea>
+                </div>
+            </details>
 
             {{-- Authoritative Preview Card --}}
             <div id="guided-sub-preview-card" style="margin-top:14px;display:none;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:8px;padding:14px">
