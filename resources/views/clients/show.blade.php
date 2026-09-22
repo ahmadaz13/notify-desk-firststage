@@ -318,6 +318,26 @@
         </div>
     </section>
 
+    @if(\App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_COMMERCIAL_CATALOG))
+        <section class="notify-workspace-card" style="margin-block:16px" aria-label="{{ __('custom_projects.title') }}">
+            <div class="notify-workspace-card__head">
+                <h2 class="notify-workspace-card__title">{{ __('custom_projects.title') }}</h2>
+                <a class="notify-button notify-button--soft notify-button--sm" href="{{ route('custom-projects.create', ['client_id' => $client->id]) }}">{{ __('custom_projects.create') }}</a>
+            </div>
+            <div class="notify-workspace-card__body">
+                @forelse($customProjects as $project)
+                    <div style="display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;margin-block:8px">
+                        <a href="{{ route('custom-projects.show', $project) }}">{{ $project->name }}</a>
+                        <span>{{ $project->statusLabel() }} · {{ $project->agreedValueFormatted() }} {{ __('notify.common.currency_jod') }}</span>
+                    </div>
+                @empty
+                    <p class="notify-muted">{{ __('custom_projects.empty') }}</p>
+                @endforelse
+                <a href="{{ route('clients.custom-projects.index', $client) }}">{{ __('custom_projects.view_all') }}</a>
+            </div>
+        </section>
+    @endif
+
     {{-- Operational Summaries Grid (Sections 7, 8, 9) --}}
     <div class="notify-workspace-summary-grid">
         {{-- 7. Subscriptions by Product (UX-D04) --}}
@@ -527,6 +547,14 @@
 
     {{-- ADVANCED COLLAPSED SECTIONS (11, 12, 13) --}}
     <div class="notify-workspace-advanced-stack">
+        @if(request()->boolean('finance_advanced') && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::VIEW_ACCOUNTING))
+            <x-notify.collapsible-section
+                :title="__('notify.finance.sections.advanced')"
+                id="finance-advanced-tools"
+                :open="true">
+                @include('clients.workspace.subscription-billing')
+            </x-notify.collapsible-section>
+        @endif
         {{-- 11. Expandable Full History (Collapsed by default) --}}
         <x-notify.collapsible-section
             :title="__('notify.client_workspace.full_history')"

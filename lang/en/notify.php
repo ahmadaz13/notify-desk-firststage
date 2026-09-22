@@ -847,6 +847,7 @@ return array (
     'commercial' => 'Commercial',
     'conflicts' => 'Conflicts',
     'collections' => 'Collections & AR',
+    'custom_projects' => 'Custom Projects',
     'daily' => 'Daily',
     'executive' => 'Executive',
     'expenses' => 'Operating Expenses',

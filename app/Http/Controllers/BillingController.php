@@ -106,6 +106,11 @@ class BillingController extends Controller
             'issue_date' => 'required|date',
             'due_date' => 'required|date|after_or_equal:issue_date',
             'description' => 'nullable|string|max:1000',
+            'custom_project_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('custom_projects', 'id')->where('client_id', $client->id),
+            ],
             'lines' => 'required|array|min:1',
             'lines.*.line_type' => ['nullable', Rule::in([InvoiceLine::TYPE_ONE_TIME_SERVICE, InvoiceLine::TYPE_CUSTOM])],
             'lines.*.description' => 'nullable|string|max:500',
@@ -137,7 +142,8 @@ class BillingController extends Controller
             Carbon::parse($validated['issue_date']),
             Carbon::parse($validated['due_date']),
             $validated['description'] ?? null,
-            auth()->id()
+            auth()->id(),
+            $validated['custom_project_id'] ?? null
         );
 
         return back()->with('success', 'تم إنشاء وإصدار فاتورة العمل الإضافي بدون إنشاء اشتراك أو دفعة.');

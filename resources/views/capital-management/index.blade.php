@@ -14,7 +14,6 @@
             <p class="p4-subtitle">إدارة مساهمات المؤسسين والتمويل الرأسمالي، اقتناء الأصول الثابتة، وتصنيفات الأصول المسجلة.</p>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
                 <a href="{{ route('finance.index') }}" class="p4-btn p4-btn-soft p4-btn-sm">تقارير الإدارة المالية</a>
-                <a href="{{ route('financial-accounts.index') }}" class="p4-btn p4-btn-soft p4-btn-sm">الحسابات المالية والنقد</a>
                 <a href="{{ route('operating-expenses.index') }}" class="p4-btn p4-btn-soft p4-btn-sm">المصاريف التشغيلية</a>
             </div>
         </div>

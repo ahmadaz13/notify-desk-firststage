@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdministrationController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CustomProjectController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\CapitalExpenseController;
@@ -153,6 +154,16 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/clients-import/preview', [CsvImportController::class, 'preview'])->name('clients.import.preview');
     Route::post('/clients-import/confirm', [CsvImportController::class, 'confirm'])->name('clients.import.confirm');
     Route::get('/clients-import/template/{type}', [CsvImportController::class, 'downloadTemplate'])->name('clients.import.template');
+
+    // ─── Phase 7: Custom Projects ───
+    Route::get('/custom-projects', [CustomProjectController::class, 'index'])->name('custom-projects.index');
+    Route::get('/custom-projects/create', [CustomProjectController::class, 'create'])->name('custom-projects.create');
+    Route::post('/custom-projects', [CustomProjectController::class, 'store'])->name('custom-projects.store');
+    Route::get('/custom-projects/{customProject}', [CustomProjectController::class, 'show'])->name('custom-projects.show');
+    Route::get('/custom-projects/{customProject}/edit', [CustomProjectController::class, 'edit'])->name('custom-projects.edit');
+    Route::put('/custom-projects/{customProject}', [CustomProjectController::class, 'update'])->name('custom-projects.update');
+    Route::post('/custom-projects/{customProject}/archive', [CustomProjectController::class, 'archive'])->name('custom-projects.archive');
+    Route::get('/clients/{client}/custom-projects', [CustomProjectController::class, 'clientIndex'])->name('clients.custom-projects.index');
 
     // ─── Phase 6: Unified Administration Hub ───
     Route::get('/administration', [AdministrationController::class, 'index'])->name('administration.index');

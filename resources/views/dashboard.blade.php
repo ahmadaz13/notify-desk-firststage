@@ -326,7 +326,6 @@
                 <a href="{{ route('executive.index') }}">{{ __('notify.reports.executive') }}</a>
                 <a href="{{ route('finance.index') }}">{{ __('notify.finance.reports') }}</a>
                 <a href="{{ route('saas-metrics.index') }}">{{ __('notify.saas.title') }}</a>
-                <a href="{{ route('accounting.index') }}">{{ __('notify.accounting.title') }}</a>
             </div>
             <div class="notify-empty-state notify-empty-state--compact">
                 <h3>{{ __('notify.today.deprecated_financial.widgets_title') }}</h3>

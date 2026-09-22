@@ -80,13 +80,17 @@
         || request()->routeIs('capital-management.*')
         || request()->routeIs('subscription-billing.*')
         || request()->routeIs('executive.*')
-        || request()->routeIs('saas-metrics.*');
+        || request()->routeIs('saas-metrics.*')
+        || request()->routeIs('financial-accounts.*')
+        || request()->routeIs('accounting.*');
 
     $isAdministration = request()->routeIs('commercial-catalog.*')
         || request()->routeIs('administration.*')
         || request()->routeIs('partners.*')
         || request()->routeIs('settings.*')
         || request()->routeIs('conflicts.*')
+        || request()->routeIs('custom-projects.*')
+        || request()->routeIs('clients.custom-projects.*')
         || request()->routeIs('clients.import*');
 
     $canViewFinance = auth()->check() && ! $isStaff && ($allows(FinancialPermissions::VIEW_FINANCIAL_STATEMENTS) || $allows(FinancialPermissions::VIEW_FINANCIAL_REPORTS) || $admin);
@@ -141,11 +145,21 @@
         }
         if ($allows(FinancialPermissions::VIEW_SAAS_METRICS)) {
             $financeSubLinks[] = [
-                'id' => 'saas-metrics',
-                'label' => $labels['saas'],
-                'href' => route('saas-metrics.index'),
-                'icon' => 'activity',
+                'id'     => 'saas-metrics',
+                'label'  => $labels['saas'],
+                'href'   => route('saas-metrics.index'),
+                'icon'   => 'activity',
                 'active' => $isRoute(['saas-metrics.*']),
+            ];
+        }
+        // Finance > Advanced (accounting console – isolated from normal finance navigation)
+        if ($allows(FinancialPermissions::VIEW_ACCOUNTING)) {
+            $financeSubLinks[] = [
+                'id'     => 'finance-advanced',
+                'label'  => __('notify.finance.sections.advanced') ?: 'Advanced',
+                'href'   => route('finance.index', ['section' => 'advanced']),
+                'icon'   => 'settings',
+                'active' => $isRoute(['financial-accounts.*', 'accounting.*']) || (request()->routeIs('finance.*') && request()->query('section') === 'advanced'),
             ];
         }
     }
@@ -193,6 +207,15 @@
                 'href'   => route('conflicts.index'),
                 'icon'   => 'activity',
                 'active' => $isRoute(['conflicts.*']),
+            ];
+        }
+        if ($allows(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG)) {
+            $adminSubLinks[] = [
+                'id'     => 'custom-projects',
+                'label'  => __('notify.navigation.custom_projects') ?: 'المشاريع المخصصة',
+                'href'   => route('custom-projects.index'),
+                'icon'   => 'briefcase',
+                'active' => $isRoute(['custom-projects.*', 'clients.custom-projects.*']),
             ];
         }
         if ($allows(FinancialPermissions::MANAGE_FINANCIAL_SETTINGS)) {

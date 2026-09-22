@@ -20,6 +20,7 @@ class Invoice extends Model
         'invoice_number',
         'client_id',
         'subscription_id',
+        'custom_project_id',
         'currency',
         'status',
         'issue_date',
@@ -58,6 +59,11 @@ class Invoice extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);
+    }
+
+    public function customProject(): BelongsTo
+    {
+        return $this->belongsTo(CustomProject::class);
     }
 
     public function lines(): HasMany

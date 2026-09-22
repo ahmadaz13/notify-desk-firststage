@@ -46,14 +46,15 @@ class InvoiceService
         });
     }
 
-    public function createIssuedOneTime(Client $client, array $lines, Carbon $issueDate, Carbon $dueDate, ?string $description, ?int $userId): Invoice
+    public function createIssuedOneTime(Client $client, array $lines, Carbon $issueDate, Carbon $dueDate, ?string $description, ?int $userId, ?int $customProjectId = null): Invoice
     {
-        return DB::transaction(function () use ($client, $lines, $issueDate, $dueDate, $description, $userId) {
+        return DB::transaction(function () use ($client, $lines, $issueDate, $dueDate, $description, $userId, $customProjectId) {
             $totals = $this->totalsFromLines($lines);
 
             $invoice = Invoice::create([
                 'client_id' => $client->id,
                 'subscription_id' => null,
+                'custom_project_id' => $customProjectId,
                 'currency' => 'JOD',
                 'status' => Invoice::STATUS_DRAFT,
                 'issue_date' => $issueDate->toDateString(),

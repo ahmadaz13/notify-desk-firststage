@@ -10,6 +10,17 @@
 </div>
 
 {{-- Advanced Action Cards Grid --}}
+<div class="p4-card" style="margin-bottom:16px">
+    <h2 class="p4-card-title">{{ __('custom_projects.client') }} · {{ __('notify.finance.sections.advanced') }}</h2>
+    <p class="p4-subtitle">{{ __('custom_projects.invoice_note') }}</p>
+    <label for="finance-advanced-client">{{ __('custom_projects.client') }}</label>
+    <select id="finance-advanced-client" class="p4-input" onchange="if(this.value) window.location.assign(this.value)">
+        <option value="">{{ __('custom_projects.choose_client') }}</option>
+        @foreach($clients as $client)
+            <option value="{{ route('clients.show', ['client' => $client->id, 'finance_advanced' => 1]) }}#finance-advanced-tools">{{ $client->business_name }}</option>
+        @endforeach
+    </select>
+</div>
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
     {{-- Card 1: Financial Accounts & Cash Subledger --}}
     <div class="p4-card" style="display: flex; flex-direction: column; justify-content: space-between;">

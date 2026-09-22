@@ -44,6 +44,9 @@ class FinanceReportController extends Controller
         if (! in_array($section, ['overview', 'collections', 'expenses', 'capital_assets', 'reports', 'advanced'], true)) {
             $section = 'overview';
         }
+        if ($section === 'advanced') {
+            Gate::authorize(FinancialPermissions::VIEW_ACCOUNTING);
+        }
 
         $period = ReportingPeriod::fromRequest($request);
         $reports = [
