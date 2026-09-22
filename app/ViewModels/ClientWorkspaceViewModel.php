@@ -40,7 +40,8 @@ class ClientWorkspaceViewModel
         public readonly array $recentActivities,
         public readonly array $details,
         public readonly array $fullHistory,
-        public readonly array $managementFinance
+        public readonly array $managementFinance,
+        public readonly ?array $latestPayment = null
     ) {
     }
 
@@ -214,11 +215,22 @@ class ClientWorkspaceViewModel
             ];
         })->values()->all();
 
-        // 8. Amount Due Summary
+        // 8. Amount Due Summary & Lightweight Financial Projection
         $canRecordPayment = $actor ? FinancialPermissions::allows($actor, FinancialPermissions::RECORD_PAYMENT) : Gate::allows(FinancialPermissions::RECORD_PAYMENT);
+        $canViewFinancialReports = $actor ? FinancialPermissions::allows($actor, FinancialPermissions::VIEW_FINANCIAL_REPORTS) : Gate::allows(FinancialPermissions::VIEW_FINANCIAL_REPORTS);
         $totalOutstandingMinor = (int) ($receivableSummary['total_outstanding_minor'] ?? 0);
         $overdueOutstandingMinor = (int) ($receivableSummary['overdue_outstanding_minor'] ?? 0);
         $totalCustomerCreditMinor = (int) ($receivableSummary['total_customer_credit_minor'] ?? 0);
+
+        $latestPaymentModel = $payments->whereNull('reversal')->first() ?? $payments->first();
+        $latestPayment = $latestPaymentModel ? [
+            'id' => $latestPaymentModel->id,
+            'amount_minor' => (int) ($latestPaymentModel->amount_minor ?? round($latestPaymentModel->amount * 1000)),
+            'amount_formatted' => Money::fromMinorUnits((int) ($latestPaymentModel->amount_minor ?? round($latestPaymentModel->amount * 1000)))->format() . ' ' . __('notify.common.currency_jod'),
+            'paid_at' => $latestPaymentModel->paid_at ? Carbon::parse($latestPaymentModel->paid_at)->format('Y-m-d') : null,
+            'method' => $latestPaymentModel->payment_method ? (\App\Support\PaymentMethods::labels()[$latestPaymentModel->payment_method] ?? $latestPaymentModel->payment_method) : '—',
+            'reference' => $latestPaymentModel->reference ?: ($latestPaymentModel->reference_number ?: null),
+        ] : null;
 
         $amountDueSummary = [
             'total_minor' => $totalOutstandingMinor,
@@ -232,6 +244,9 @@ class ClientWorkspaceViewModel
             'has_credit' => $totalCustomerCreditMinor > 0,
             'currency' => __('notify.common.currency_jod'),
             'can_record_payment' => $canRecordPayment,
+            'latest_payment' => $latestPayment,
+            'view_financial_details_url' => route('collections.index', ['client_id' => $client->id]),
+            'can_view_financial_details' => $canViewFinancialReports,
         ];
 
         // 9. Contract Access
@@ -414,7 +429,8 @@ class ClientWorkspaceViewModel
             recentActivities: $recentActivities,
             details: $details,
             fullHistory: $fullHistory,
-            managementFinance: $managementFinance
+            managementFinance: $managementFinance,
+            latestPayment: $latestPayment
         );
     }
 
@@ -515,7 +531,9 @@ class ClientWorkspaceViewModel
                     'variant' => 'primary',
                 ],
                 'secondary' => array_values(array_filter([
+                    $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
                     ['label' => __('notify.client_workspace.action_reschedule'), 'target' => '#sec-reschedule-appointment-' . $activeInstall->id, 'type' => 'anchor'],
+                    ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
                     $callHref ? ['label' => __('notify.actions.call'), 'href' => $callHref, 'type' => 'call'] : null,
                 ])),
             ];
@@ -541,7 +559,10 @@ class ClientWorkspaceViewModel
                     'variant' => 'primary',
                 ],
                 'secondary' => array_values(array_filter([
+                    ['label' => __('notify.client_workspace.action_schedule_installation'), 'target' => '#sec-schedule-installation', 'type' => 'schedule_installation'],
+                    $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
                     ['label' => __('notify.client_workspace.action_reschedule'), 'target' => '#sec-reschedule-appointment-' . $activeAppt->id, 'type' => 'anchor'],
+                    ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
                     $callHref ? ['label' => __('notify.actions.call'), 'href' => $callHref, 'type' => 'call'] : null,
                 ])),
             ];
@@ -552,11 +573,12 @@ class ClientWorkspaceViewModel
         if ($stage === ClientLifecycle::INSTALLED_FREE || $stage === ClientLifecycle::DECISION_PENDING || $hasDueFollowUp) {
             $stateKey = $stage === ClientLifecycle::DECISION_PENDING ? 'decision_pending' : 'free_installed_or_followup_due';
             $secondary = array_values(array_filter([
+                $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
+                ['label' => __('notify.client_workspace.action_create_appointment'), 'target' => '#sec-create-appointment', 'type' => 'create_appointment'],
+                ['label' => __('notify.client_workspace.action_schedule_installation'), 'target' => '#sec-schedule-installation', 'type' => 'schedule_installation'],
+                ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
                 $callHref ? ['label' => __('notify.actions.call'), 'href' => $callHref, 'type' => 'call'] : null,
                 $whatsappUrl ? ['label' => __('notify.actions.whatsapp'), 'href' => $whatsappUrl, 'type' => 'whatsapp'] : null,
-                $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'anchor'] : null,
-                $stage === ClientLifecycle::DECISION_PENDING ? ['label' => __('notify.client_workspace.action_create_appointment'), 'target' => '#sec-create-appointment', 'type' => 'anchor'] : null,
-                $stage === ClientLifecycle::DECISION_PENDING ? ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'anchor'] : null,
             ]));
 
             return [
@@ -587,9 +609,11 @@ class ClientWorkspaceViewModel
                         'variant' => 'primary',
                     ],
                     'secondary' => array_values(array_filter([
-                        $callHref ? ['label' => __('notify.actions.call'), 'href' => $callHref, 'type' => 'call'] : null,
+                        ['label' => __('notify.client_workspace.view_financial_details'), 'href' => route('collections.index', ['client_id' => $client->id]), 'type' => 'link'],
                         ['label' => __('notify.client_workspace.view_subscription'), 'target' => '#sec-subscriptions', 'type' => 'anchor'],
                         ['label' => __('notify.client_workspace.view_contracts'), 'target' => '#sec-contracts', 'type' => 'anchor'],
+                        ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
+                        $callHref ? ['label' => __('notify.actions.call'), 'href' => $callHref, 'type' => 'call'] : null,
                     ])),
                 ];
             }
@@ -604,8 +628,10 @@ class ClientWorkspaceViewModel
                     'variant' => 'primary',
                 ],
                 'secondary' => array_values(array_filter([
+                    ['label' => __('notify.client_workspace.view_financial_details'), 'href' => route('collections.index', ['client_id' => $client->id]), 'type' => 'link'],
                     ['label' => __('notify.client_workspace.view_contracts'), 'target' => '#sec-contracts', 'type' => 'anchor'],
-                    $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'anchor'] : null,
+                    $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
+                    ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
                 ])),
             ];
         }
@@ -622,9 +648,11 @@ class ClientWorkspaceViewModel
                 'variant' => 'primary',
             ],
             'secondary' => array_values(array_filter([
-                $isContacting
-                    ? ['label' => __('notify.client_workspace.action_create_appointment'), 'target' => '#sec-create-appointment', 'type' => 'anchor']
-                    : ['label' => __('notify.clients.edit'), 'href' => route('clients.edit', $client->id), 'type' => 'link'],
+                ['label' => __('notify.client_workspace.action_create_appointment'), 'target' => '#sec-create-appointment', 'type' => 'create_appointment'],
+                ['label' => __('notify.client_workspace.action_schedule_installation'), 'target' => '#sec-schedule-installation', 'type' => 'schedule_installation'],
+                $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
+                ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
+                ['label' => __('notify.clients.edit'), 'href' => route('clients.edit', $client->id), 'type' => 'link'],
                 $callHref ? ['label' => __('notify.actions.call'), 'href' => $callHref, 'type' => 'call'] : null,
                 $whatsappUrl ? ['label' => __('notify.actions.whatsapp'), 'href' => $whatsappUrl, 'type' => 'whatsapp'] : null,
             ])),

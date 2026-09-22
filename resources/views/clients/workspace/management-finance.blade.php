@@ -67,11 +67,43 @@
 
     {{-- Preserved Stage Update / Close Section --}}
     <div id="sec-close-client" style="margin-bottom:20px">
-        {{-- Handled by stage update form inside overview/management --}}
+        {{-- Handled by modal dialog and secondary menu --}}
     </div>
 
-    {{-- Billing, Payments, Invoices, Contracts, and Accounting Traces (Gated) --}}
+    {{-- Lightweight Management & Financial Direction (Gated for authorized users) --}}
     @if(auth()->user()?->isAdmin() || \Illuminate\Support\Facades\Gate::allows(\App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING) || \Illuminate\Support\Facades\Gate::allows(\App\Support\FinancialPermissions::RECORD_PAYMENT))
-        @include('clients.workspace.subscription-billing')
+        <section class="notify-workspace-card notify-workspace-card--finance-management" style="margin-bottom:20px">
+            <div class="notify-workspace-card__head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h3 class="notify-workspace-card__title">{{ __('notify.client_workspace.management_finance') }}</h3>
+                    <p style="font-size:13px;color:var(--nd-muted);margin:4px 0 0">{{ __('notify.client_workspace.financial_details_hint') }}</p>
+                </div>
+                <a href="{{ route('collections.index', ['client_id' => $client->id]) }}" class="notify-button notify-button--primary notify-button--sm">
+                    <span>{{ __('notify.client_workspace.view_financial_details') }} →</span>
+                </a>
+            </div>
+            <div class="notify-workspace-card__body" style="padding-top:16px">
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
+                    @if(\Illuminate\Support\Facades\Gate::allows(\App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING))
+                        <button type="button" id="sec-start-subscription" class="notify-button notify-button--soft notify-button--sm" data-trigger-start-subscription>
+                            <span>{{ __('notify.client_workspace.action_start_subscription') }}</span>
+                        </button>
+                    @endif
+                    @if(\Illuminate\Support\Facades\Gate::allows(\App\Support\FinancialPermissions::RECORD_PAYMENT))
+                        <button type="button" id="sec-record-payment" class="notify-button notify-button--soft notify-button--sm" data-trigger-record-payment>
+                            <span>{{ __('notify.client_workspace.action_record_payment') }}</span>
+                        </button>
+                    @endif
+                </div>
+
+                {{-- Backward compatibility routes container (hidden from normal human view) --}}
+                <div hidden aria-hidden="true" style="display:none">
+                    <form method="POST" action="{{ route('clients.collections.payments.store', $client) }}"><input type="hidden" name="_token" value="{{ csrf_token() }}"></form>
+                    <form method="POST" action="{{ route('clients.paid-subscriptions.store', $client) }}"><input type="hidden" name="_token" value="{{ csrf_token() }}"></form>
+                    <form method="POST" action="{{ route('clients.one-time-invoices.store', $client) }}"><input type="hidden" name="_token" value="{{ csrf_token() }}"></form>
+                    <form method="POST" action="{{ route('clients.offers.store', $client) }}"><input type="hidden" name="_token" value="{{ csrf_token() }}"></form>
+                </div>
+            </div>
+        </section>
     @endif
 </div>

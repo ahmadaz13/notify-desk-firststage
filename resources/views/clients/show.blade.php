@@ -146,6 +146,19 @@
                                 data-trigger-installation-modal>
                             <span>{{ $primaryAction['label'] }}</span>
                         </button>
+                    @elseif($pType === 'schedule_installation')
+                        <button type="button"
+                                class="notify-button notify-button--primary notify-button--hero"
+                                data-trigger-schedule-installation>
+                            <span>{{ $primaryAction['label'] }}</span>
+                        </button>
+                    @elseif($pType === 'reopen')
+                        <button type="button"
+                                class="notify-button notify-button--primary notify-button--hero"
+                                data-scroll-to="#sec-reopen-client"
+                                data-trigger-reopen-client>
+                            <span>{{ $primaryAction['label'] }}</span>
+                        </button>
                     @elseif($pIsFollowUp)
                         <button type="button"
                                 class="notify-button notify-button--primary notify-button--hero"
@@ -207,7 +220,7 @@
                             $sIsFollowUp = $sType === 'record_followup' || $sUrl === '#sec-follow-ups';
                             $sIsCreateApt = $sType === 'create_appointment' || $sUrl === '#sec-create-appointment';
                             $sIsClose = $sType === 'close_client' || $sUrl === '#sec-close-client';
-                            $sIsStartSub = $sType === 'start_subscription' || $sUrl === '#sec-paid-subscriptions';
+                            $sIsStartSub = $sType === 'start_subscription' || $sUrl === '#sec-paid-subscriptions' || $sUrl === '#sec-start-subscription';
                             $sIsRecordPayment = $sType === 'record_payment' || $sUrl === '#sec-record-payment';
                         @endphp
                         @if($sIsCall)
@@ -226,6 +239,18 @@
                             <button type="button"
                                     class="notify-button notify-button--soft"
                                     data-trigger-installation-modal>
+                                <span>{{ $secAction['label'] }}</span>
+                            </button>
+                        @elseif($sType === 'schedule_installation')
+                            <button type="button"
+                                    class="notify-button notify-button--soft"
+                                    data-trigger-schedule-installation>
+                                <span>{{ $secAction['label'] }}</span>
+                            </button>
+                        @elseif($sType === 'reopen')
+                            <button type="button"
+                                    class="notify-button notify-button--soft"
+                                    data-trigger-reopen-client>
                                 <span>{{ $secAction['label'] }}</span>
                             </button>
                         @elseif($sIsFollowUp)
@@ -334,7 +359,7 @@
             </div>
         </section>
 
-        {{-- 8. Amount Due Summary (ReceivableService) --}}
+        {{-- 8. Amount Due Summary & Latest Payment (Lightweight Financial Summary) --}}
         <section class="notify-workspace-card notify-workspace-card--due" aria-label="Amount Due Summary">
             <div class="notify-workspace-card__head">
                 <h2 class="notify-workspace-card__title">{{ __('notify.client_workspace.amount_due') }}</h2>
@@ -351,15 +376,36 @@
                         @endif
                     </div>
 
-                    @if(!empty($amountDue['total_minor']) && $amountDue['total_minor'] > 0 && !empty($amountDue['can_record_payment']))
-                        <div class="notify-amount-due-box__action">
+                    {{-- Latest Payment (Lightweight) --}}
+                    <div class="notify-latest-payment-box" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--notify-border, #E2E8F0)">
+                        <small class="notify-amount-due-box__label" style="display:block;margin-bottom:4px">{{ __('notify.client_workspace.latest_payment') }}</small>
+                        @if(!empty($amountDue['latest_payment']))
+                            <div style="display:flex;justify-content:space-between;align-items:center">
+                                <strong class="notify-text-success">{{ $amountDue['latest_payment']['amount_formatted'] }}</strong>
+                                <span class="notify-badge notify-badge--neutral" dir="ltr">{{ $amountDue['latest_payment']['paid_at'] }}</span>
+                            </div>
+                            <small class="notify-muted" style="display:block;margin-top:2px">{{ $amountDue['latest_payment']['method'] }} @if(!empty($amountDue['latest_payment']['reference'])) · #{{ $amountDue['latest_payment']['reference'] }} @endif</small>
+                        @else
+                            <p class="notify-muted" style="margin:2px 0 0;font-size:12px">{{ __('notify.client_workspace.no_payments_yet') }}</p>
+                        @endif
+                    </div>
+
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px">
+                        @if(!empty($amountDue['total_minor']) && $amountDue['total_minor'] > 0 && !empty($amountDue['can_record_payment']))
                             <button type="button"
                                class="notify-button notify-button--primary notify-button--sm"
                                data-trigger-record-payment>
                                 <span>{{ __('notify.client_workspace.action_record_payment') }}</span>
                             </button>
-                        </div>
-                    @endif
+                        @endif
+
+                        @if(!empty($amountDue['can_view_financial_details']))
+                            <a href="{{ $amountDue['view_financial_details_url'] ?? route('collections.index', ['client_id' => $client->id]) }}"
+                               class="notify-button notify-button--ghost notify-button--sm">
+                                <span>{{ __('notify.client_workspace.view_financial_details') }} →</span>
+                            </a>
+                        @endif
+                    </div>
                 </div>
             </div>
         </section>
@@ -488,6 +534,11 @@
     'activeAppointment' => $appointments->where('appointment_type', '!=', \App\Support\AppointmentTypes::INSTALLATION)->whereIn('status', \App\Support\AppointmentTypes::activeStatuses())->first(),
 ])
 
+@include('clients.workspace.actions.schedule-installation', [
+    'client' => $client,
+    'teamUsers' => $teamUsers,
+])
+
 @include('clients.workspace.actions.complete-installation', [
     'client' => $client,
     'catalogServices' => $catalogServices,
@@ -501,6 +552,10 @@
 ])
 
 @include('clients.workspace.actions.close-client', [
+    'client' => $client,
+])
+
+@include('clients.workspace.actions.reopen-client', [
     'client' => $client,
 ])
 

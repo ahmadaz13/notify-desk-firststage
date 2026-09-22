@@ -199,6 +199,20 @@ document.addEventListener('click', function(e) {
         return;
     }
 
+    var triggerScheduleInstall = e.target.closest('[data-trigger-schedule-installation]');
+    if (triggerScheduleInstall) {
+        e.preventDefault();
+        openModal('modal-schedule-installation');
+        return;
+    }
+
+    var triggerReopen = e.target.closest('[data-trigger-reopen-client]');
+    if (triggerReopen) {
+        e.preventDefault();
+        openModal('modal-reopen-client');
+        return;
+    }
+
     var closer = e.target.closest('[data-close-action-modal]');
     if (closer) {
         e.preventDefault();
