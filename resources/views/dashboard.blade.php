@@ -10,13 +10,6 @@
         window.history.replaceState({}, '', url);
     }
 }">
-    <span hidden>لم تسجل مصاريف اليوم بعد</span>
-    <span hidden>صافي نتيجة الشهر</span>
-    <span hidden>تحصيلات اليوم</span>
-    <span hidden>استيراد CSV</span>
-    @if(!empty($dailyNote?->content))
-        <span hidden>{{ $dailyNote->content }}</span>
-    @endif
 
     {{-- Operational Page Header --}}
     <div class="notify-page-head">
@@ -57,16 +50,6 @@
             >
                 {{ __('notify.work.all_work') ?: __('notify.work.title') }}
             </a>
-            @if($currentMode === 'financial')
-                <a
-                    href="{{ route('dashboard', ['mode' => 'financial']) }}"
-                    role="tab"
-                    aria-selected="true"
-                    class="notify-mode-tab notify-mode-tab--deprecated is-active"
-                >
-                    {{ __('notify.today.tab_financial_deprecated') }}
-                </a>
-            @endif
         </div>
 
         <div class="notify-team-filter" role="group" aria-label="{{ __('notify.work.team_filter') ?: 'تصفية الفريق' }}">
@@ -308,30 +291,6 @@
                 />
             </div>
         @endif
-    </section>
-    @elseif($currentMode === 'financial')
-    {{-- ========================================================================= --}}
-    {{-- 3. DEPRECATED FINANCIAL VIEW (mode === 'financial' backward compatibility)--}}
-    {{-- ========================================================================= --}}
-    <section>
-        <div class="notify-panel">
-            <div class="notify-section-title notify-section-title--compact">
-                <div>
-                    <h2>{{ __('notify.today.deprecated_financial.title') }}</h2>
-                    <p>{{ $legacyFinancialSummary['message'] }}</p>
-                </div>
-            </div>
-            <div class="notify-authority-links">
-                <strong>{{ __('notify.today.deprecated_financial.authority_notice') }}</strong>
-                <a href="{{ route('executive.index') }}">{{ __('notify.reports.executive') }}</a>
-                <a href="{{ route('finance.index') }}">{{ __('notify.finance.reports') }}</a>
-                <a href="{{ route('saas-metrics.index') }}">{{ __('notify.saas.title') }}</a>
-            </div>
-            <div class="notify-empty-state notify-empty-state--compact">
-                <h3>{{ __('notify.today.deprecated_financial.widgets_title') }}</h3>
-                <p>{{ __('notify.today.deprecated_financial.widgets_text') }}</p>
-            </div>
-        </div>
     </section>
     @endif
 </div>

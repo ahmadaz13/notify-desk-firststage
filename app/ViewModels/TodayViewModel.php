@@ -11,7 +11,6 @@ class TodayViewModel
         private readonly array $snapshot,
         private readonly array $queues,
         private readonly Collection $notifications,
-        private readonly Collection $recentExpenses,
         private readonly ?array $todayProjection = null,
         private readonly ?array $workProjection = null
     ) {
@@ -21,7 +20,6 @@ class TodayViewModel
         array $snapshot,
         array $queues,
         mixed $notifications,
-        mixed $recentExpenses,
         ?array $todayProjection = null,
         ?array $workProjection = null
     ): self {
@@ -29,7 +27,6 @@ class TodayViewModel
             $snapshot,
             $queues,
             collect($notifications),
-            collect($recentExpenses),
             $todayProjection,
             $workProjection
         );
@@ -162,18 +159,6 @@ class TodayViewModel
                 'caption' => 'Free installs awaiting follow-up',
                 'variant' => 'success',
             ],
-            [
-                'label' => 'Collections Snapshot',
-                'value' => $this->money($this->snapshot['today_collections'] ?? 0),
-                'caption' => 'Collected today from existing service data',
-                'variant' => 'success',
-            ],
-            [
-                'label' => 'Cash Snapshot',
-                'value' => $this->money($this->snapshot['today_net'] ?? 0),
-                'caption' => 'Today net from existing dashboard service data',
-                'variant' => (($this->snapshot['today_net'] ?? 0) < 0) ? 'danger' : 'neutral',
-            ],
         ];
     }
 
@@ -186,20 +171,6 @@ class TodayViewModel
                 'meta' => (string) ($notification->created_at ?? ''),
                 'body' => (string) ($notification->message ?? ''),
                 'href' => $notification->action_url ?? null,
-            ])
-            ->values()
-            ->all();
-    }
-
-    public function recentExpenses(): array
-    {
-        return $this->recentExpenses
-            ->take(5)
-            ->map(fn ($expense) => [
-                'title' => (string) ($expense->categoryModel?->name ?? $expense->category ?? 'Expense'),
-                'meta' => trim(($expense->payer?->name ? 'By '.$expense->payer->name.' · ' : '').($expense->date?->format('Y-m-d') ?? '')),
-                'body' => (string) ($expense->description ?: 'No description'),
-                'amount' => $this->money($expense->amount ?? 0),
             ])
             ->values()
             ->all();
@@ -333,8 +304,4 @@ class TodayViewModel
         return $this->workProjection()['filter_counts'] ?? [];
     }
 
-    private function money(mixed $amount): string
-    {
-        return number_format((float) $amount, 2).' JOD';
-    }
 }

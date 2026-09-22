@@ -69,23 +69,6 @@ class Phase1VerificationTest extends TestCase
         }
     }
 
-    public function test_partner_password_reset_and_dashboard_are_retired(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $partner = Partner::create([
-            'company_name' => 'شركة التجربة',
-            'email' => 'trial@partner.com',
-        ]);
-
-        $this->actingAs($admin)
-            ->post(route('partners.reset-password', $partner->id))
-            ->assertStatus(410);
-
-        $this->actingAs($admin)
-            ->get(route('partner.dashboard', ['partner_id' => $partner->id]))
-            ->assertStatus(410);
-    }
-
     public function test_canonical_mode_server_rendering(): void
     {
         $this->seed(SettingsSeeder::class);
@@ -95,17 +78,16 @@ class Phase1VerificationTest extends TestCase
         $responseDaily->assertOk();
         $responseDaily->assertViewHas('currentMode', 'daily');
 
-        $responseFinancial = $this->actingAs($admin)->get(route('dashboard', ['mode' => 'financial']));
-        $responseFinancial->assertOk();
-        $responseFinancial->assertViewHas('currentMode', 'financial');
-        $responseFinancial->assertSee('لوحة المال القديمة (Deprecated)');
+        $responseWork = $this->actingAs($admin)->get(route('dashboard', ['mode' => 'work']));
+        $responseWork->assertOk();
+        $responseWork->assertViewHas('currentMode', 'work');
 
         $responseInvalid = $this->actingAs($admin)->get(route('dashboard', ['mode' => 'hacked_mode']));
         $responseInvalid->assertOk();
         $responseInvalid->assertViewHas('currentMode', 'daily');
     }
 
-    public function test_mobile_financial_panel_is_deprecated(): void
+    public function test_retired_financial_mode_falls_back_to_today(): void
     {
         $this->seed(SettingsSeeder::class);
         $admin = User::factory()->create(['role' => 'admin']);
@@ -113,9 +95,8 @@ class Phase1VerificationTest extends TestCase
         $response = $this->actingAs($admin)->get(route('dashboard', ['mode' => 'financial']));
         $response->assertOk();
 
-        $response->assertSee('لوحة المال القديمة (Deprecated)');
-        $response->assertSee('المصدر المعتمد للمؤشرات');
-        $response->assertSee('Legacy financial widgets');
+        $response->assertViewHas('currentMode', 'daily');
+        $response->assertDontSee('Legacy financial widgets');
         $response->assertDontSee('financial-cards-grid');
     }
 

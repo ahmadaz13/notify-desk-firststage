@@ -35,26 +35,6 @@ class PartnerDashboardTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_partner_dashboard_route_is_not_active_workflow(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $partner = Partner::create(['company_name' => 'شريك تاريخي', 'email' => 'history@example.com']);
-
-        Client::create([
-            'business_name' => 'عميل إحالة محفوظ',
-            'phone' => '0791230001',
-            'city_area' => 'عمان',
-            'business_category' => 'تجارة',
-            'lead_source' => 'partner',
-            'partner_id' => $partner->id,
-            'status' => 'prospect',
-        ]);
-
-        $this->actingAs($admin)
-            ->get(route('partner.dashboard'))
-            ->assertStatus(410);
-    }
-
     public function test_legacy_partner_role_is_blocked_from_authenticated_app_routes(): void
     {
         $partnerUser = User::factory()->create(['role' => 'partner']);

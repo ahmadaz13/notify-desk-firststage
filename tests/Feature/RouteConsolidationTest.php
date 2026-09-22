@@ -77,17 +77,7 @@ class RouteConsolidationTest extends TestCase
         $updateResponse->assertRedirect(route('clients.show', $client->id));
         $this->assertEquals('مطعم الرشيد الحديث', $client->fresh()->business_name);
 
-        // 7. POST /clients/{client}/convert remains routable but deprecated.
-        $convertResponse = $this->actingAs($admin)
-            ->post(route('clients.convert', $client->id), [
-                'billing_type' => 'monthly',
-                'total_price' => 1200.00,
-                'start_date' => now()->toDateString(),
-            ]);
-        $convertResponse->assertStatus(410);
-        $this->assertEquals('prospect', $client->fresh()->status);
-
-        // 8. DELETE /clients/{client}
+        // 7. DELETE /clients/{client}
         $deleteResponse = $this->actingAs($admin)
             ->delete(route('clients.destroy', $client->id));
         $deleteResponse->assertRedirect(route('clients.index'));

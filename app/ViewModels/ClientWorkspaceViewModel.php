@@ -369,7 +369,7 @@ class ClientWorkspaceViewModel
             metrics: [
                 ['label' => 'جهة الاتصال', 'value' => $contactName ?: 'غير محدد', 'meta' => 'مصدر الفرصة: '.($client->lead_source ?: 'غير محدد')],
                 ['label' => 'العمليات', 'value' => $appointments->count().' مواعيد · '.$followUps->count().' متابعات', 'meta' => $outcomes->count().' نتائج اجتماعات · '.$installations->count().' تركيبات'],
-                ['label' => 'الفوترة', 'value' => number_format((float) $payments->sum('amount'), 2).' د.أ', 'meta' => $subscriptions->count().' اشتراكات · '.$contracts->count().' عقود · '.$offers->count().' عروض'],
+                ['label' => 'المستحق', 'value' => Money::fromMinorUnits((int) ($receivableSummary['total_outstanding_minor'] ?? 0))->format().' د.أ', 'meta' => $subscriptions->count().' اشتراكات · '.$contracts->count().' عقود · '.$offers->count().' عروض'],
             ],
             sections: $sections,
             overview: [

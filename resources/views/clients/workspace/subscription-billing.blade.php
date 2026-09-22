@@ -372,14 +372,6 @@
                         </div>
                     @endif
 
-                    {{-- Deprecated Convert to Subscriber Notice --}}
-                    @if($client->status === 'prospect')
-                        <div class="p3-card" id="convert-section" style="border:1px solid #CBD5E1;background:#F8FAFC">
-                            <h3 class="p3-card-title" style="color:#475569">التحويل القديم متوقف</h3>
-                            <p class="p3-subtitle">هذا المسار كان ينشئ اشتراكاً وجدول دفعات من إعدادات عامة. في V1 المعتمد يجب بدء الاشتراك من باقة وسعر PlanPrice صريحين، ثم إنشاء فترة فوترة وفاتورة V2.</p>
-                            <a class="p3-btn p3-btn-primary p3-btn-sm" href="#paid-subscription-section" style="margin-top:10px;align-self:flex-start">استخدم اشتراك V2 المدفوع أعلاه</a>
-                        </div>
-                    @endif
                 </div>
             </div>
         </x-notify.collapsible-section>

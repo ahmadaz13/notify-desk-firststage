@@ -3,12 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\AssetCategory;
-use App\Models\CapitalExpense;
 use App\Models\CapitalFundingTransaction;
 use App\Models\FinancialAccount;
 use App\Models\FixedAsset;
 use App\Models\FundingSource;
-use App\Models\Investment;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Services\CapitalManagementService;
@@ -44,8 +42,6 @@ class CapitalManagementController extends Controller
                 ->where(fn ($query) => $query->whereNull('role')->orWhereIn('role', User::activeInternalRoles()))
                 ->orderBy('name')
                 ->get(),
-            'legacyInvestments' => Investment::orderByDesc('entry_date')->limit(10)->get(),
-            'legacyCapitalExpenses' => CapitalExpense::orderByDesc('expense_date')->limit(10)->get(),
         ]);
     }
 

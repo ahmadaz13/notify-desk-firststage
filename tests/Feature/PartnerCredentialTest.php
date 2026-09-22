@@ -32,18 +32,4 @@ class PartnerCredentialTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'partner_created@example.com']);
     }
 
-    public function test_partner_password_reset_workflow_is_gone(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $partner = Partner::create([
-            'company_name' => 'شركة الأفق الجديد',
-            'email' => 'partner_reset@example.com',
-        ]);
-
-        $this->actingAs($admin)
-            ->post(route('partners.reset-password', $partner->id))
-            ->assertStatus(410);
-
-        $this->assertDatabaseMissing('activity_logs', ['type' => 'partner_password_reset']);
-    }
 }

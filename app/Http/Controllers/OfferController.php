@@ -17,9 +17,9 @@ class OfferController extends Controller
         $data = $request->validate([
             'package' => 'required|string|max:120',
             'billing_period' => 'required|in:monthly,annual,installment',
-            'price' => 'required|numeric|min:0.01',
-            'discount' => 'nullable|numeric|min:0',
-            'final_agreed_price' => 'nullable|numeric|min:0',
+            'price' => ['required', 'numeric', 'min:0.01', 'decimal:0,2'],
+            'discount' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'final_agreed_price' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'offer_date' => 'required|date',
             'decision_deadline' => 'nullable|date',
             'notes' => 'nullable|string',

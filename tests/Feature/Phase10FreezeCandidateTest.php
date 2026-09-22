@@ -66,7 +66,7 @@ class Phase10FreezeCandidateTest extends TestCase
     public function test_guest_is_redirected_to_login(): void
     {
         $this->get(route('dashboard'))->assertRedirect(route('login'));
-        $this->get(route('work'))->assertRedirect(route('login'));
+        $this->get(route('dashboard', ['mode' => 'work']))->assertRedirect(route('login'));
         $this->get(route('clients.index'))->assertRedirect(route('login'));
         $this->get(route('finance.index'))->assertRedirect(route('login'));
         $this->get(route('accounting.index'))->assertRedirect(route('login'));
@@ -75,7 +75,7 @@ class Phase10FreezeCandidateTest extends TestCase
     public function test_inactive_user_is_forbidden_on_all_surfaces(): void
     {
         $this->actingAs($this->inactiveUser)->get(route('dashboard'))->assertForbidden();
-        $this->actingAs($this->inactiveUser)->get(route('work'))->assertForbidden();
+        $this->actingAs($this->inactiveUser)->get(route('dashboard', ['mode' => 'work']))->assertForbidden();
         $this->actingAs($this->inactiveUser)->get(route('clients.index'))->assertForbidden();
     }
 
@@ -90,7 +90,7 @@ class Phase10FreezeCandidateTest extends TestCase
 
         // Daily surfaces accessible
         $this->actingAs($this->staff)->get(route('dashboard'))->assertOk();
-        $this->actingAs($this->staff)->get(route('work'))->assertOk();
+        $this->actingAs($this->staff)->get(route('dashboard', ['mode' => 'work']))->assertOk();
         $this->actingAs($this->staff)->get(route('clients.index'))->assertOk();
         $this->actingAs($this->staff)->get(route('clients.show', $client))->assertOk();
 
@@ -149,7 +149,7 @@ class Phase10FreezeCandidateTest extends TestCase
         $response->assertDontSee('Completed initial check-in');
 
         // Work view contains open follow-up, but never completed follow-up
-        $workResponse = $this->actingAs($this->admin)->get(route('work'));
+        $workResponse = $this->actingAs($this->admin)->get(route('dashboard', ['mode' => 'work']));
         $workResponse->assertOk();
         $workResponse->assertSee('Pending review discussion');
         $workResponse->assertDontSee('Completed initial check-in');
@@ -311,7 +311,7 @@ class Phase10FreezeCandidateTest extends TestCase
         $this->actingAs($this->admin)->get(route('dashboard'))->assertOk();
 
         // Render Work
-        $this->actingAs($this->admin)->get(route('work'))->assertOk();
+        $this->actingAs($this->admin)->get(route('dashboard', ['mode' => 'work']))->assertOk();
 
         // Assert zero mutation
         $this->assertSame($clientsCountBefore, Client::count());

@@ -5,7 +5,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CustomProjectController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\BillingController;
-use App\Http\Controllers\CapitalExpenseController;
 use App\Http\Controllers\CapitalManagementController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\ClientController;
@@ -20,7 +19,6 @@ use App\Http\Controllers\ContractController;
 use App\Http\Controllers\CsvImportController;
 use App\Http\Controllers\DailyNoteController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExecutiveDashboardController;
 use App\Http\Controllers\FinancialAccountController;
 use App\Http\Controllers\FinanceReportController;
@@ -28,14 +26,12 @@ use App\Http\Controllers\FreeInstallationController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\GuidedSubscriptionController;
 use App\Http\Controllers\HealthCheckController;
-use App\Http\Controllers\InvestmentController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MeetingOutcomeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperatingExpenseController;
 use App\Http\Controllers\OfferController;
 use App\Http\Controllers\PartnerController;
-use App\Http\Controllers\PartnerDashboardController;
 use App\Http\Controllers\PublicClientController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SaasMetricsController;
@@ -58,7 +54,6 @@ Route::post('/p/{uuid}/client', [PublicClientController::class, 'store'])->name(
 
 Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/work', [DashboardController::class, 'work'])->name('work');
     Route::get('/locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
 
     // Daily Notes
@@ -72,7 +67,6 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
     Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
-    Route::post('/clients/{client}/convert', [ClientController::class, 'convert'])->name('clients.convert');
     Route::get('/clients/{client}/guided-subscription/catalog', [GuidedSubscriptionController::class, 'catalog'])->name('clients.guided-subscription.catalog');
     Route::post('/clients/{client}/guided-subscription/preview', [GuidedSubscriptionController::class, 'preview'])->name('clients.guided-subscription.preview');
     Route::post('/clients/{client}/guided-subscription', [GuidedSubscriptionController::class, 'store'])->middleware('financial.idempotency')->name('clients.guided-subscription.store');
@@ -96,7 +90,6 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/appointments', [DashboardController::class, 'storeAppointment'])->name('appointments.store');
     Route::patch('/appointments/{appointment}', [DashboardController::class, 'updateAppointment'])->name('appointments.update');
     Route::patch('/appointments/{appointment}/reschedule', [AppointmentController::class, 'reschedule'])->name('appointments.reschedule');
-    Route::post('/payments', [DashboardController::class, 'storePayment'])->name('payments.store');
     Route::post('/payments/{payment}/allocations', [CollectionsController::class, 'allocatePayment'])->middleware('financial.idempotency')->name('payments.allocations.store');
     Route::post('/payments/{payment}/auto-allocate', [CollectionsController::class, 'autoAllocatePayment'])->middleware('financial.idempotency')->name('payments.auto-allocate');
     Route::post('/payment-allocations/{paymentAllocation}/reverse', [CollectionsController::class, 'reverseAllocation'])->middleware('financial.idempotency')->name('payment-allocations.reverse');
@@ -106,9 +99,6 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/credit-note-applications/{creditNoteApplication}/reverse', [CollectionsController::class, 'reverseCreditApplication'])->middleware('financial.idempotency')->name('credit-note-applications.reverse');
     Route::post('/credit-notes/{creditNote}/void', [CollectionsController::class, 'voidCreditNote'])->middleware('financial.idempotency')->name('credit-notes.void');
     Route::post('/credit-notes/{creditNote}/refunds', [CollectionsController::class, 'refundCreditNote'])->middleware('financial.idempotency')->name('credit-notes.refunds.store');
-    Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
-    Route::post('/investments', [InvestmentController::class, 'store'])->name('investments.store');
-    Route::post('/capital-expenses', [CapitalExpenseController::class, 'store'])->name('capital-expenses.store');
 
     // Subscriptions Workflow
     Route::post('/subscriptions/{subscription}/plan-change', [SubscriptionController::class, 'schedulePlanChange'])->name('subscriptions.plan-change.schedule');
@@ -127,11 +117,7 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/contracts/{contract}/void', [ContractController::class, 'void'])->name('contracts.void');
     Route::post('/contracts/{contract}/supersede', [ContractController::class, 'supersede'])->name('contracts.supersede');
 
-    // Partner Isolated Dashboard
-    Route::get('/partner/dashboard', [PartnerDashboardController::class, 'index'])->name('partner.dashboard');
-
     // Partner Management (Admin Only)
-    Route::post('/partners/{partner}/reset-password', [PartnerController::class, 'resetPassword'])->name('partners.reset-password');
     Route::resource('partners', PartnerController::class);
 
     // Conflict Resolution (Admin Only)

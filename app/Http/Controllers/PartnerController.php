@@ -132,13 +132,6 @@ class PartnerController extends Controller
         return redirect()->route('partners.index')->with('success', 'تم تحديث بيانات الشريك بنجاح.');
     }
 
-    public function resetPassword(int $id): RedirectResponse
-    {
-        $this->checkAdmin();
-
-        abort(410, 'Partner login credentials are retired. Partner records are referral/history only.');
-    }
-
     public function destroy(int $id): RedirectResponse
     {
         $this->checkAdmin();

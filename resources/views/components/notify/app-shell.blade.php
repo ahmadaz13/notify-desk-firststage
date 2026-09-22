@@ -69,8 +69,8 @@
     $canViewClients = auth()->check() && Gate::allows('viewAny', Client::class);
     $canCreateClient = auth()->check() && Gate::allows('create', Client::class);
 
-    $isWork = request()->routeIs('work') || (request()->routeIs('dashboard') && request()->query('mode') === 'work');
-    $isTodayArea = (request()->routeIs('dashboard') && ! in_array(request()->query('mode'), ['financial'], true)) || request()->routeIs('work');
+    $isWork = request()->routeIs('dashboard') && request()->query('mode') === 'work';
+    $isTodayArea = request()->routeIs('dashboard');
     $isTodayTab = $isTodayArea && ! $isWork;
     $isClients = request()->routeIs('clients.*') && ! request()->routeIs('clients.import*');
 

@@ -134,10 +134,8 @@
             </div>
             <div class="admin-section-card__body">
                 <h2 class="admin-section-card__title">الإعدادات</h2>
-                <p class="admin-section-card__desc">إعدادات التشغيل: الخصم السنوي، ضريبة المبيعات، نقل العملاء.</p>
+                <p class="admin-section-card__desc">إعدادات نقل العملاء وسجل النشاطات.</p>
                 <div class="admin-section-card__meta">
-                    <span class="p5-badge p5-badge--neutral">خصم سنوي: {{ $annualDiscountPercentage }}%</span>
-                    <span class="p5-badge p5-badge--neutral">ضريبة: {{ $salesTaxPercentage }}%</span>
                 </div>
             </div>
             <div class="admin-section-card__footer">

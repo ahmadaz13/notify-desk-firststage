@@ -104,9 +104,8 @@ class DailyOperationalServiceTest extends TestCase
 
         $this->assertEquals(1, $snapshot['appointments_count']);
         $this->assertEquals(1, $snapshot['pending_follow_ups']);
-        $this->assertEquals(150.00, $snapshot['today_collections']);
-        $this->assertEquals(45.00, $snapshot['today_expenses']);
-        $this->assertEquals(105.00, $snapshot['today_net']);
+        $this->assertArrayNotHasKey('today_collections', $snapshot);
+        $this->assertArrayNotHasKey('today_net', $snapshot);
     }
 
     public function test_today_snapshot_respects_visibility(): void
@@ -152,10 +151,10 @@ class DailyOperationalServiceTest extends TestCase
         $khalidSnapshot = $this->service->getTodaySnapshot($khalid);
 
         // Ahmad sees: Ahmad personal (20) + shared (50) = 70. Khalid's personal (40) is excluded.
-        $this->assertEquals(70.00, $ahmadSnapshot['today_expenses']);
+        $this->assertArrayNotHasKey('today_expenses', $ahmadSnapshot);
 
         // Khalid sees: Khalid personal (40) + shared (50) = 90. Ahmad's personal (20) is excluded.
-        $this->assertEquals(90.00, $khalidSnapshot['today_expenses']);
+        $this->assertArrayNotHasKey('today_expenses', $khalidSnapshot);
     }
 
     public function test_today_snapshot_is_internal_only_and_referral_data_is_visible_to_internal_users(): void
@@ -271,7 +270,7 @@ class DailyOperationalServiceTest extends TestCase
 
         $snapshot = $this->service->getTodaySnapshot($admin);
 
-        $this->assertEquals(80.00, $snapshot['today_collections']);
+        $this->assertArrayNotHasKey('today_collections', $snapshot);
     }
 
     public function test_pending_follow_ups_includes_overdue(): void
@@ -335,27 +334,5 @@ class DailyOperationalServiceTest extends TestCase
         $this->assertNotContains('متابعة مستقبلية', $reasons);
     }
 
-    public function test_recent_expenses_limits_correctly(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $cat = ExpenseCategory::first();
 
-        for ($i = 1; $i <= 8; $i++) {
-            Expense::create([
-                'amount' => 10.00 * $i,
-                'category_id' => $cat->id,
-                'category' => $cat->name,
-                'description' => "مصروف {$i}",
-                'date' => Carbon::today()->subDays($i)->toDateString(),
-                'visibility' => 'shared',
-                'paid_by' => $admin->id,
-            ]);
-        }
-
-        $recent = $this->service->getRecentExpenses($admin, 5);
-
-        $this->assertCount(5, $recent);
-        $this->assertTrue($recent->first()->relationLoaded('categoryModel'));
-        $this->assertTrue($recent->first()->relationLoaded('payer'));
-    }
 }

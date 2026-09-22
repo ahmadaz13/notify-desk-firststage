@@ -29,7 +29,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -478,22 +477,6 @@ class ClientController extends Controller
         $workflow->closeClient($client, auth()->user(), 'other', 'إغلاق تشغيلي بدلاً من الحذف الدائم');
 
         return redirect()->route('clients.index')->with('success', 'تم إغلاق ملف العميل مع الحفاظ على سجله.');
-    }
-
-    public function convert(Request $request, int $client): RedirectResponse
-    {
-        Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
-
-        $clientModel = Client::findOrFail($client);
-        Gate::authorize('update', $clientModel);
-
-        Log::warning('Deprecated legacy convert route POST /clients/{client}/convert invoked', [
-            'client_id' => $client,
-            'user_id' => auth()->id(),
-            'payload' => $request->except(['_token', 'password']),
-        ]);
-
-        abort(410, 'Legacy subscription conversion is deprecated. Use the V2 paid-subscription workflow with an explicit PlanPrice.');
     }
 
     private function leadSourceOptions(?string $current = null): array

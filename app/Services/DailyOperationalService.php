@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Appointment;
-use App\Models\Expense;
 use App\Models\User;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
@@ -47,20 +46,6 @@ class DailyOperationalService
 
             $pendingFollowUps = $followUpQuery->count();
 
-            // Today's collections
-            $paymentQuery = DB::table('payments')
-                ->join('clients', 'clients.id', '=', 'payments.client_id')
-                ->whereDate('payments.paid_at', $today);
-
-            $todayCollections = (float) $paymentQuery->sum('payments.amount');
-
-            // Today's expenses (visible to user; strictly 0 for partners)
-            $todayExpenses = (float) Expense::visibleTo($user)
-                ->today($todayString)
-                ->sum('amount');
-
-            $todayNet = $todayCollections - $todayExpenses;
-
             $queueSummary = $this->queues->summary($user, $today->copy()->endOfDay());
 
             return [
@@ -74,26 +59,8 @@ class DailyOperationalService
                 'trial_followups_due' => $queueSummary['trial_followups_due'] ?? 0,
                 'pending_client_reviews' => $queueSummary['client_reviews_pending'] ?? 0,
                 'pending_follow_ups' => $pendingFollowUps,
-                'today_collections' => $todayCollections,
-                'today_expenses' => $todayExpenses,
-                'today_net' => $todayNet,
             ];
         });
-    }
-
-    /**
-     * Get recent operational expenses visible to user with category and payer eager-loaded.
-     */
-    public function getRecentExpenses(User $user, int $limit = 5): Collection
-    {
-        $this->assertInternalUser($user);
-
-        return Expense::visibleTo($user)
-            ->with(['categoryModel', 'payer'])
-            ->orderByDesc('date')
-            ->orderByDesc('created_at')
-            ->limit($limit)
-            ->get();
     }
 
     /**

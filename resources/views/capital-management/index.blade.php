@@ -400,36 +400,5 @@
         </div>
     </x-notify.collapsible-section>
 
-    {{-- 4. Legacy Non-Migrated Records --}}
-    <x-notify.collapsible-section id="sec-legacy-records" :title="__('notify.assets.legacy_records')" subtitle="بيانات للقراءة والتوافق التاريخي" :open="false">
-        <div class="p4-grid-2">
-            <div>
-                <h3 style="font-size:14px;color:#0A1128;margin-bottom:8px">{{ __('notify.assets.legacy_investments') }}</h3>
-                <div class="p4-list">
-                    @forelse($legacyInvestments as $investment)
-                        <div class="p4-list-item" style="display:flex;justify-content:space-between;align-items:center">
-                            <strong style="font-size:13px;color:#0A1128">{{ $investment->investor_name }}</strong>
-                            <span class="p4-kpi-meta">{{ $investment->amount }} د.أ · {{ $investment->entry_date }}</span>
-                        </div>
-                    @empty
-                        <span class="p4-kpi-meta">{{ __('notify.assets.empty_legacy') }}</span>
-                    @endforelse
-                </div>
-            </div>
-            <div>
-                <h3 style="font-size:14px;color:#0A1128;margin-bottom:8px">{{ __('notify.assets.legacy_capital_expenses') }}</h3>
-                <div class="p4-list">
-                    @forelse($legacyCapitalExpenses as $expense)
-                        <div class="p4-list-item" style="display:flex;justify-content:space-between;align-items:center">
-                            <strong style="font-size:13px;color:#0A1128">{{ $expense->description }}</strong>
-                            <span class="p4-kpi-meta">{{ $expense->amount }} د.أ · {{ $expense->expense_date }}</span>
-                        </div>
-                    @empty
-                        <span class="p4-kpi-meta">{{ __('notify.assets.empty_legacy') }}</span>
-                    @endforelse
-                </div>
-            </div>
-        </div>
-    </x-notify.collapsible-section>
 </div>
 @endsection

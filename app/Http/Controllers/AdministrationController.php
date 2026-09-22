@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\ConflictResolutionRequest;
 use App\Models\Partner;
 use App\Models\Product;
-use App\Models\Setting;
 use App\Models\User;
 use App\Support\FinancialPermissions;
 use Illuminate\Http\RedirectResponse;
@@ -47,10 +46,6 @@ class AdministrationController extends Controller
             ->whereIn('role', User::activeInternalRoles())
             ->count() : null;
 
-        // Settings summary
-        $annualDiscountPercentage = (float) Setting::get('annual_discount_percentage', 10.0);
-        $salesTaxPercentage       = (float) Setting::get('sales_tax_percentage', 16.0);
-
         return view('administration.index', compact(
             'isAdmin',
             'activeProducts',
@@ -58,8 +53,6 @@ class AdministrationController extends Controller
             'activePartners',
             'pendingConflicts',
             'activeTeamMembers',
-            'annualDiscountPercentage',
-            'salesTaxPercentage',
         ));
     }
 

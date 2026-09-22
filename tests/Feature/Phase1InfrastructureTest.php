@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\CapitalExpense;
 use App\Models\Client;
 use App\Models\ConflictResolutionRequest;
-use App\Models\Investment;
 use App\Models\Partner;
 use App\Models\Setting;
 use App\Models\User;
@@ -23,37 +21,9 @@ class Phase1InfrastructureTest extends TestCase
         $this->seed(SettingsSeeder::class);
 
         $this->assertDatabaseHas('settings', [
-            'key' => 'operational_cost_percentage',
-            'value' => '20',
-        ]);
-        $this->assertDatabaseHas('settings', [
-            'key' => 'market_valuation_multiplier',
-            'value' => '5',
-        ]);
-        $this->assertDatabaseHas('settings', [
             'key' => 'allow_auto_transfer_clients',
             'value' => 'false',
         ]);
-    }
-
-    public function test_investment_and_capital_expense_relationships(): void
-    {
-        $investment = Investment::create([
-            'investor_name' => 'John Doe',
-            'amount' => 50000.00,
-            'entry_date' => '2026-01-15',
-            'notes' => 'Seed investment',
-        ]);
-
-        $expense = CapitalExpense::create([
-            'investment_id' => $investment->id,
-            'description' => 'Office equipment',
-            'amount' => 1200.50,
-            'expense_date' => '2026-01-20',
-        ]);
-
-        $this->assertCount(1, $investment->capitalExpenses);
-        $this->assertEquals($investment->id, $expense->investment->id);
     }
 
     public function test_user_roles_and_partner_relationship(): void

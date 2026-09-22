@@ -462,22 +462,6 @@ class Phase1FinancialSafetyTest extends TestCase
         $this->assertEquals('13.000', $added->format());
     }
 
-    public function test_legacy_financial_endpoints_return_410_and_log_warning(): void
-    {
-        $routes = [
-            ['POST', '/payments'],
-            ['POST', '/expenses'],
-            ['POST', '/investments'],
-            ['POST', '/capital-expenses'],
-            ['POST', "/clients/{$this->client->id}/convert"],
-        ];
-
-        foreach ($routes as [$method, $uri]) {
-            $response = $this->actingAs($this->admin)->call($method, $uri);
-            $response->assertStatus(410);
-        }
-    }
-
     public function test_accounting_idempotency_prevents_duplicate_journal_entries(): void
     {
         $postingService = app(\App\Services\JournalPostingService::class);

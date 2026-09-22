@@ -525,7 +525,7 @@ class Phase08TodayAndWorkTest extends TestCase
 
         $response = $this->actingAs($user)
             ->withSession(['locale' => 'en'])
-            ->get(route('work'))
+            ->get(route('dashboard', ['mode' => 'work']))
             ->assertOk();
 
         $response->assertSee('Open Work');

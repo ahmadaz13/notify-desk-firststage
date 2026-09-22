@@ -14,55 +14,15 @@
         </div>
     </header>
 
-    {{-- 1. Financial Configuration --}}
+    {{-- 1. Operational Configuration --}}
     <x-notify.collapsible-section
         :title="__('notify.settings.parameters_title')"
-        subtitle="القيم الافتراضية المعتمدة لجدولة الفواتير والضرائب العامة"
+        subtitle="إعدادات نقل العملاء التشغيلية"
         icon="sliders"
         :open="true"
     >
         <form method="POST" action="{{ route('settings.update') }}">
             @csrf
-            <div class="p5-form-grid">
-                <div class="p5-field">
-                    <label>نسبة تكلفة التشغيل القديمة</label>
-                    <input type="text" value="{{ $operationalCostPercentage }}%" disabled class="p5-input" style="background:#F8FAFC;color:#64748B">
-                    <span class="p5-kpi-meta">Deprecated: لا تؤثر على P&amp;L أو Finance أو Executive</span>
-                </div>
-
-                <div class="p5-field">
-                    <label>مضاعف القيمة السوقية القديم</label>
-                    <input type="text" value="{{ $marketValuationMultiplier }}" disabled class="p5-input" style="background:#F8FAFC;color:#64748B">
-                    <span class="p5-kpi-meta">Deprecated: لا توجد قيمة سوقية تقديرية في V1</span>
-                </div>
-
-                <div class="p5-field">
-                    <label>خصم الدفع السنوي الافتراضي (%)</label>
-                    <input type="number" step="0.5" min="0" max="100" name="annual_discount_percentage" value="{{ old('annual_discount_percentage', $annualDiscountPercentage) }}" placeholder="10.0" class="p5-input">
-                    <span class="p5-kpi-meta">الأسعار السنوية المعتمدة في V2 هي PlanPrice صريحة</span>
-                    @error('annual_discount_percentage') <span style="color:#B42318;font-size:12px">{{ $message }}</span> @enderror
-                </div>
-
-                <div class="p5-field">
-                    <label>ضريبة المبيعات العامة (%)</label>
-                    <input type="number" step="0.1" min="0" max="100" name="sales_tax_percentage" value="{{ old('sales_tax_percentage', $salesTaxPercentage) }}" placeholder="16.0" class="p5-input">
-                    <span class="p5-kpi-meta">Review only: لا تتجاوز لقطة الضريبة على PlanPrice</span>
-                    @error('sales_tax_percentage') <span style="color:#B42318;font-size:12px">{{ $message }}</span> @enderror
-                </div>
-
-                <div class="p5-field">
-                    <label>يوم استحقاق الأقساط الشهرية الافتراضي *</label>
-                    <select name="monthly_due_day" class="p5-select">
-                        <option value="1" {{ old('monthly_due_day', $monthlyDueDay) == 1 ? 'selected' : '' }}>1 من كل شهر (موصى به)</option>
-                        <option value="5" {{ old('monthly_due_day', $monthlyDueDay) == 5 ? 'selected' : '' }}>5 من كل شهر</option>
-                        <option value="15" {{ old('monthly_due_day', $monthlyDueDay) == 15 ? 'selected' : '' }}>15 من كل شهر</option>
-                        <option value="30" {{ old('monthly_due_day', $monthlyDueDay) == 30 ? 'selected' : '' }}>30 من كل شهر (نهاية الشهر)</option>
-                    </select>
-                    <span class="p5-kpi-meta">اليوم المعتمد لجدولة تنبيهات الأقساط الشهرية</span>
-                    @error('monthly_due_day') <span style="color:#B42318;font-size:12px">{{ $message }}</span> @enderror
-                </div>
-            </div>
-
             <div style="margin-top:14px;padding:12px 14px;background:#F8FAFC;border-radius:8px;border:1px solid #E2E8F0">
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:700;color:#0A1128">
                     <input type="checkbox" name="allow_auto_transfer_clients" value="1" {{ $allowAutoTransferClients ? 'checked' : '' }} style="accent-color:#0055CC;width:16px;height:16px">
