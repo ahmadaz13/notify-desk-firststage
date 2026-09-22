@@ -523,13 +523,7 @@ class Phase1FinancialSafetyTest extends TestCase
             'description' => 'Unkeyed Protected Expense',
         ];
 
-        // First execution succeeds
-        $res1 = $this->actingAs($this->admin)
-            ->post(route('operating-expenses.store'), $payload);
-        $res1->assertRedirect();
-        $this->assertDatabaseCount('expenses', 1);
-
-        // Simulate concurrent in-flight execution of identical unkeyed request
+        // Simulate an in-flight unkeyed request currently processing
         $cleaned = collect($payload)->except(['_token', '_idempotency_key', 'idempotency_key'])->sortKeys()->toArray();
         $synKey = 'syn_'.substr(hash('sha256', $this->admin->id.'|POST|operating-expenses|'.json_encode($cleaned)), 0, 48);
         $hash = hash('sha256', $this->admin->id.'|POST|operating-expenses|'.json_encode($cleaned));
@@ -545,10 +539,52 @@ class Phase1FinancialSafetyTest extends TestCase
         ]);
 
         // A concurrent unkeyed request arriving now sees the in-flight claim and is blocked from creating a duplicate!
-        $res2 = $this->actingAs($this->admin)
+        $res = $this->actingAs($this->admin)
             ->post(route('operating-expenses.store'), $payload);
 
-        $res2->assertStatus(409);
+        $res->assertStatus(409);
+        $this->assertDatabaseCount('expenses', 0);
+    }
+
+    public function test_successful_unkeyed_financial_request_cannot_execute_again_after_first_request_completed(): void
+    {
+        $category = ExpenseCategory::firstOrCreate(
+            ['key' => 'unkeyed_replay_prevent_cat'],
+            ['name' => 'Unkeyed Replay Prevention', 'name_ar' => 'منع تكرار بدون مفتاح', 'is_active' => true]
+        );
+
+        $payload = [
+            'amount' => '65.000',
+            'category_id' => $category->id,
+            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
+            'financial_account_id' => $this->cashAccount->id,
+            'incurred_on' => now()->toDateString(),
+            'paid_at' => now()->toDateString(),
+            'description' => 'Unkeyed Initial Expense',
+        ];
+
+        // 1. First unkeyed request executes and completes successfully
+        $res1 = $this->actingAs($this->admin)
+            ->post(route('operating-expenses.store'), $payload);
+        $res1->assertRedirect();
+        $this->assertDatabaseCount('expenses', 1);
+
+        // Verify that the completed synthetic record persists with 24h TTL
+        $cleaned = collect($payload)->except(['_token', '_idempotency_key', 'idempotency_key'])->sortKeys()->toArray();
+        $synKey = 'syn_'.substr(hash('sha256', $this->admin->id.'|POST|operating-expenses|'.json_encode($cleaned)), 0, 48);
+
+        $this->assertDatabaseHas('idempotency_keys', [
+            'key' => $synKey,
+            'status' => 'completed',
+            'user_id' => $this->admin->id,
+        ]);
+
+        // 2. Second unkeyed request with the SAME user + route + payload arrives AFTER first completed
+        $res2 = $this->actingAs($this->admin)
+            ->post(route('operating-expenses.store'), $payload);
+        $res2->assertRedirect();
+
+        // 3. Must NOT execute again or create a second financial transaction!
         $this->assertDatabaseCount('expenses', 1);
     }
 

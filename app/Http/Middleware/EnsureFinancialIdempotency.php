@@ -144,28 +144,7 @@ class EnsureFinancialIdempotency
         return $response;
     }
 
-    /**
-     * Clean up completed synthetic in-flight idempotency records after response delivery.
-     * Preserves explicit keys (for 24h replay), committed_error keys (to prevent duplicate creation),
-     * and in-flight processing records (to prevent double clicks).
-     */
-    public function terminate(Request $request, Response $response): void
-    {
-        $rawKey = $request->header('X-Idempotency-Key')
-            ?: $request->input('_idempotency_key')
-            ?: $request->input('idempotency_key');
 
-        if (blank($rawKey)) {
-            $userId = $request->user()?->id;
-            $payload = $this->cleanedPayload($request);
-            $key = 'syn_'.substr(hash('sha256', ($userId ?? 'anon').'|'.$request->method().'|'.$request->path().'|'.json_encode($payload)), 0, 48);
-
-            DB::table('idempotency_keys')
-                ->where('key', $key)
-                ->whereIn('status', ['completed', 'failed'])
-                ->delete();
-        }
-    }
 
     private function calculateRequestHash(Request $request): string
     {
