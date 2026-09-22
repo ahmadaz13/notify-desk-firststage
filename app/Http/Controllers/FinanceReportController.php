@@ -2,8 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountingPeriod;
+use App\Models\AssetCategory;
+use App\Models\CapitalFundingTransaction;
+use App\Models\Client;
+use App\Models\Expense;
+use App\Models\ExpenseCategory;
+use App\Models\FinancialAccount;
+use App\Models\FixedAsset;
+use App\Models\FundingSource;
+use App\Models\RecurringExpenseObligation;
+use App\Models\User;
+use App\Models\Vendor;
+use App\Services\CapitalManagementService;
 use App\Services\FinancialReportingReconciliationService;
 use App\Services\FinancialStatementService;
+use App\Services\OperatingExpenseService;
+use App\Services\ReceivableService;
+use App\Services\SaasMetricsService;
 use App\Support\FinancialPermissions;
 use App\Support\Money;
 use App\Support\ReportingPeriod;
@@ -16,9 +32,18 @@ class FinanceReportController extends Controller
     public function index(
         Request $request,
         FinancialStatementService $statements,
-        FinancialReportingReconciliationService $reconciliation
+        FinancialReportingReconciliationService $reconciliation,
+        SaasMetricsService $saas,
+        ReceivableService $receivables,
+        OperatingExpenseService $expenseService,
+        CapitalManagementService $capitalService
     ) {
         Gate::authorize(FinancialPermissions::VIEW_FINANCIAL_STATEMENTS);
+
+        $section = $request->query('section', 'overview');
+        if (! in_array($section, ['overview', 'collections', 'expenses', 'capital_assets', 'reports', 'advanced'], true)) {
+            $section = 'overview';
+        }
 
         $period = ReportingPeriod::fromRequest($request);
         $reports = [
@@ -36,7 +61,95 @@ class FinanceReportController extends Controller
             'reconciliation' => $reconciliation->run($period),
         ];
 
-        return view('finance.index', compact('period', 'reports'));
+        $saasReport = $saas->dashboard($period);
+
+        // Collections Section Data
+        $filters = $request->only(['client_id', 'due_state', 'settlement_state', 'date_from', 'date_to']);
+        $filters['due_state'] = ($filters['due_state'] ?? 'all') === 'all' ? null : $filters['due_state'];
+        $outstandingInvoices = $receivables->outstandingInvoices($filters);
+        $overdueInvoices = $receivables->outstandingInvoices(array_merge($filters, ['due_state' => 'overdue']));
+        $partiallyPaidInvoices = $receivables->outstandingInvoices(array_merge($filters, ['settlement_state' => 'partially_paid']));
+        $unallocatedCredits = $receivables->unallocatedCredits($filters);
+        $availableCustomerCredits = $receivables->availableCustomerCredits($filters);
+        $clients = Client::orderBy('business_name')->get(['id', 'business_name']);
+
+        // Expenses Section Data
+        $expenseTotals = $expenseService->activeTotals();
+        $recentExpenses = Expense::with(['categoryModel', 'vendor', 'financialAccount', 'personalPayer', 'reversal', 'recurringObligation'])
+            ->v2()
+            ->orderByDesc('paid_at')
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+        $activeCategories = ExpenseCategory::active()->orderBy('name_ar')->get();
+        $activeVendors = Vendor::active()->orderBy('name')->get();
+        $activeFinancialAccounts = FinancialAccount::where('is_active', true)->whereNull('archived_at')->orderBy('name_ar')->get();
+        $internalUsers = User::query()
+            ->where('is_active', true)
+            ->where(fn ($query) => $query->whereNull('role')->orWhereIn('role', User::activeInternalRoles()))
+            ->orderBy('name')
+            ->get();
+        $upcomingObligations = RecurringExpenseObligation::with(['template', 'vendor'])
+            ->pending()
+            ->whereDate('due_date', '>=', today())
+            ->orderBy('due_date')
+            ->limit(10)
+            ->get();
+        $overdueObligations = RecurringExpenseObligation::with(['template', 'vendor'])
+            ->pending()
+            ->whereDate('due_date', '<', today())
+            ->orderBy('due_date')
+            ->limit(10)
+            ->get();
+
+        // Capital & Assets Section Data
+        $capitalTotals = $capitalService->activeTotals();
+        $fundingSources = FundingSource::orderByDesc('is_active')->orderBy('name')->get();
+        $activeFundingSources = FundingSource::active()->get();
+        $fundingTransactions = CapitalFundingTransaction::with(['fundingSource', 'financialAccount', 'reversal'])
+            ->orderByDesc('received_at')
+            ->limit(20)
+            ->get();
+        $assetCategories = AssetCategory::orderByDesc('is_active')->orderBy('sort_order')->orderBy('name_ar')->get();
+        $activeAssetCategories = AssetCategory::active()->get();
+        $fixedAssets = FixedAsset::with(['category', 'vendor', 'financialAccount', 'personalPayer', 'acquisitionReversal'])
+            ->orderByDesc('acquired_at')
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get();
+
+        // Advanced Section Data
+        $accountingPeriods = AccountingPeriod::orderByDesc('period_key')->limit(12)->get();
+
+        return view('finance.index', compact(
+            'section',
+            'period',
+            'reports',
+            'saasReport',
+            'filters',
+            'outstandingInvoices',
+            'overdueInvoices',
+            'partiallyPaidInvoices',
+            'unallocatedCredits',
+            'availableCustomerCredits',
+            'clients',
+            'expenseTotals',
+            'recentExpenses',
+            'activeCategories',
+            'activeVendors',
+            'activeFinancialAccounts',
+            'internalUsers',
+            'upcomingObligations',
+            'overdueObligations',
+            'capitalTotals',
+            'fundingSources',
+            'activeFundingSources',
+            'fundingTransactions',
+            'assetCategories',
+            'activeAssetCategories',
+            'fixedAssets',
+            'accountingPeriods'
+        ));
     }
 
     public function export(Request $request, string $report, FinancialStatementService $statements): StreamedResponse
