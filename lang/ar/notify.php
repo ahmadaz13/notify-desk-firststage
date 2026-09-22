@@ -874,6 +874,7 @@ return array (
     'settings' => 'الإعدادات',
     'subscription_management' => 'إدارة الاشتراكات',
     'system' => 'النظام',
+    'team' => 'الفريق',
     'today' => 'اليوم',
     'work' => 'العمل',
     'workspace' => 'مساحة العمل',

@@ -874,6 +874,7 @@ return array (
     'settings' => 'Settings',
     'subscription_management' => 'Subscription Management',
     'system' => 'System',
+    'team' => 'Team',
     'today' => 'Today',
     'work' => 'Work',
     'workspace' => 'Workspace',

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdministrationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\BillingController;
@@ -152,6 +153,16 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/clients-import/preview', [CsvImportController::class, 'preview'])->name('clients.import.preview');
     Route::post('/clients-import/confirm', [CsvImportController::class, 'confirm'])->name('clients.import.confirm');
     Route::get('/clients-import/template/{type}', [CsvImportController::class, 'downloadTemplate'])->name('clients.import.template');
+
+    // ─── Phase 6: Unified Administration Hub ───
+    Route::get('/administration', [AdministrationController::class, 'index'])->name('administration.index');
+    Route::get('/administration/team', [AdministrationController::class, 'team'])->name('administration.team');
+    Route::get('/administration/team/create', [AdministrationController::class, 'teamCreate'])->name('administration.team.create');
+    Route::post('/administration/team', [AdministrationController::class, 'teamStore'])->name('administration.team.store');
+    Route::get('/administration/team/{id}/edit', [AdministrationController::class, 'teamEdit'])->name('administration.team.edit');
+    Route::put('/administration/team/{id}', [AdministrationController::class, 'teamUpdate'])->name('administration.team.update');
+    Route::post('/administration/team/{id}/reset-password', [AdministrationController::class, 'teamResetPassword'])->name('administration.team.reset-password');
+    Route::post('/administration/team/{id}/deactivate', [AdministrationController::class, 'teamDeactivate'])->name('administration.team.deactivate');
 
     // Admin Settings & Control Center
     Route::get('/commercial-catalog', [CommercialCatalogController::class, 'index'])->name('commercial-catalog.index');

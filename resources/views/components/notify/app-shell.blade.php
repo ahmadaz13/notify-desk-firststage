@@ -83,6 +83,7 @@
         || request()->routeIs('saas-metrics.*');
 
     $isAdministration = request()->routeIs('commercial-catalog.*')
+        || request()->routeIs('administration.*')
         || request()->routeIs('partners.*')
         || request()->routeIs('settings.*')
         || request()->routeIs('conflicts.*')
@@ -153,46 +154,53 @@
     if ($canViewAdministration) {
         if ($allows(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG)) {
             $adminSubLinks[] = [
-                'id' => 'products-pricing',
-                'label' => $labels['products_pricing'],
-                'href' => route('commercial-catalog.index'),
-                'icon' => 'package',
+                'id'     => 'products-pricing',
+                'label'  => $labels['products_pricing'],
+                'href'   => route('commercial-catalog.index'),
+                'icon'   => 'package',
                 'active' => $isRoute(['commercial-catalog.*']),
             ];
         }
         if ($admin) {
             $adminSubLinks[] = [
-                'id' => 'partners',
-                'label' => $labels['partners'],
-                'href' => route('partners.index'),
-                'icon' => 'building',
+                'id'     => 'partners',
+                'label'  => $labels['partners'],
+                'href'   => route('partners.index'),
+                'icon'   => 'building',
                 'active' => $isRoute(['partners.*']),
+            ];
+            $adminSubLinks[] = [
+                'id'     => 'team',
+                'label'  => __('notify.navigation.team') ?: 'الفريق',
+                'href'   => route('administration.team'),
+                'icon'   => 'users',
+                'active' => $isRoute(['administration.team*']),
             ];
         }
         if ($canCreateClient) {
             $adminSubLinks[] = [
-                'id' => 'import',
-                'label' => $labels['import'],
-                'href' => route('clients.import'),
-                'icon' => 'clipboard-list',
+                'id'     => 'import',
+                'label'  => $labels['import'],
+                'href'   => route('clients.import'),
+                'icon'   => 'clipboard-list',
                 'active' => $isRoute(['clients.import*']),
             ];
         }
         if ($admin) {
             $adminSubLinks[] = [
-                'id' => 'conflicts',
-                'label' => $labels['conflicts'],
-                'href' => route('conflicts.index'),
-                'icon' => 'activity',
+                'id'     => 'conflicts',
+                'label'  => $labels['conflicts'],
+                'href'   => route('conflicts.index'),
+                'icon'   => 'activity',
                 'active' => $isRoute(['conflicts.*']),
             ];
         }
         if ($allows(FinancialPermissions::MANAGE_FINANCIAL_SETTINGS)) {
             $adminSubLinks[] = [
-                'id' => 'settings',
-                'label' => $labels['settings'],
-                'href' => route('settings.index'),
-                'icon' => 'settings',
+                'id'     => 'settings',
+                'label'  => $labels['settings'],
+                'href'   => route('settings.index'),
+                'icon'   => 'settings',
                 'active' => $isRoute(['settings.*']),
             ];
         }
@@ -296,7 +304,7 @@
                             {{-- Area 4: Administration --}}
                             @if($canViewAdministration)
                                 <div class="notify-nav-area notify-nav-area--admin" data-nav-area="administration">
-                                    <x-notify.nav-item data-nav-destination="administration" :href="route('commercial-catalog.index')" :label="$labels['administration']" icon="settings" :active="$isAdministration" />
+                                    <x-notify.nav-item data-nav-destination="administration" :href="route('administration.index')" :label="$labels['administration']" icon="settings" :active="$isAdministration" />
                                     @if(!empty($adminSubLinks))
                                         <div class="notify-nav__sub">
                                             @foreach($adminSubLinks as $link)
