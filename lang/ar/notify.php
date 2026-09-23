@@ -638,6 +638,8 @@ return array (
         'primary_phone_type_invalid' => 'اختر: رقم النشاط التجاري أو المالك أو المدير / المسؤول.',
         'contact_email_invalid' => 'أدخل بريداً إلكترونياً صحيحاً.',
         'business_category_other_required' => 'اكتب نوع النشاط.',
+        'primary_reserved_for_phone_owner' => 'رقم الهاتف الأساسي للعميل يعود إلى جهة الاتصال (:type) ويجب أن تبقى هي جهة الاتصال الأساسية. لتغيير صاحب الرقم عدّل بيانات العميل.',
+        'phone_owner_number_via_client_edit' => 'رقم جهة الاتصال هذه هو رقم الهاتف الأساسي للعميل. غيّره من خلال تعديل بيانات العميل.',
       ),
       'import_invalid_phone_type' => 'قيمة primary_phone_type غير معروفة (استخدم business أو owner أو manager)',
       'import_invalid_email' => 'البريد الإلكتروني لجهة الاتصال غير صالح',

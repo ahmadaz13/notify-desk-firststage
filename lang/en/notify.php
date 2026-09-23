@@ -638,6 +638,8 @@ return array (
         'primary_phone_type_invalid' => 'Choose Business, Owner or Manager / Responsible person.',
         'contact_email_invalid' => 'Enter a valid email address.',
         'business_category_other_required' => 'Type the business type.',
+        'primary_reserved_for_phone_owner' => 'The client\'s primary phone belongs to the :type contact, who must stay the primary contact. To change whose number it is, edit the client.',
+        'phone_owner_number_via_client_edit' => 'This contact\'s number is the client\'s primary phone. Change it by editing the client.',
       ),
       'import_invalid_phone_type' => 'Unknown primary_phone_type (use business, owner or manager)',
       'import_invalid_email' => 'Invalid contact email',

@@ -444,6 +444,148 @@ class V1P4ClientContactModelTest extends TestCase
         $this->assertSame(ClientLifecycle::PROSPECT, $legacy->stage);
     }
 
+    // ── P4 hardening: primary contact consistency (P4-G2) ──────────────
+
+    public function test_owner_phone_rejects_making_an_unrelated_contact_primary(): void
+    {
+        $client = $this->createVia(['primary_phone_type' => 'owner', 'contact_name' => 'Owner']);
+        $owner = $client->contacts()->sole();
+
+        $this->actingAs($this->staff)->post(route('clients.contacts.store', $client), [
+            'name' => 'Accountant', 'primary_phone' => '0781111111', 'is_primary' => 1,
+        ])->assertSessionHasErrors('is_primary');
+        $this->assertSame(1, $client->contacts()->count(), 'Rejected, not silently normalized.');
+
+        // An additional (non-primary) contact is still allowed.
+        $this->actingAs($this->staff)->post(route('clients.contacts.store', $client), [
+            'name' => 'Accountant', 'primary_phone' => '0781111111',
+        ])->assertSessionHasNoErrors();
+        $accountant = $client->contacts()->where('name', 'Accountant')->sole();
+        $this->assertFalse($accountant->is_primary);
+
+        $this->actingAs($this->staff)->patch(route('clients.contacts.update', [$client, $accountant]), [
+            'name' => 'Accountant', 'primary_phone' => '0781111111', 'is_primary' => 1,
+        ])->assertSessionHasErrors('is_primary');
+
+        $this->assertPhoneOwnershipIntact($client, $owner, 'owner');
+        $this->assertFalse($accountant->fresh()->is_primary);
+    }
+
+    public function test_manager_phone_rejects_making_an_unrelated_contact_primary(): void
+    {
+        $client = $this->createVia(['primary_phone_type' => 'manager']);
+        $manager = $client->contacts()->sole();
+
+        $this->actingAs($this->staff)->post(route('clients.contacts.store', $client), [
+            'name' => 'Owner Later', 'primary_phone' => '0782222222', 'is_primary' => 1,
+        ])->assertSessionHasErrors('is_primary');
+
+        $this->assertPhoneOwnershipIntact($client, $manager, 'manager');
+        $this->assertSame(1, $client->contacts()->count());
+    }
+
+    public function test_phone_owner_contact_is_editable_but_its_number_follows_the_client(): void
+    {
+        $client = $this->createVia(['primary_phone_type' => 'owner']);
+        $owner = $client->contacts()->sole();
+
+        $this->actingAs($this->staff)->patch(route('clients.contacts.update', [$client, $owner]), [
+            'name' => 'Named Later', 'primary_phone' => '0791000001', 'email' => 'named@example.com',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('Named Later', $owner->fresh()->name);
+        $this->assertTrue($owner->fresh()->is_primary);
+
+        $this->actingAs($this->staff)->patch(route('clients.contacts.update', [$client, $owner]), [
+            'name' => 'Named Later', 'primary_phone' => '0799999999',
+        ])->assertSessionHasErrors('primary_phone');
+
+        $this->assertPhoneOwnershipIntact($client, $owner, 'owner');
+    }
+
+    public function test_business_phone_allows_an_independent_primary_human_contact(): void
+    {
+        $client = $this->createVia(['contact_name' => 'First Person', 'contact_phone' => '0783333333']);
+        $first = $client->contacts()->sole();
+
+        $this->actingAs($this->staff)->post(route('clients.contacts.store', $client), [
+            'name' => 'Second Person', 'primary_phone' => '0784444444', 'is_primary' => 1,
+        ])->assertSessionHasNoErrors();
+
+        $client->refresh();
+        $this->assertSame('business', $client->primary_phone_type);
+        $this->assertSame('0791000001', $client->phone);
+        $this->assertSame('0791000001', $client->business_phone);
+        $this->assertSame('Second Person', $client->contacts()->where('is_primary', true)->sole()->name);
+        $this->assertSame('0783333333', $first->fresh()->primary_phone, 'Previous primary contact is kept as history.');
+        $this->assertFalse($first->fresh()->is_primary);
+    }
+
+    public function test_client_edit_remains_the_authoritative_path_to_change_ownership(): void
+    {
+        $client = $this->createVia(['primary_phone_type' => 'owner', 'contact_name' => 'Owner']);
+        $owner = $client->contacts()->sole();
+
+        // Owner -> business through client edit; the person keeps their data.
+        $this->actingAs($this->staff)->put(route('clients.update', $client), $this->minimum([
+            'primary_phone_type' => 'business', 'contact_name' => 'Owner', 'contact_role' => 'owner',
+        ]))->assertSessionHasNoErrors();
+
+        // Now a different human contact may become primary without touching clients.phone.
+        $this->actingAs($this->staff)->post(route('clients.contacts.store', $client), [
+            'name' => 'Front Desk', 'primary_phone' => '0785555555', 'is_primary' => 1,
+        ])->assertSessionHasNoErrors();
+
+        $client->refresh();
+        $this->assertSame('business', $client->primary_phone_type);
+        $this->assertSame('0791000001', $client->phone);
+        $this->assertSame('Front Desk', $client->contacts()->where('is_primary', true)->sole()->name);
+        $this->assertSame('0791000001', $owner->fresh()->primary_phone);
+
+        // Business -> manager through client edit: the current primary contact takes phone ownership,
+        // no duplicate primary is created and their own number is preserved as secondary_phone.
+        $this->actingAs($this->staff)->put(route('clients.update', $client), $this->minimum([
+            'primary_phone_type' => 'manager',
+        ]))->assertSessionHasNoErrors();
+
+        $client->refresh();
+        $frontDesk = $client->contacts()->where('is_primary', true)->sole();
+        $this->assertSame('Front Desk', $frontDesk->name);
+        $this->assertSame('manager', $frontDesk->role);
+        $this->assertSame('0791000001', $frontDesk->primary_phone);
+        $this->assertSame('0785555555', $frontDesk->secondary_phone);
+        $this->assertSame(2, $client->contacts()->count());
+    }
+
+    public function test_ownership_transition_preserves_previous_number_only_without_conflict(): void
+    {
+        $client = $this->createVia(['primary_phone_type' => 'owner']);
+        $owner = $client->contacts()->sole();
+
+        // Primary phone changes without a submitted second phone: the old number is preserved.
+        $this->actingAs($this->staff)->put(route('clients.update', $client), $this->minimum([
+            'primary_phone_type' => 'owner', 'phone' => '0792000002',
+        ]))->assertSessionHasNoErrors();
+        $this->assertSame('0792000002', $owner->fresh()->primary_phone);
+        $this->assertSame('0791000001', $owner->fresh()->secondary_phone);
+
+        // An existing, different second phone is a conflicting value and is not overwritten.
+        $this->actingAs($this->staff)->put(route('clients.update', $client), $this->minimum([
+            'primary_phone_type' => 'owner', 'phone' => '0793000003',
+        ]))->assertSessionHasNoErrors();
+        $this->assertSame('0793000003', $owner->fresh()->primary_phone);
+        $this->assertSame('0791000001', $owner->fresh()->secondary_phone);
+    }
+
+    private function assertPhoneOwnershipIntact(Client $client, ClientContact $owner, string $type): void
+    {
+        $client->refresh();
+        $this->assertSame($type, $client->primary_phone_type);
+        $this->assertSame('0791000001', $client->phone);
+        $this->assertTrue($owner->fresh()->is_primary);
+        $this->assertSame('0791000001', $owner->fresh()->primary_phone);
+        $this->assertSame(1, $client->contacts()->where('is_primary', true)->count());
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────
 
     private function minimum(array $overrides = []): array
