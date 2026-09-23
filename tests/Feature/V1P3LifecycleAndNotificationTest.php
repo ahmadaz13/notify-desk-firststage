@@ -167,6 +167,62 @@ class V1P3LifecycleAndNotificationTest extends TestCase
         $this->assertSame(ClientLifecycle::PROSPECT, $neverSubscribed->fresh()->stage);
     }
 
+    // ── Paid System Access follows the paid subscription (§6) ───────────
+
+    public function test_paid_access_is_revoked_when_the_subscription_ends_and_restored_on_new_subscription(): void
+    {
+        $client = $this->client();
+        $eMenu = Product::where('code', 'e_menu')->firstOrFail();
+        $subscription = $this->startSubscription($client, $this->admin, 'monthly', [$eMenu->id]);
+        $this->assertAccess($client, $eMenu, 'paid', revoked: false);
+
+        app(SubscriptionBillingService::class)->scheduleCancellation($subscription, null, $this->admin->id);
+        app(SubscriptionBillingService::class)->generateRenewals('2026-11-01', false, $this->admin->id);
+
+        $this->assertSame(ClientLifecycle::FORMER_SUBSCRIBER, $client->fresh()->stage);
+        $this->assertAccess($client, $eMenu, 'paid', revoked: true); // revoked, never converted to free
+        $this->assertSame(1, DB::table('client_system')->where('client_id', $client->id)->count());
+        $this->assertDatabaseHas('activity_logs', ['client_id' => $client->id, 'type' => 'paid_system_access_revoked']);
+
+        $this->startSubscription($client->fresh(), $this->staff, 'annual', [$eMenu->id]);
+
+        $this->assertSame(ClientLifecycle::SUBSCRIBER, $client->fresh()->stage);
+        $this->assertAccess($client, $eMenu, 'paid', revoked: false);
+        $this->assertSame(1, DB::table('client_system')->where('client_id', $client->id)->count(), 'No duplicate access rows.');
+    }
+
+    public function test_explicit_free_access_survives_subscription_end(): void
+    {
+        $client = $this->client();
+        $eMenu = Product::where('code', 'e_menu')->firstOrFail();
+        $smartLink = Product::where('code', 'smart_link')->firstOrFail();
+
+        $this->actingAs($this->staff)->post(route('clients.system-access.store', $client), ['system_ids' => [$smartLink->id]])->assertSessionHas('success');
+        $subscription = $this->startSubscription($client, $this->admin, 'monthly', [$eMenu->id]);
+
+        app(SubscriptionBillingService::class)->scheduleCancellation($subscription, null, $this->admin->id);
+        app(SubscriptionBillingService::class)->generateRenewals('2026-11-01', false, $this->admin->id);
+
+        $this->assertAccess($client, $smartLink, 'free', revoked: false);
+        $this->assertAccess($client, $eMenu, 'paid', revoked: true);
+    }
+
+    public function test_access_stays_paid_while_another_active_subscription_covers_the_client(): void
+    {
+        $client = $this->client();
+        $eMenu = Product::where('code', 'e_menu')->firstOrFail();
+        $eStore = Product::where('code', 'e_store')->firstOrFail();
+        $ending = $this->startSubscription($client, $this->admin, 'monthly', [$eMenu->id]);
+        $this->startSubscription($client, $this->admin, 'annual', [$eStore->id]);
+
+        app(SubscriptionBillingService::class)->scheduleCancellation($ending, null, $this->admin->id);
+        app(SubscriptionBillingService::class)->generateRenewals('2026-11-01', false, $this->admin->id);
+
+        $this->assertAccess($client, $eMenu, 'paid', revoked: true);
+        $this->assertAccess($client, $eStore, 'paid', revoked: false);
+        $this->assertSame(ClientLifecycle::SUBSCRIBER, $client->fresh()->stage);
+    }
+
     // ── Staff-started subscription notification ─────────────────────────
 
     public function test_staff_started_paid_subscription_notifies_active_owner_level_users_once(): void
@@ -216,6 +272,14 @@ class V1P3LifecycleAndNotificationTest extends TestCase
             'status' => 'prospect',
             'stage' => ClientLifecycle::DECISION_PENDING,
         ], $overrides));
+    }
+
+    private function assertAccess(Client $client, Product $system, string $type, bool $revoked): void
+    {
+        $row = DB::table('client_system')->where('client_id', $client->id)->where('product_id', $system->id)->first();
+        $this->assertNotNull($row, "access row for {$system->code}");
+        $this->assertSame($type, $row->access_type, $system->code);
+        $this->assertSame($revoked, $row->revoked_at !== null, $system->code.($revoked ? ' should be revoked' : ' should be active'));
     }
 
     private function startSubscription(Client $client, User $actor, string $interval, ?array $systemIds = null): Subscription

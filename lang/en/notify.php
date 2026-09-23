@@ -1158,6 +1158,7 @@ return array (
   'system_access' => array (
     'title' => 'System Access', 'paid' => 'Paid', 'free' => 'Free', 'none' => 'No System access.',
     'grant_free' => 'Grant free access', 'grant' => 'Grant access', 'granted' => 'System access granted.', 'revoked' => 'System access revoked.',
+    'paid_revoked_activity' => 'Paid subscription ended; paid access revoked for: :systems',
   ),
   'today' =>
   array (

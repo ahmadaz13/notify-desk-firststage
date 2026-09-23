@@ -87,11 +87,45 @@ class V1P3SchemaReferenceAndCapitalGateTest extends TestCase
         DB::table('contracts')->insert($row('ND-2026-0001'));
     }
 
-    public function test_products_requires_credentials_defaults_false(): void
+    public function test_v1_system_identities_have_explicit_credential_capability(): void
     {
         $this->assertTrue(Schema::hasColumn('products', 'requires_credentials'));
-        $this->assertGreaterThan(0, Product::count());
-        Product::all()->each(fn (Product $product) => $this->assertFalse($product->requires_credentials, $product->code));
+
+        $expected = ['smart_link' => true, 'e_menu' => true, 'e_store' => true, 'auto_sms_system' => false];
+        foreach ($expected as $code => $requiresCredentials) {
+            $this->assertSame(1, Product::where('code', $code)->count(), "exactly one {$code}");
+            $system = Product::where('code', $code)->firstOrFail();
+            $this->assertSame($requiresCredentials, $system->requires_credentials, $code);
+            $this->assertTrue($system->is_active, $code);
+        }
+        $this->assertSame('Smart Link', Product::where('code', 'smart_link')->value('name_en'));
+        $this->assertSame('E-Menu', Product::where('code', 'e_menu')->value('name_en'));
+        $this->assertSame('E-Store', Product::where('code', 'e_store')->value('name_en'));
+
+        // Unrelated existing systems are kept as they were (not renamed, not flagged).
+        foreach (['restaurant_system' => 'Restaurant System', 'digital_store_system' => 'Digital Store System'] as $code => $name) {
+            $system = Product::where('code', $code)->firstOrFail();
+            $this->assertSame($name, $system->name_en);
+            $this->assertFalse($system->requires_credentials);
+        }
+
+        // New systems default to no credential capability.
+        $this->assertFalse(Product::create(['code' => 'new_system', 'name_ar' => 'نظام', 'is_active' => true])->fresh()->requires_credentials);
+    }
+
+    public function test_system_identity_migration_is_idempotent_and_preserves_existing_rows(): void
+    {
+        $migration = require database_path('migrations/2026_09_24_001000_seed_v1_credential_capable_systems.php');
+        Product::where('code', 'e_menu')->update(['name_en' => 'E-Menu (owner renamed)', 'requires_credentials' => false]);
+        Product::where('code', 'auto_sms_system')->update(['requires_credentials' => true]);
+        $count = Product::count();
+
+        $migration->up();
+        $migration->up();
+
+        $this->assertSame($count, Product::count());
+        $this->assertSame('E-Menu (owner renamed)', Product::where('code', 'e_menu')->value('name_en'));
+        $this->assertTrue(Product::where('code', 'e_menu')->firstOrFail()->requires_credentials);
         $this->assertFalse(Product::where('code', 'auto_sms_system')->firstOrFail()->requires_credentials);
     }
 

@@ -12,6 +12,22 @@ class Product extends Model
 {
     use HasFactory;
 
+    public const CODE_SMART_LINK = 'smart_link';
+    public const CODE_E_MENU = 'e_menu';
+    public const CODE_E_STORE = 'e_store';
+    public const CODE_AUTO_SMS = 'auto_sms_system';
+
+    /**
+     * Canonical V1 System identities and their credential capability (§6, §18.1; owner decision in P3).
+     * Auto SMS is the pre-existing `auto_sms_system` product.
+     */
+    public const V1_SYSTEM_IDENTITIES = [
+        self::CODE_SMART_LINK => ['name_ar' => 'الرابط الذكي', 'name_en' => 'Smart Link', 'requires_credentials' => true],
+        self::CODE_E_MENU => ['name_ar' => 'القائمة الإلكترونية', 'name_en' => 'E-Menu', 'requires_credentials' => true],
+        self::CODE_E_STORE => ['name_ar' => 'المتجر الإلكتروني', 'name_en' => 'E-Store', 'requires_credentials' => true],
+        self::CODE_AUTO_SMS => ['name_ar' => 'نظام الرسائل النصية التلقائية', 'name_en' => 'Auto SMS System', 'requires_credentials' => false],
+    ];
+
     protected $fillable = [
         'code',
         'name_ar',

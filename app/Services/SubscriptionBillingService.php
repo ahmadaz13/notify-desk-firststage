@@ -885,8 +885,55 @@ class SubscriptionBillingService
             $this->log($subscription->client_id, $userId, 'subscription_cancelled', 'تم إلغاء الاشتراك في نهاية الفترة الحالية', [
                 'subscription_id' => $subscription->id,
             ]);
+            $this->revokePaidAccessForEndedSubscription($subscription, $endedAt, $userId);
             $this->markFormerSubscriberIfNoActiveSubscription($subscription, $userId);
         });
+    }
+
+    /**
+     * §6: paid System Access follows the paid subscription lifecycle. When a subscription ends, the paid
+     * client_system rows for its Systems are revoked, unless another active paid subscription still covers
+     * that System. Free rows (explicit free access) are never touched, and paid access is never converted to free.
+     */
+    private function revokePaidAccessForEndedSubscription(Subscription $ended, Carbon $endedAt, ?int $userId): void
+    {
+        $systemIds = DB::table('subscription_system')->where('subscription_id', $ended->id)->pluck('product_id')->all();
+        if ($systemIds === []) {
+            return;
+        }
+
+        $stillCovered = DB::table('subscription_system')
+            ->join('subscriptions', 'subscriptions.id', '=', 'subscription_system.subscription_id')
+            ->where('subscriptions.client_id', $ended->client_id)
+            ->where('subscriptions.status', 'active')
+            ->where('subscriptions.id', '!=', $ended->id)
+            ->whereIn('subscription_system.product_id', $systemIds)
+            ->pluck('subscription_system.product_id')
+            ->all();
+        $toRevoke = array_values(array_diff($systemIds, $stillCovered));
+
+        $revoked = DB::table('client_system')
+            ->where('client_id', $ended->client_id)
+            ->whereIn('product_id', $toRevoke)
+            ->where('access_type', 'paid')
+            ->whereNull('revoked_at')
+            ->pluck('product_id')
+            ->all();
+        if ($revoked === []) {
+            return;
+        }
+
+        DB::table('client_system')
+            ->where('client_id', $ended->client_id)
+            ->whereIn('product_id', $revoked)
+            ->update(['revoked_at' => $endedAt->toDateString(), 'updated_at' => now()]);
+
+        $this->log($ended->client_id, $userId, 'paid_system_access_revoked', __('notify.system_access.paid_revoked_activity', [
+            'systems' => Product::whereIn('id', $revoked)->orderBy('id')->pluck('name_ar')->join('، '),
+        ]), [
+            'subscription_id' => $ended->id,
+            'product_ids' => $revoked,
+        ]);
     }
 
     /**
