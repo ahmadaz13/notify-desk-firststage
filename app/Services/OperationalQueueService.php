@@ -73,6 +73,7 @@ class OperationalQueueService
 
         $followUp = DB::table('follow_ups')
             ->where('client_id', $client->id)
+            ->whereNull('completed_at')
             ->orderBy('follow_up_date_time')
             ->first();
         if ($followUp) {
@@ -106,6 +107,7 @@ class OperationalQueueService
     private function activeContactQueue(User $user, Carbon $at): Collection
     {
         $futureFollowClientIds = DB::table('follow_ups')
+            ->whereNull('completed_at')
             ->where('follow_up_date_time', '>', $at)
             ->pluck('client_id')
             ->all();
@@ -127,6 +129,7 @@ class OperationalQueueService
         $query = DB::table('follow_ups')
             ->join('clients', 'clients.id', '=', 'follow_ups.client_id')
             ->where('clients.status', '!=', 'archived')
+            ->whereNull('follow_ups.completed_at')
             ->whereDate('follow_ups.next_follow_up_date', '<=', $at->toDateString());
 
         if ($installationOnly) {

@@ -1,4 +1,4 @@
-<div id="tab-overview" class="tab-pane">
+<div id="tab-overview">
     <div class="notify-workspace-grid">
         <section class="notify-panel">
             <div class="notify-section-head">
@@ -21,7 +21,7 @@
             </dl>
         </section>
 
-        <section class="notify-panel">
+        <section class="notify-panel" id="sec-close-client">
             <div class="notify-section-head">
                 <div>
                     <p class="notify-eyebrow">Lifecycle</p>

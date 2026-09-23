@@ -1,4 +1,4 @@
-<div id="tab-notes" class="tab-pane" style="display:none">
+<div id="tab-notes">
     <div class="notify-workspace-grid">
         <section class="notify-panel">
             <div class="notify-section-head">

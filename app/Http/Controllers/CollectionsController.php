@@ -11,6 +11,7 @@ use App\Models\PaymentAllocation;
 use App\Services\CollectionCorrectionService;
 use App\Services\CreditNoteService;
 use App\Services\PaymentAllocationService;
+use App\Services\PaymentFinancialAccountResolver;
 use App\Services\ReceivableService;
 use App\Services\RefundService;
 use App\Support\FinancialPermissions;
@@ -88,6 +89,51 @@ class CollectionsController extends Controller
         );
 
         return back()->with('success', 'تم تسجيل دفعة V2 وتحديث أرصدة الذمم.');
+    }
+
+    public function storeNormalPayment(
+        Request $request,
+        Client $client,
+        PaymentAllocationService $paymentAllocationService,
+        PaymentFinancialAccountResolver $accountResolver
+    ): RedirectResponse {
+        Gate::authorize(FinancialPermissions::RECORD_PAYMENT);
+        Gate::authorize('view', $client);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'string', 'regex:/^\d+(\.\d{1,3})?$/', 'not_regex:/^0+(\.0{1,3})?$/'],
+            'payment_method' => ['required', 'string', Rule::in(PaymentMethods::values())],
+            'received_at' => 'nullable|date',
+            'reference' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:1000',
+        ], [
+            'amount.required' => 'أدخل المبلغ المستلم.',
+            'amount.regex' => 'المبلغ المستلم يجب أن يكون أكبر من صفر.',
+            'amount.not_regex' => 'المبلغ المستلم يجب أن يكون أكبر من صفر.',
+            'payment_method.required' => 'اختر طريقة الدفع.',
+            'payment_method.in' => 'اختر طريقة دفع معتمدة.',
+        ]);
+
+        $financialAccount = $accountResolver->resolve($validated['payment_method']);
+
+        $paymentAllocationService->recordV2Payment(
+            $client,
+            [
+                'amount' => $validated['amount'],
+                'financial_account_id' => $financialAccount->id,
+                'payment_method' => $validated['payment_method'],
+                'received_at' => $validated['received_at'] ?? now()->format('Y-m-d H:i:s'),
+                'reference' => $validated['reference'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+            ],
+            [],
+            true,
+            $request->user()->id
+        );
+
+        return redirect()
+            ->route('clients.show', $client)
+            ->with('success', 'تم تسجيل الدفعة وتحديث المبلغ المستحق.');
     }
 
     public function allocatePayment(

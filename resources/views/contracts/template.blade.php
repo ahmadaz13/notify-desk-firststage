@@ -246,6 +246,13 @@
     @php
         $productSnapshot = $snapshot['product'] ?? [];
         $packageSnapshot = $snapshot['package'] ?? [];
+        $systemsSnapshot = $snapshot['systems'] ?? [];
+        $systemsLabel = collect($systemsSnapshot)->map(fn ($system) => collect([
+            $system['name_ar'] ?? null,
+            $system['name_en'] ?? null,
+        ])->filter()->unique()->join(' / '))->filter()->join('، ');
+        $legacyProductLabel = collect([$productSnapshot['name_ar'] ?? null, $productSnapshot['name_en'] ?? null])->filter()->unique()->join(' / ');
+        $legacyPackageLabel = collect([$packageSnapshot['name_ar'] ?? null, $packageSnapshot['name_en'] ?? null])->filter()->unique()->join(' / ');
         $pricingSnapshot = $snapshot['pricing'] ?? [];
         $billingInterval = $pricingSnapshot['billing_interval'] ?? ($snapshot['subscription']['billing_type'] ?? null);
     @endphp
@@ -327,11 +334,11 @@
                 </div>
 
                 <div style="margin-top:25px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:16px">
-                    <h4 style="margin:0 0 8px 0;color:#0369a1;font-size:11pt">ملخص الخدمات والباقة المعتمدة في العقد:</h4>
-                    @if(!empty($productSnapshot['name_ar']) || !empty($packageSnapshot['name_ar']))
+                    <h4 style="margin:0 0 8px 0;color:#0369a1;font-size:11pt">ملخص الأنظمة والقيمة المعتمدة في العقد:</h4>
+                    @if($systemsLabel || !empty($productSnapshot['name_ar']) || !empty($packageSnapshot['name_ar']))
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;font-size:10.5pt">
-                            <div><strong>المنتج / النظام:</strong> {{ $productSnapshot['name_ar'] ?? '—' }} @if(!empty($productSnapshot['name_en'])) ({{ $productSnapshot['name_en'] }}) @endif</div>
-                            <div><strong>الباقة:</strong> {{ $packageSnapshot['name_ar'] ?? '—' }} @if(!empty($packageSnapshot['name_en'])) ({{ $packageSnapshot['name_en'] }}) @endif</div>
+                            <div><strong>الأنظمة:</strong> {{ $systemsLabel ?: ($legacyProductLabel ?: '—') }}</div>
+                            @if(!$systemsLabel)<div><strong>الترتيب التجاري التاريخي:</strong> {{ $legacyPackageLabel ?: '—' }}</div>@endif
                             <div><strong>دورية الفوترة:</strong> <span class="ltr">{{ $billingInterval ?: '—' }}</span></div>
                             @if(($snapshot['subscription']['payment_terms'] ?? 'full') === 'installments')
                                 <div><strong>طريقة السداد:</strong> {{ $snapshot['subscription']['installments_count'] }} أقساط ضمن التزام سنوي واحد</div>
@@ -350,7 +357,7 @@
                             </li>
                         @endforeach
                         @if(empty($snapshot['services']))
-                            <li>الباقة المخصصة للمنشأة — إجمالي القيمة: <span class="ltr">{{ number_format($snapshot['financial']['grand_total'], 3) }}</span> د.أ</li>
+                            <li>الأنظمة المختارة — إجمالي القيمة: <span class="ltr">{{ number_format($snapshot['financial']['grand_total'], 3) }}</span> د.أ</li>
                         @endif
                     </ul>
                 </div>
@@ -374,9 +381,9 @@
 
         {{-- البند 2 --}}
         <div class="clause-item">
-            <div class="section-heading">2. تفاصيل الخدمة والباقة المختارة</div>
-            @if(!empty($productSnapshot['name_ar']) || !empty($packageSnapshot['name_ar']))
-                المنتج / النظام: <strong>{{ $productSnapshot['name_ar'] ?? '—' }}</strong>، الباقة: <strong>{{ $packageSnapshot['name_ar'] ?? '—' }}</strong>، دورية الفوترة: <strong class="ltr">{{ $billingInterval ?: '—' }}</strong>.<br>
+            <div class="section-heading">2. تفاصيل الأنظمة المختارة</div>
+            @if($systemsLabel || !empty($productSnapshot['name_ar']) || !empty($packageSnapshot['name_ar']))
+                الأنظمة: <strong>{{ $systemsLabel ?: ($legacyProductLabel ?: '—') }}</strong>@if(!$systemsLabel && $legacyPackageLabel)، {{ $legacyPackageLabel }}@endif، دورية الفوترة: <strong class="ltr">{{ $billingInterval ?: '—' }}</strong>.<br>
             @endif
             تشمل الخدمات المشمولة بالترخيص كلاً من:
             @foreach($snapshot['services'] as $s) {{ $s['name_ar'] }}، @endforeach
@@ -441,7 +448,7 @@
         {{-- البند 11 --}}
         <div class="clause-item">
             <div class="section-heading">11. حدود صلاحية مندوب المبيعات والوسطاء</div>
-            لا يحق لأي مندوب مبيعات أو شريك وسيط تقديم أي وعود شفهية أو خصومات أو ميزات فنية غير منصوص عليها صراحة في هذا العقد، وتعتبر التواقيع والنماذج المعتمدة من إدارة Notify المركزية وحدها الملزمة.
+            لا يحق لأي مندوب مبيعات أو ممثل غير مفوض تقديم أي وعود شفهية أو خصومات أو ميزات فنية غير منصوص عليها صراحة في هذا العقد، وتعتبر التواقيع والنماذج المعتمدة من إدارة Notify المركزية وحدها الملزمة.
         </div>
 
         {{-- البند 12 --}}

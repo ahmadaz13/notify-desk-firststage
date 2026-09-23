@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Appointment;
 use App\Models\Client;
 use App\Models\User;
 use App\Services\FreeInstallationService;
+use App\Support\AppointmentTypes;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class FreeInstallationController extends Controller
 {
@@ -41,7 +44,7 @@ class FreeInstallationController extends Controller
 
         $data = $request->validate([
             'appointment_id' => 'nullable|exists:appointments,id',
-            'installed_at' => 'required|date',
+            'installed_at' => 'nullable|date',
             'installed_by' => [
                 'nullable',
                 Rule::exists('users', 'id')->where(fn ($query) => $query
@@ -60,6 +63,23 @@ class FreeInstallationController extends Controller
             'no_follow_up_reason' => 'nullable|string|max:255',
         ]);
 
+        // Authoritative resolution of appointment_id when not explicitly provided
+        if (empty($data['appointment_id'])) {
+            $eligibleAppointments = Appointment::where('client_id', $client->id)
+                ->where('appointment_type', AppointmentTypes::INSTALLATION)
+                ->whereIn('status', AppointmentTypes::activeStatuses())
+                ->get();
+
+            if ($eligibleAppointments->count() === 1) {
+                $data['appointment_id'] = $eligibleAppointments->first()->id;
+            } elseif ($eligibleAppointments->count() > 1) {
+                throw ValidationException::withMessages([
+                    'appointment_id' => 'توجد عدة مواعيد تركيب نشطة، يرجى تحديد موعد التركيب المراد إكماله.',
+                ]);
+            }
+        }
+
+        $data['installed_at'] = !empty($data['installed_at']) ? $data['installed_at'] : now()->toDateTimeString();
         $data['installed_by'] = $data['installed_by'] ?? $request->user()->id;
 
         $service->completeInstallation($client, $request->user(), $data);

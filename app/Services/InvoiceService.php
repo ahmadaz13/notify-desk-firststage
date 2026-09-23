@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\Setting;
 use App\Models\Subscription;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -46,14 +47,15 @@ class InvoiceService
         });
     }
 
-    public function createIssuedOneTime(Client $client, array $lines, Carbon $issueDate, Carbon $dueDate, ?string $description, ?int $userId): Invoice
+    public function createIssuedOneTime(Client $client, array $lines, Carbon $issueDate, Carbon $dueDate, ?string $description, ?int $userId, ?int $customProjectId = null): Invoice
     {
-        return DB::transaction(function () use ($client, $lines, $issueDate, $dueDate, $description, $userId) {
+        return DB::transaction(function () use ($client, $lines, $issueDate, $dueDate, $description, $userId, $customProjectId) {
             $totals = $this->totalsFromLines($lines);
 
             $invoice = Invoice::create([
                 'client_id' => $client->id,
                 'subscription_id' => null,
+                'custom_project_id' => $customProjectId,
                 'currency' => 'JOD',
                 'status' => Invoice::STATUS_DRAFT,
                 'issue_date' => $issueDate->toDateString(),
@@ -118,7 +120,7 @@ class InvoiceService
     private function assignNumberAndIssue(Invoice $invoice, Carbon $issueDate): void
     {
         $invoice->update([
-            'invoice_number' => sprintf('INV-%s-%06d', $issueDate->format('Y'), $invoice->id),
+            'invoice_number' => sprintf('%s-%s-%06d', strtoupper((string) Setting::get('invoice_prefix', 'INV')), $issueDate->format('Y'), $invoice->id),
             'status' => Invoice::STATUS_ISSUED,
             'issued_at' => now(),
         ]);

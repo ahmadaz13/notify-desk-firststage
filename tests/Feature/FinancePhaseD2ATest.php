@@ -7,7 +7,6 @@ use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\ExpenseReversal;
 use App\Models\FinancialAccount;
-use App\Models\Partner;
 use App\Models\RecurringExpenseObligation;
 use App\Models\RecurringExpenseTemplate;
 use App\Models\User;
@@ -394,17 +393,7 @@ class FinancePhaseD2ATest extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase D2A Partner',
-            'email' => 'phase-d2a-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 }
 

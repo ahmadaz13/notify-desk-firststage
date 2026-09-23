@@ -7,12 +7,16 @@
 @php
     $icons = [
         'activity' => 'activity',
+        'alert-circle' => 'alert-circle',
         'bell' => 'bell',
         'briefcase' => 'briefcase',
         'building' => 'building',
         'chart' => 'chart-column',
         'calendar' => 'calendar-days',
+        'check' => 'check',
         'chevron-down' => 'chevron-down',
+        'chevron-left' => 'chevron-left',
+        'chevron-right' => 'chevron-right',
         'circle' => 'circle',
         'clipboard-list' => 'clipboard-list',
         'home' => 'home',
@@ -21,12 +25,16 @@
         'log-out' => 'log-out',
         'menu' => 'menu',
         'package' => 'package',
+        'panel-left' => 'panel-left',
         'phone' => 'phone',
         'plus' => 'plus',
         'settings' => 'settings',
+        'theme' => 'sun-moon',
+        'user' => 'user',
         'users' => 'users',
         'wallet' => 'wallet',
         'wrench' => 'wrench',
+        'x' => 'x',
     ];
 
     $lucideName = $icons[$name] ?? $icons['circle'];

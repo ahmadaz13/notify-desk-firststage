@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\AssetCategory;
-use App\Models\CapitalExpense;
 use App\Models\CapitalFundingReversal;
 use App\Models\CapitalFundingTransaction;
 use App\Models\CashMovement;
@@ -12,9 +11,7 @@ use App\Models\FinancialAccount;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetAcquisitionReversal;
 use App\Models\FundingSource;
-use App\Models\Investment;
 use App\Models\Invoice;
-use App\Models\Partner;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
@@ -229,25 +226,12 @@ class FinancePhaseD2BTest extends TestCase
         $this->assertSame($movementCount, CashMovement::count());
     }
 
-    public function test_legacy_rows_remain_readable_and_partner_boundaries_hold(): void
+    public function test_capital_authority_and_partner_boundaries_hold(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $category = AssetCategory::where('code', 'other')->firstOrFail();
         $account = $this->createAccount('legacy_guard_cash', 'Legacy Guard Cash', '20.000');
 
-        Investment::create([
-            'investor_name' => 'Legacy Investor',
-            'amount' => '7.00',
-            'entry_date' => '2026-09-01',
-        ]);
-        CapitalExpense::create([
-            'description' => 'Legacy capital expense',
-            'amount' => '3.00',
-            'expense_date' => '2026-09-02',
-        ]);
-
-        $this->assertSame(1, Investment::count());
-        $this->assertSame(1, CapitalExpense::count());
         $this->assertSame(1, CashMovement::count());
         $this->assertSame(0, FixedAsset::count());
         $this->assertSame(0, CapitalFundingTransaction::count());
@@ -336,16 +320,6 @@ class FinancePhaseD2BTest extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase D2B Partner',
-            'email' => 'phase-d2b-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 }

@@ -82,7 +82,7 @@ class NotificationService
             + $this->sendRevenueRecognitionReviewAlerts($at);
     }
 
-    public function getRecipientUserIds(?int $partnerId = null): array
+    public function getRecipientUserIds(): array
     {
         return $this->activeInternalUserIds();
     }
@@ -106,8 +106,7 @@ class NotificationService
             ->select(
                 'appointments.*',
                 'clients.business_name',
-                'clients.primary_owner_id',
-                'clients.partner_id'
+                'clients.primary_owner_id'
             )
             ->get();
 
@@ -161,8 +160,7 @@ class NotificationService
                 'payment_schedules.*',
                 'clients.business_name',
                 'clients.id as client_id',
-                'clients.primary_owner_id',
-                'clients.partner_id'
+                'clients.primary_owner_id'
             )
             ->get();
 
@@ -227,6 +225,7 @@ class NotificationService
             ->join('clients', 'clients.id', '=', 'follow_ups.client_id')
             ->where('clients.status', '!=', 'archived')
             ->whereNotIn('clients.stage', [ClientLifecycle::CLOSED, ClientLifecycle::SUBSCRIBER])
+            ->whereNull('follow_ups.completed_at')
             ->where('follow_ups.follow_up_date_time', '<=', $at)
             ->select(
                 'follow_ups.*',

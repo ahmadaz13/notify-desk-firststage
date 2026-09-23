@@ -1,38 +1,35 @@
 <script>
 function switchTab(tabName) {
+    var target = document.getElementById('sec-' + tabName) || document.getElementById('tab-' + tabName) || document.getElementById(tabName);
+    if (target) {
+        var details = target.closest('details');
+        if (details) details.open = true;
+        target.style.display = 'block';
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     document.querySelectorAll('.tab-pane').forEach(function(pane) {
-        pane.style.display = 'none';
+        if (pane !== target && !pane.closest('details')) {
+            pane.style.display = 'none';
+        }
     });
+
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-ghost');
         btn.classList.remove('is-active');
     });
-    document.querySelectorAll('.mobile-accordion-header').forEach(function(hdr) {
-        hdr.classList.remove('active');
-        var chevron = hdr.querySelector('.chevron-icon');
-        if (chevron) chevron.style.transform = 'rotate(0deg)';
-    });
 
-    var targetPane = document.getElementById('tab-' + tabName);
     var targetBtn = document.getElementById('tab-btn-' + tabName);
-    var targetHeader = document.getElementById('acc-header-' + tabName);
-
-    if (targetPane) targetPane.style.display = 'block';
     if (targetBtn) {
         targetBtn.classList.remove('btn-ghost');
         targetBtn.classList.add('btn-primary');
         targetBtn.classList.add('is-active');
     }
-    if (targetHeader) {
-        targetHeader.classList.add('active');
-        var chevron = targetHeader.querySelector('.chevron-icon');
-        if (chevron) chevron.style.transform = 'rotate(180deg)';
-    }
 }
 
 function toggleAccordion(tabName) {
-    var targetPane = document.getElementById('tab-' + tabName);
+    var targetPane = document.getElementById('tab-' + tabName) || document.getElementById('sec-' + tabName);
     var targetHeader = document.getElementById('acc-header-' + tabName);
     if (!targetPane) return;
 
@@ -121,30 +118,232 @@ function initContactOutcome(root) {
 
 document.querySelectorAll('[data-contact-outcome-root]').forEach(initContactOutcome);
 
-document.querySelectorAll('[data-paid-subscription-form]').forEach(function(form) {
-    var annualTerms = form.querySelector('[data-annual-payment-terms]');
-    var paymentTerms = form.querySelector('[data-payment-terms]');
-    var installmentFields = form.querySelector('[data-installment-fields]');
-    var installmentInputs = installmentFields ? installmentFields.querySelectorAll('input, select') : [];
+// Modal Open / Close Helpers
+function openModal(id) {
+    var modal = document.getElementById(id);
+    if (modal) {
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+    }
+}
 
-    function syncBillingTerms() {
-        var selectedPrice = form.querySelector('input[name="plan_price_id"]:checked');
-        var isAnnual = selectedPrice && selectedPrice.getAttribute('data-billing-interval') === 'annual';
-        var usesInstallments = isAnnual && paymentTerms && paymentTerms.value === 'installments';
+function closeModal(modal) {
+    if (modal) {
+        modal.hidden = true;
+        document.body.style.overflow = '';
+    }
+}
 
-        if (annualTerms) annualTerms.hidden = !isAnnual;
-        if (installmentFields) installmentFields.hidden = !usesInstallments;
-        if (paymentTerms) paymentTerms.disabled = !isAnnual;
-        installmentInputs.forEach(function(input) {
-            input.disabled = !usesInstallments;
-            input.required = usesInstallments;
+// Global triggers for Phase 5 action modals
+document.addEventListener('click', function(e) {
+    var triggerCall = e.target.closest('[data-trigger-call-outcome]');
+    if (triggerCall) {
+        e.preventDefault();
+        var modalCall = document.getElementById('modal-record-call');
+        if (modalCall) {
+            openModal('modal-record-call');
+        } else {
+            var outcomeOpener = document.querySelector('[data-contact-outcome-open]');
+            if (outcomeOpener) outcomeOpener.click();
+        }
+        return;
+    }
+
+    var triggerApt = e.target.closest('[data-trigger-create-appointment]');
+    if (triggerApt) {
+        e.preventDefault();
+        openModal('modal-create-appointment');
+        return;
+    }
+
+    var triggerResult = e.target.closest('[data-trigger-appointment-result]');
+    if (triggerResult) {
+        e.preventDefault();
+        openModal('modal-appointment-result');
+        return;
+    }
+
+    var triggerInstall = e.target.closest('[data-trigger-installation-modal]');
+    if (triggerInstall) {
+        e.preventDefault();
+        openModal('modal-complete-installation');
+        return;
+    }
+
+    var triggerFollowup = e.target.closest('[data-trigger-followup-modal]');
+    if (triggerFollowup) {
+        e.preventDefault();
+        openModal('modal-follow-up');
+        return;
+    }
+
+    var triggerClose = e.target.closest('[data-trigger-close-client]');
+    if (triggerClose) {
+        e.preventDefault();
+        openModal('modal-close-client');
+        return;
+    }
+
+    var triggerStartSub = e.target.closest('[data-trigger-start-subscription]');
+    if (triggerStartSub) {
+        e.preventDefault();
+        openModal('modal-start-subscription');
+        return;
+    }
+
+    var triggerRecordPayment = e.target.closest('[data-trigger-record-payment]');
+    if (triggerRecordPayment) {
+        e.preventDefault();
+        openModal('modal-record-payment');
+        return;
+    }
+
+    var triggerScheduleInstall = e.target.closest('[data-trigger-schedule-installation]');
+    if (triggerScheduleInstall) {
+        e.preventDefault();
+        openModal('modal-schedule-installation');
+        return;
+    }
+
+    var triggerReopen = e.target.closest('[data-trigger-reopen-client]');
+    if (triggerReopen) {
+        e.preventDefault();
+        openModal('modal-reopen-client');
+        return;
+    }
+
+    var closer = e.target.closest('[data-close-action-modal]');
+    if (closer) {
+        e.preventDefault();
+        closeModal(closer.closest('.notify-modal-backdrop'));
+        return;
+    }
+
+    // Click on backdrop background
+    if (e.target.classList.contains('notify-modal-backdrop')) {
+        closeModal(e.target);
+        return;
+    }
+});
+
+// Escape key closes modals
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.notify-modal-backdrop:not([hidden])').forEach(closeModal);
+    }
+});
+
+// 1. Record Call outcome conditional fields
+document.querySelectorAll('[data-call-outcome-form]').forEach(function(form) {
+    var outcomeRadios = form.querySelectorAll('input[name="result"]');
+    var conditionalGroups = form.querySelectorAll('[data-for-outcome]');
+    var noteContainer = form.querySelector('[data-note-container]');
+    var noteRequired = form.querySelector('[data-note-required]');
+
+    function syncCallOutcome() {
+        var checked = form.querySelector('input[name="result"]:checked');
+        var val = checked ? checked.value : null;
+
+        conditionalGroups.forEach(function(group) {
+            group.hidden = (group.getAttribute('data-for-outcome') !== val);
+        });
+
+        if (noteContainer) {
+            noteContainer.hidden = !val || (val === 'no_answer_busy');
+        }
+        if (noteRequired) {
+            noteRequired.hidden = (val !== 'not_interested');
+        }
+    }
+
+    outcomeRadios.forEach(function(r) { r.addEventListener('change', syncCallOutcome); });
+    syncCallOutcome();
+});
+
+// 2. Appointment Result conditional fields
+document.querySelectorAll('[data-appointment-result-form]').forEach(function(form) {
+    var decisionRadios = form.querySelectorAll('input[name="first_decision"]');
+    var decisionGroups = form.querySelectorAll('[data-for-decision]');
+    var attendedRadios = form.querySelectorAll('input[name="attended_choice"]');
+    var attendedGroups = form.querySelectorAll('[data-for-attended-choice]');
+
+    function syncDecision() {
+        var checkedDecision = form.querySelector('input[name="first_decision"]:checked');
+        var decVal = checkedDecision ? checkedDecision.value : null;
+
+        decisionGroups.forEach(function(group) {
+            group.hidden = (group.getAttribute('data-for-decision') !== decVal);
+        });
+
+        syncAttendedChoice();
+    }
+
+    function syncAttendedChoice() {
+        var checkedChoice = form.querySelector('input[name="attended_choice"]:checked');
+        var choiceVal = checkedChoice ? checkedChoice.value : null;
+
+        attendedGroups.forEach(function(group) {
+            group.hidden = (group.getAttribute('data-for-attended-choice') !== choiceVal);
         });
     }
 
-    form.querySelectorAll('input[name="plan_price_id"]').forEach(function(input) {
-        input.addEventListener('change', syncBillingTerms);
-    });
-    if (paymentTerms) paymentTerms.addEventListener('change', syncBillingTerms);
-    syncBillingTerms();
+    decisionRadios.forEach(function(r) { r.addEventListener('change', syncDecision); });
+    attendedRadios.forEach(function(r) { r.addEventListener('change', syncAttendedChoice); });
+    syncDecision();
 });
+
+// 3. Follow-up Outcome conditional fields
+document.querySelectorAll('[data-followup-outcome-form]').forEach(function(form) {
+    var outcomeRadios = form.querySelectorAll('input[name="outcome"]');
+    var conditionalGroups = form.querySelectorAll('[data-for-followup-outcome]');
+
+    function syncFollowUpOutcome() {
+        var checked = form.querySelector('input[name="outcome"]:checked');
+        var val = checked ? checked.value : null;
+
+        conditionalGroups.forEach(function(group) {
+            group.hidden = (group.getAttribute('data-for-followup-outcome') !== val);
+        });
+    }
+
+    outcomeRadios.forEach(function(r) { r.addEventListener('change', syncFollowUpOutcome); });
+    syncFollowUpOutcome();
+});
+
+// 4. Close Client reason note requirement
+document.querySelectorAll('[data-close-client-form]').forEach(function(form) {
+    var reasonSelect = form.querySelector('[data-close-reason-select]');
+    var noteRequired = form.querySelector('[data-close-note-required]');
+
+    function syncCloseReason() {
+        if (noteRequired && reasonSelect) {
+            noteRequired.hidden = (reasonSelect.value !== 'other');
+        }
+    }
+
+    if (reasonSelect) {
+        reasonSelect.addEventListener('change', syncCloseReason);
+        syncCloseReason();
+    }
+});
+
+// Global anchor scroll handler that opens parent <details>
+document.addEventListener('click', function(e) {
+    var link = e.target.closest('a[href^="#"], [data-scroll-to]');
+    if (!link) return;
+
+    var targetId = link.getAttribute('data-scroll-to') || link.getAttribute('href');
+    if (!targetId || targetId === '#' || !targetId.startsWith('#')) return;
+
+    var targetElem = document.querySelector(targetId);
+    if (targetElem) {
+        e.preventDefault();
+        var details = targetElem.closest('details');
+        if (details) {
+            details.open = true;
+        }
+        targetElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+});
+
 </script>

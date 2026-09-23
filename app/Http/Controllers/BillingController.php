@@ -7,8 +7,6 @@ use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Services\CommercialPricingService;
 use App\Services\InvoiceService;
-use App\Services\PlanPriceService;
-use App\Services\SubscriptionBillingService;
 use App\Support\FinancialPermissions;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -19,45 +17,6 @@ use Illuminate\Validation\Rule;
 
 class BillingController extends Controller
 {
-    public function startPaidSubscription(
-        Request $request,
-        Client $client,
-        PlanPriceService $priceService,
-        SubscriptionBillingService $billingService
-    ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
-
-        $validated = $request->validate([
-            'plan_price_id' => 'required|exists:plan_prices,id',
-            'quantity' => 'required|integer|min:1|max:999',
-            'start_date' => 'required|date',
-            'discount_jod' => $this->nullableMoneyRules(),
-            'discount_reason' => 'nullable|string|max:255',
-            'notes' => 'nullable|string|max:1000',
-            'payment_terms' => ['nullable', Rule::in(['full', 'installments'])],
-            'installments_count' => 'nullable|integer|min:2|max:12',
-            'installment_due_day' => ['nullable', 'integer', Rule::in([1, 5, 15, 30])],
-            'preview_only' => 'nullable|boolean',
-        ]);
-
-        $price = $priceService->activeEffectivePrice((int) $validated['plan_price_id']);
-        if ($request->boolean('preview_only')) {
-            return back()
-                ->withInput()
-                ->with('billingTermsPreview', $billingService->previewPaidSubscriptionTerms($price, $validated));
-        }
-
-        [, , $contractResult] = $billingService->startPaidSubscription($client, $price, $validated, auth()->id());
-
-        $response = back()->with('success', 'تم بدء الاشتراك المدفوع وإنشاء الفاتورة الأولى بدون تسجيل أي دفعة.');
-
-        if ($contractResult['status'] !== 'ready') {
-            $response->with('warning', 'تم حفظ الاشتراك والفاتورة، لكن مسودة العقد تحتاج إعادة توليد من قسم العقود دون إنشاء اشتراك أو فاتورة جديدة.');
-        }
-
-        return $response;
-    }
-
     public function storeOneTimeInvoice(
         Request $request,
         Client $client,
@@ -70,6 +29,11 @@ class BillingController extends Controller
             'issue_date' => 'required|date',
             'due_date' => 'required|date|after_or_equal:issue_date',
             'description' => 'nullable|string|max:1000',
+            'custom_project_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('custom_projects', 'id')->where('client_id', $client->id),
+            ],
             'lines' => 'required|array|min:1',
             'lines.*.line_type' => ['nullable', Rule::in([InvoiceLine::TYPE_ONE_TIME_SERVICE, InvoiceLine::TYPE_CUSTOM])],
             'lines.*.description' => 'nullable|string|max:500',
@@ -101,7 +65,8 @@ class BillingController extends Controller
             Carbon::parse($validated['issue_date']),
             Carbon::parse($validated['due_date']),
             $validated['description'] ?? null,
-            auth()->id()
+            auth()->id(),
+            $validated['custom_project_id'] ?? null
         );
 
         return back()->with('success', 'تم إنشاء وإصدار فاتورة العمل الإضافي بدون إنشاء اشتراك أو دفعة.');

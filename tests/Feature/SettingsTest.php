@@ -2,136 +2,46 @@
 
 namespace Tests\Feature;
 
-use App\Models\Partner;
-use App\Models\Setting;
 use App\Models\User;
-use Database\Seeders\SettingsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
+use App\Models\Setting;
 use Tests\TestCase;
 
 class SettingsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_view_settings_page(): void
+    public function test_admin_can_view_and_update_three_company_wide_settings_sections(): void
     {
-        $this->seed(SettingsSeeder::class);
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $this->actingAs($admin)->get(route('settings.index'))
+            ->assertOk()
+            ->assertSee('الشركة والوثائق')
+            ->assertSee('العمليات')
+            ->assertSee('الاشتراكات والعقود')
+            ->assertDontSee('سجل النشاطات');
 
-        Partner::create([
-            'company_name' => 'شركة الأفق الرقمي',
-            'email' => 'horizon@partner.local',
-            'profit_share_percentage' => 20.00,
+        $response = $this->actingAs($admin)->put(route('settings.update'), [
+            'contract_prefix'=>'CTR','invoice_prefix'=>'BILL','timezone'=>'Asia/Amman','appointment_duration'=>45,
+            'free_installation_duration'=>60,'post_install_followup_days'=>4,'workday_start'=>'09:00','workday_end'=>'17:00',
+            'currency'=>'JOD','default_billing_cycle'=>'annual','auto_contract_on_paid_subscription'=>'1','allow_monthly'=>'1','allow_annual_installments'=>'1',
         ]);
-
-        $response = $this->actingAs($admin)->get(route('settings.index'));
-
-        $response->assertOk();
-        $response->assertSee('مركز التحكم والإعدادات');
-        $response->assertSee('المحددات المالية والتشغيلية');
-        $response->assertSee('مراجع الشركاء وروابط الإحالة');
-        $response->assertSee('سجل النشاطات');
-        $response->assertSee('تصدير التقرير المالي الشامل');
-        $response->assertSee('شركة الأفق الرقمي');
+        $response->assertRedirect();
+        $this->assertSame('CTR', Setting::get('contract_prefix'));
+        $this->assertSame('annual', Setting::get('default_billing_cycle'));
     }
 
-    public function test_non_admin_cannot_view_settings_page(): void
+    public function test_staff_cannot_view_or_update_settings(): void
     {
-        $partner = Partner::create([
-            'company_name' => 'شريك غير مصرح',
-            'email' => 'unauthorized@partner.local',
-        ]);
+        $staff = User::factory()->create(['role' => User::ROLE_STAFF]);
 
-        $partnerUser = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        $response = $this->actingAs($partnerUser)->get(route('settings.index'));
-        $response->assertStatus(403);
+        $this->actingAs($staff)->get(route('settings.index'))->assertForbidden();
+        $this->actingAs($staff)->put(route('settings.update'))->assertForbidden();
     }
 
-    public function test_admin_can_update_review_settings_but_not_deprecated_financial_authority_settings(): void
+    public function test_settings_have_no_financial_export_route(): void
     {
-        $this->seed(SettingsSeeder::class);
-        $admin = User::factory()->create(['role' => 'admin']);
-
-        $data = [
-            'operational_cost_percentage' => 25.5,
-            'market_valuation_multiplier' => 6.0,
-            'allow_auto_transfer_clients' => '1',
-            'annual_discount_percentage' => 12.5,
-            'sales_tax_percentage' => 17.0,
-            'monthly_due_day' => 15,
-        ];
-
-        $response = $this->actingAs($admin)->post(route('settings.update'), $data);
-
-        $response->assertRedirect(route('settings.index'));
-        $response->assertSessionHas('success', 'تم حفظ الإعدادات المالية بنجاح.');
-
-        $this->assertEquals('20', Setting::get('operational_cost_percentage'));
-        $this->assertEquals('5', Setting::get('market_valuation_multiplier'));
-        $this->assertEquals('1', Setting::get('allow_auto_transfer_clients'));
-        $this->assertEquals('12.5', Setting::get('annual_discount_percentage'));
-        $this->assertEquals('17', Setting::get('sales_tax_percentage'));
-        $this->assertEquals('15', Setting::get('monthly_due_day'));
-    }
-
-    public function test_activity_log_displays_recent_entries(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-
-        $client = \App\Models\Client::create([
-            'business_name' => 'شركة النشاط التجاري',
-            'phone' => '0791234567',
-            'city_area' => 'عمان',
-            'business_category' => 'خدمات',
-            'lead_source' => 'Direct',
-            'status' => 'prospect',
-        ]);
-
-        DB::table('activity_logs')->insert([
-            'client_id' => $client->id,
-            'type' => 'client_created_by_delegate',
-            'description' => 'تم إنشاء عميل جديد من خلال مندوب الشريك',
-            'user_id' => $admin->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        DB::table('activity_logs')->insert([
-            'client_id' => $client->id,
-            'type' => 'client_transferred',
-            'description' => 'تم نقل ملكية العميل بعد حل التعارض',
-            'user_id' => $admin->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $response = $this->actingAs($admin)->get(route('settings.index'));
-        $response->assertOk();
-        $response->assertSee('client_created_by_delegate');
-        $response->assertSee('تم إنشاء عميل جديد من خلال مندوب الشريك');
-        $response->assertSee('client_transferred');
-        $response->assertSee('تم نقل ملكية العميل بعد حل التعارض');
-
-        // Test filtering by type
-        $filterResponse = $this->actingAs($admin)->get(route('settings.index', ['type' => 'client_created_by_delegate']));
-        $filterResponse->assertOk();
-        $filterResponse->assertSee('تم إنشاء عميل جديد من خلال مندوب الشريك');
-        $filterResponse->assertDontSee('تم نقل ملكية العميل بعد حل التعارض');
-    }
-
-    public function test_export_download_returns_excel_file(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-
-        $response = $this->actingAs($admin)->get(route('settings.export'));
-
-        $response->assertOk();
-        $response->assertDownload('financial_report.xlsx');
-        $this->assertStringContainsString('FinancialStatementService', $response->streamedContent());
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('settings.export'));
+        $this->assertTrue(\Illuminate\Support\Facades\Route::has('finance.export'));
     }
 }

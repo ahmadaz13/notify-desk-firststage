@@ -16,10 +16,15 @@ class DailyNoteController extends Controller
     {
         $validated = $request->validate([
             'content' => 'nullable|string|max:5000',
+            'date' => 'nullable|date',
         ]);
 
+        $businessDate = !empty($validated['date'])
+            ? Carbon::parse($validated['date'], 'Asia/Amman')->toDateString()
+            : Carbon::now('Asia/Amman')->toDateString();
+
         $note = DailyNote::where('user_id', auth()->id())
-            ->whereDate('date', Carbon::today())
+            ->whereDate('date', $businessDate)
             ->first();
 
         if ($note) {
@@ -27,14 +32,17 @@ class DailyNoteController extends Controller
         } else {
             $note = DailyNote::create([
                 'user_id' => auth()->id(),
-                'date' => Carbon::today()->toDateString(),
+                'date' => $businessDate,
                 'content' => $validated['content'] ?? '',
             ]);
         }
 
+        $nowAmman = Carbon::now('Asia/Amman');
+
         return response()->json([
             'success' => true,
-            'saved_at' => now()->format('H:i:s'),
+            'saved_at' => $nowAmman->format('H:i:s'),
+            'saved_at_formatted' => $nowAmman->format('g:i:s A'),
             'note' => $note,
         ]);
     }

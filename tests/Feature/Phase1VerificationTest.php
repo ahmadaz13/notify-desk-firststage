@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Partner;
 use App\Models\User;
 use Database\Seeders\SettingsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,47 +44,6 @@ class Phase1VerificationTest extends TestCase
         $this->assertAuthenticatedAs($staff);
     }
 
-    public function test_partner_login_identifiers_are_unavailable(): void
-    {
-        $partner = Partner::create([
-            'company_name' => 'شركة الأفق الرقمي',
-            'email' => 'partner@al-ofuq.com',
-            'phone' => '0791112233',
-        ]);
-
-        User::factory()->create([
-            'email' => 'partner@al-ofuq.com',
-            'password' => Hash::make('secret12345'),
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        foreach (['partner@al-ofuq.com', '0791112233'] as $identifier) {
-            $this->post(route('login.store'), [
-                'email' => $identifier,
-                'password' => 'secret12345',
-            ])->assertSessionHasErrors('email');
-            $this->assertGuest();
-        }
-    }
-
-    public function test_partner_password_reset_and_dashboard_are_retired(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $partner = Partner::create([
-            'company_name' => 'شركة التجربة',
-            'email' => 'trial@partner.com',
-        ]);
-
-        $this->actingAs($admin)
-            ->post(route('partners.reset-password', $partner->id))
-            ->assertStatus(410);
-
-        $this->actingAs($admin)
-            ->get(route('partner.dashboard', ['partner_id' => $partner->id]))
-            ->assertStatus(410);
-    }
-
     public function test_canonical_mode_server_rendering(): void
     {
         $this->seed(SettingsSeeder::class);
@@ -95,17 +53,16 @@ class Phase1VerificationTest extends TestCase
         $responseDaily->assertOk();
         $responseDaily->assertViewHas('currentMode', 'daily');
 
-        $responseFinancial = $this->actingAs($admin)->get(route('dashboard', ['mode' => 'financial']));
-        $responseFinancial->assertOk();
-        $responseFinancial->assertViewHas('currentMode', 'financial');
-        $responseFinancial->assertSee('لوحة المال القديمة (Deprecated)');
+        $responseWork = $this->actingAs($admin)->get(route('dashboard', ['mode' => 'work']));
+        $responseWork->assertOk();
+        $responseWork->assertViewHas('currentMode', 'work');
 
         $responseInvalid = $this->actingAs($admin)->get(route('dashboard', ['mode' => 'hacked_mode']));
         $responseInvalid->assertOk();
         $responseInvalid->assertViewHas('currentMode', 'daily');
     }
 
-    public function test_mobile_financial_panel_is_deprecated(): void
+    public function test_retired_financial_mode_falls_back_to_today(): void
     {
         $this->seed(SettingsSeeder::class);
         $admin = User::factory()->create(['role' => 'admin']);
@@ -113,13 +70,12 @@ class Phase1VerificationTest extends TestCase
         $response = $this->actingAs($admin)->get(route('dashboard', ['mode' => 'financial']));
         $response->assertOk();
 
-        $response->assertSee('لوحة المال القديمة (Deprecated)');
-        $response->assertSee('المصدر المعتمد للمؤشرات');
-        $response->assertSee('Legacy financial widgets');
+        $response->assertViewHas('currentMode', 'daily');
+        $response->assertDontSee('Legacy financial widgets');
         $response->assertDontSee('financial-cards-grid');
     }
 
-    public function test_mobile_add_client_fab_semantics_touch_target_and_accessibility(): void
+    public function test_shell_add_client_action_has_touch_target_and_accessibility(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
 
@@ -128,16 +84,16 @@ class Phase1VerificationTest extends TestCase
 
         $content = $response->getContent();
 
-        $this->assertSame(1, substr_count($content, 'data-notify-add-client-fab'));
-        $response->assertSee('class="notify-add-client-fab"', false);
+        $this->assertSame(1, substr_count($content, 'data-shell-action="add-client"'));
+        $response->assertSee('notify-button--primary', false);
         $response->assertSee('href="'.route('clients.create').'"', false);
         $response->assertSee('aria-label="إضافة عميل"', false);
         $response->assertSee('data-lucide="plus"', false);
         $response->assertDontSee('quick-expense-fab-btn', false);
 
         $css = file_get_contents(resource_path('css/app.css'));
-        $this->assertStringContainsString('.notify-add-client-fab', $css);
+        $this->assertStringContainsString('.notify-button', $css);
         $this->assertStringContainsString('min-height: 48px', $css);
-        $this->assertStringContainsString('safe-area-inset-bottom', $css);
+        $this->assertStringContainsString('.notify-mobile-nav', $css);
     }
 }

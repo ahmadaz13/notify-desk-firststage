@@ -1,9 +1,9 @@
-<div id="tab-installation" class="tab-pane" style="display:none">
+<div id="tab-installation">
     <div class="notify-section-stack">
 <div class="notify-section-intro">
                 <div>
                     <p class="notify-eyebrow">INSTALL_01</p>
-                    <h2>{{ __('notify.installations.title') }}</h2>
+                    <h2>التركيب والمتابعة</h2>
                     <small>{{ __('notify.installations.subtitle') }}</small>
                 </div>
                 <span class="notify-badge notify-badge--success">{{ $activeInstallationAppointments->count() }} نشطة</span>
@@ -17,7 +17,7 @@
                     @forelse($installationAppointments as $appointment)
                         <article class="notify-action-row">
                             <span class="badge {{ in_array($appointment->status, \App\Support\AppointmentTypes::activeStatuses(), true) ? 'gold' : ($appointment->status === 'completed' ? 'green' : 'red') }}">
-                                {{ $appointment->status }}
+                                {{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($appointment->status) }}
                             </span>
                             <div class="list-main">
                                 <strong>{{ $appointment->appointment_date }} · {{ $appointment->appointment_time }}</strong>
@@ -77,7 +77,7 @@
                     <button class="btn btn-primary" style="margin-top:12px" type="submit">جدولة التركيب</button>
                 </form>
 
-                <form method="POST" action="{{ route('clients.installations.complete', $client->id) }}" style="border-top:1px solid var(--nd-border);padding-top:16px">
+                <form method="POST" action="{{ route('clients.installations.complete', $client->id) }}" id="sec-complete-installation" style="border-top:1px solid var(--nd-border);padding-top:16px">
                     @csrf
                     <h3 style="margin:0 0 10px 0;font-size:16px">إكمال التركيب المجاني</h3>
                     <div class="form-grid">
@@ -191,7 +191,7 @@
         </div>
 
         {{-- Add Follow-up Form --}}
-        <div class="card form-card">
+        <div class="card form-card" id="sec-follow-ups">
             <h3 style="margin-top:0">تسجيل متابعة جديدة</h3>
             <form method="POST" action="{{ route('clients.follow-ups.store', $client->id) }}">
                 @csrf

@@ -4,7 +4,6 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -17,7 +16,6 @@ class User extends Authenticatable
     public const ROLE_ADMIN = 'admin';
     public const ROLE_STAFF = 'staff';
     public const ROLE_EMPLOYEE = 'employee';
-    public const ROLE_PARTNER = 'partner';
 
     public static function ownerLevelRoles(): array
     {
@@ -38,7 +36,6 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'partner_id',
         'role',
         'is_active',
         'first_login_at',
@@ -71,11 +68,6 @@ class User extends Authenticatable
         ];
     }
 
-    public function partner(): BelongsTo
-    {
-        return $this->belongsTo(Partner::class);
-    }
-
     public function isFounder(): bool
     {
         return $this->role === self::ROLE_FOUNDER;
@@ -83,7 +75,7 @@ class User extends Authenticatable
 
     public function isOwnerLevelInternalUser(): bool
     {
-        return empty($this->role) || in_array($this->role, [self::ROLE_FOUNDER, self::ROLE_ADMIN], true);
+        return in_array($this->role, [self::ROLE_FOUNDER, self::ROLE_ADMIN], true);
     }
 
     public function isAdmin(): bool
@@ -106,22 +98,13 @@ class User extends Authenticatable
         return $this->is_active !== false && ($this->isAdmin() || $this->isStaff());
     }
 
-    public function isPartner(): bool
-    {
-        return false;
-    }
-
-    public function hasLegacyPartnerRole(): bool
-    {
-        return $this->role === self::ROLE_PARTNER;
-    }
-
     public function roleLabelKey(): string
     {
         return match ($this->role) {
             self::ROLE_FOUNDER => 'notify.common.role_founder',
             self::ROLE_STAFF => 'notify.common.role_staff',
-            default => 'notify.common.role_admin',
+            self::ROLE_ADMIN => 'notify.common.role_admin',
+            default => 'notify.common.role_guest',
         };
     }
 

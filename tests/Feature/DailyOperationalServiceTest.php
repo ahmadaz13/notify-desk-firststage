@@ -6,7 +6,6 @@ use App\Models\Appointment;
 use App\Models\Client;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
-use App\Models\Partner;
 use App\Models\User;
 use App\Services\DailyOperationalService;
 use Carbon\Carbon;
@@ -104,9 +103,8 @@ class DailyOperationalServiceTest extends TestCase
 
         $this->assertEquals(1, $snapshot['appointments_count']);
         $this->assertEquals(1, $snapshot['pending_follow_ups']);
-        $this->assertEquals(150.00, $snapshot['today_collections']);
-        $this->assertEquals(45.00, $snapshot['today_expenses']);
-        $this->assertEquals(105.00, $snapshot['today_net']);
+        $this->assertArrayNotHasKey('today_collections', $snapshot);
+        $this->assertArrayNotHasKey('today_net', $snapshot);
     }
 
     public function test_today_snapshot_respects_visibility(): void
@@ -152,92 +150,24 @@ class DailyOperationalServiceTest extends TestCase
         $khalidSnapshot = $this->service->getTodaySnapshot($khalid);
 
         // Ahmad sees: Ahmad personal (20) + shared (50) = 70. Khalid's personal (40) is excluded.
-        $this->assertEquals(70.00, $ahmadSnapshot['today_expenses']);
+        $this->assertArrayNotHasKey('today_expenses', $ahmadSnapshot);
 
         // Khalid sees: Khalid personal (40) + shared (50) = 90. Ahmad's personal (20) is excluded.
-        $this->assertEquals(90.00, $khalidSnapshot['today_expenses']);
+        $this->assertArrayNotHasKey('today_expenses', $khalidSnapshot);
     }
 
-    public function test_today_snapshot_is_internal_only_and_referral_data_is_visible_to_internal_users(): void
+    public function test_today_snapshot_is_internal_only(): void
     {
-        $partner = Partner::create([
-            'company_name' => 'الشريك الذهبي',
-            'email' => 'partner@gold.com',
-            'phone' => '0799999999',
-        ]);
-        $partnerUser = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        // Admin client and expense
-        $adminClient = Client::create([
-            'business_name' => 'عميل الشركة المباشر',
-            'contact_person' => 'علي',
-            'phone' => '0791111111',
-            'city_area' => 'عمان',
-            'business_category' => 'تجارة',
-            'lead_source' => 'مباشر',
-            'status' => 'subscriber',
-        ]);
-        $cat = ExpenseCategory::first();
-        Expense::create([
-            'amount' => 100.00,
-            'category_id' => $cat->id,
-            'category' => $cat->name,
-            'description' => 'مصروف تشغيلي عام',
-            'date' => Carbon::today()->toDateString(),
-            'visibility' => 'shared',
-            'paid_by' => 1,
-        ]);
-
-        // Partner client and payment
-        $partnerClient = Client::create([
-            'business_name' => 'عميل تابع للشريك',
-            'contact_person' => 'سالم',
-            'phone' => '0792222222',
-            'city_area' => 'اربد',
-            'business_category' => 'خدمات',
-            'lead_source' => 'شريك',
-            'status' => 'subscriber',
-            'partner_id' => $partner->id,
-        ]);
-        $subPartnerId = DB::table('subscriptions')->insertGetId([
-            'client_id' => $partnerClient->id,
-            'user_id' => $partnerUser->id,
-            'billing_type' => 'monthly',
-            'total_price' => 80.00,
-            'start_date' => now()->toDateString(),
-            'status' => 'active',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        DB::table('payments')->insert([
-            'client_id' => $partnerClient->id,
-            'subscription_id' => $subPartnerId,
-            'amount' => 80.00,
-            'paid_at' => Carbon::today(),
-            'payment_method' => 'cash',
-            'recorded_by' => $partnerUser->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $externalUser = User::factory()->create(['role' => User::ROLE_EMPLOYEE]);
 
         $this->expectException(AuthorizationException::class);
-        $this->service->getTodaySnapshot($partnerUser);
+        $this->service->getTodaySnapshot($externalUser);
     }
 
-    public function test_today_snapshot_includes_referral_attributed_clients_for_internal_users(): void
+    public function test_today_snapshot_accepts_clients_with_referral_metadata(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
-        $partner = Partner::create([
-            'company_name' => 'الشريك الذهبي',
-            'email' => 'partner@gold.com',
-            'phone' => '0799999999',
-        ]);
-
-        $partnerClient = Client::create([
+        Client::create([
             'business_name' => 'عميل إحالة',
             'contact_person' => 'سالم',
             'phone' => '0792222222',
@@ -245,33 +175,12 @@ class DailyOperationalServiceTest extends TestCase
             'business_category' => 'خدمات',
             'lead_source' => 'شريك',
             'status' => 'subscriber',
-            'partner_id' => $partner->id,
-        ]);
-        $subPartnerId = DB::table('subscriptions')->insertGetId([
-            'client_id' => $partnerClient->id,
-            'user_id' => $admin->id,
-            'billing_type' => 'monthly',
-            'total_price' => 80.00,
-            'start_date' => now()->toDateString(),
-            'status' => 'active',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        DB::table('payments')->insert([
-            'client_id' => $partnerClient->id,
-            'subscription_id' => $subPartnerId,
-            'amount' => 80.00,
-            'paid_at' => Carbon::today(),
-            'payment_method' => 'cash',
-            'recorded_by' => $admin->id,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'referred_by_name' => 'معرّف خارجي',
         ]);
 
         $snapshot = $this->service->getTodaySnapshot($admin);
 
-        $this->assertEquals(80.00, $snapshot['today_collections']);
+        $this->assertArrayNotHasKey('today_collections', $snapshot);
     }
 
     public function test_pending_follow_ups_includes_overdue(): void
@@ -335,27 +244,5 @@ class DailyOperationalServiceTest extends TestCase
         $this->assertNotContains('متابعة مستقبلية', $reasons);
     }
 
-    public function test_recent_expenses_limits_correctly(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $cat = ExpenseCategory::first();
 
-        for ($i = 1; $i <= 8; $i++) {
-            Expense::create([
-                'amount' => 10.00 * $i,
-                'category_id' => $cat->id,
-                'category' => $cat->name,
-                'description' => "مصروف {$i}",
-                'date' => Carbon::today()->subDays($i)->toDateString(),
-                'visibility' => 'shared',
-                'paid_by' => $admin->id,
-            ]);
-        }
-
-        $recent = $this->service->getRecentExpenses($admin, 5);
-
-        $this->assertCount(5, $recent);
-        $this->assertTrue($recent->first()->relationLoaded('categoryModel'));
-        $this->assertTrue($recent->first()->relationLoaded('payer'));
-    }
 }

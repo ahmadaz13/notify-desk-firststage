@@ -13,8 +13,6 @@ class FinancialPermissions
     public const MANAGE_VENDORS = 'manage_vendors';
     public const MANAGE_RECURRING_EXPENSES = 'manage_recurring_expenses';
     public const VIEW_EXPENSE_MANAGEMENT = 'view_expense_management';
-    public const MANAGE_INVESTMENTS = 'manage_investments';
-    public const MANAGE_CAPITAL_EXPENSES = 'manage_capital_expenses';
     public const MANAGE_FINANCIAL_SETTINGS = 'manage_financial_settings';
     public const VIEW_FINANCIAL_REPORTS = 'view_financial_reports';
     public const MANAGE_COMMERCIAL_CATALOG = 'manage_commercial_catalog';
@@ -56,8 +54,6 @@ class FinancialPermissions
         self::MANAGE_VENDORS,
         self::MANAGE_RECURRING_EXPENSES,
         self::VIEW_EXPENSE_MANAGEMENT,
-        self::MANAGE_INVESTMENTS,
-        self::MANAGE_CAPITAL_EXPENSES,
         self::MANAGE_FINANCIAL_SETTINGS,
         self::VIEW_FINANCIAL_REPORTS,
         self::MANAGE_COMMERCIAL_CATALOG,

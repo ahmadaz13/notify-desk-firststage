@@ -11,6 +11,7 @@ import {
     ClipboardList,
     Home,
     Landmark,
+    Languages,
     LogOut,
     Menu,
     Package,
@@ -19,6 +20,7 @@ import {
     Users,
     Wallet,
     Wrench,
+    X,
     createIcons,
 } from 'lucide';
 
@@ -37,6 +39,7 @@ createIcons({
         ClipboardList,
         Home,
         Landmark,
+        Languages,
         LogOut,
         Menu,
         Package,
@@ -45,5 +48,6 @@ createIcons({
         Users,
         Wallet,
         Wrench,
+        X,
     },
 });

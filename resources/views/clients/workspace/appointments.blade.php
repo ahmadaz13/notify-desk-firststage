@@ -1,4 +1,4 @@
-<div id="tab-appointments" class="tab-pane" style="display:none">
+<div id="tab-appointments">
     <div class="notify-section-intro">
         <div>
             <p class="notify-eyebrow">APPOINTMENTS_01</p>
@@ -22,7 +22,7 @@
                     @endphp
                     <div class="list-row notify-action-row">
                         <span class="badge {{ $appointment->status === 'completed' ? 'green' : ($appointment->status === 'confirmed' ? 'green' : ($appointment->status === 'cancelled' ? 'red' : 'gold')) }}" @if($isInstallationAppointment) style="background:#e0f2fe;color:#0369a1" @endif>
-                            {{ $appointment->status }}
+                            {{ \App\ViewModels\ClientWorkspaceViewModel::statusLabel($appointment->status) }}
                         </span>
                         <div class="list-main">
                             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -97,7 +97,7 @@
         </div>
 
         {{-- Schedule New Appointment --}}
-        <div class="card form-card">
+        <div class="card form-card" id="sec-create-appointment">
             <h3 style="margin-top:0">جدولة موعد جديد</h3>
             <form method="POST" action="{{ route('appointments.store') }}">
                 @csrf

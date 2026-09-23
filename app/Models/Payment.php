@@ -72,4 +72,11 @@ class Payment extends Model
     {
         return $this->hasMany(Refund::class)->orderBy('refunded_at')->orderBy('id');
     }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Payment $payment) {
+            throw new \DomainException('Payments are immutable financial records and cannot be deleted. Use reversal instead.');
+        });
+    }
 }

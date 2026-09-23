@@ -20,6 +20,7 @@ class Invoice extends Model
         'invoice_number',
         'client_id',
         'subscription_id',
+        'custom_project_id',
         'currency',
         'status',
         'issue_date',
@@ -60,6 +61,11 @@ class Invoice extends Model
         return $this->belongsTo(Subscription::class);
     }
 
+    public function customProject(): BelongsTo
+    {
+        return $this->belongsTo(CustomProject::class);
+    }
+
     public function lines(): HasMany
     {
         return $this->hasMany(InvoiceLine::class)->orderBy('sort_order')->orderBy('id');
@@ -78,5 +84,16 @@ class Invoice extends Model
     public function totalJod(): string
     {
         return Money::fromMinorUnits($this->total_minor)->format();
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Invoice $invoice) {
+            if ($invoice->status !== self::STATUS_DRAFT
+                || $invoice->allocations()->exists()
+                || $invoice->creditApplications()->exists()) {
+                throw new \DomainException('Issued, voided, or allocated invoices cannot be deleted. Use invoice voiding instead.');
+            }
+        });
     }
 }

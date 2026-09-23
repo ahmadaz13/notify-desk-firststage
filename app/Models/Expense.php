@@ -134,4 +134,13 @@ class Expense extends Model
     {
         return $query->v2()->whereDoesntHave('reversal');
     }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Expense $expense) {
+            if ($expense->expense_engine_version === self::ENGINE_V2 || $expense->reversal()->exists()) {
+                throw new \DomainException('Operating expenses are financial records and cannot be deleted. Use reversal instead.');
+            }
+        });
+    }
 }

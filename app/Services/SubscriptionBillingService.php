@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\InvoiceLine;
 use App\Models\PlanPrice;
+use App\Models\Product;
+use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\SubscriptionBillingPeriod;
 use App\Models\SubscriptionEvent;
@@ -137,7 +140,145 @@ class SubscriptionBillingService
             return [$subscription->fresh(['billingPeriods', 'lifecycleEvents']), $invoice];
         });
 
-        $contractResult = $this->createInitialContractDraft($client->fresh(), $subscription, $userId);
+        $contractResult = Setting::get('auto_contract_on_paid_subscription', '1') === '1'
+            ? $this->createInitialContractDraft($client->fresh(), $subscription, $userId)
+            : ['status' => 'disabled', 'contract' => null];
+
+        return [$subscription, $invoice, $contractResult];
+    }
+
+    /**
+     * V1 commercial path. The human-entered agreed value is the only price
+     * authority; legacy Plan/PlanPrice records are intentionally not involved.
+     */
+    public function startAgreedSubscription(Client $client, Collection $systems, array $data, ?int $userId): array
+    {
+        $stage = ClientLifecycle::normalizeStage($client->stage ?? null, $client->status ?? null);
+        if ($stage === ClientLifecycle::CLOSED) {
+            throw ValidationException::withMessages(['client_id' => 'لا يمكن بدء اشتراك مدفوع لعميل مغلق قبل إعادة فتحه.']);
+        }
+        if ($systems->isEmpty()) {
+            throw ValidationException::withMessages(['system_ids' => 'اختر نظاماً واحداً على الأقل.']);
+        }
+
+        $interval = (string) $data['billing_interval'];
+        $agreedMinor = (int) $data['agreed_value_minor'];
+        $start = Carbon::parse($data['start_date'])->startOfDay();
+        $periodEnd = $this->periodEnd($start, $interval);
+        $nextBilling = $this->nextPeriodStart($start, $interval);
+        $paymentTerms = $this->simplePaymentTerms($interval, $data);
+        $systemNames = $systems->pluck('name_ar')->join('، ');
+        $pricing = [
+            'quantity' => 1,
+            'unit_price_minor' => $agreedMinor,
+            'setup_fee_minor' => 0,
+            'subtotal_minor' => $agreedMinor,
+            'discount_minor' => 0,
+            'tax_rate_bps' => null,
+            'tax_minor' => 0,
+            'total_minor' => $agreedMinor,
+            'lines' => [[
+                'line_type' => InvoiceLine::TYPE_SUBSCRIPTION,
+                'plan_id' => null,
+                'plan_price_id' => null,
+                'item_code_snapshot' => 'systems-'.implode('-', $systems->pluck('code')->all()),
+                'description_snapshot' => 'اشتراك الأنظمة: '.$systemNames.' - '.($interval === PlanPrice::ANNUAL ? 'سنوي' : 'شهري'),
+                'quantity' => 1,
+                'unit_price_minor' => $agreedMinor,
+                'subtotal_minor' => $agreedMinor,
+                'discount_minor' => 0,
+                'tax_rate_bps' => null,
+                'tax_minor' => 0,
+                'total_minor' => $agreedMinor,
+                'metadata' => ['system_ids' => $systems->pluck('id')->all()],
+                'sort_order' => 1,
+            ]],
+        ];
+
+        [$subscription, $invoice] = DB::transaction(function () use ($client, $systems, $data, $userId, $interval, $agreedMinor, $start, $periodEnd, $nextBilling, $paymentTerms, $pricing, $systemNames) {
+            Client::whereKey($client->id)->lockForUpdate()->firstOrFail();
+            $systemIds = $systems->pluck('id')->all();
+            $conflict = Subscription::query()
+                ->where('client_id', $client->id)
+                ->where('status', 'active')
+                ->whereHas('systems', fn ($query) => $query->whereIn('products.id', $systemIds))
+                ->exists();
+            if ($conflict) {
+                throw ValidationException::withMessages(['system_ids' => 'أحد الأنظمة المختارة مرتبط باشتراك مدفوع نشط لهذا العميل.']);
+            }
+
+            $subscription = Subscription::create([
+                'client_id' => $client->id,
+                'user_id' => $userId,
+                'billing_engine_version' => 'v1_simple',
+                'billing_interval_v2' => $interval,
+                'currency' => 'JOD',
+                'quantity' => 1,
+                'plan_code_snapshot' => 'v1-systems',
+                'plan_name_snapshot' => $systemNames,
+                'unit_price_minor' => $agreedMinor,
+                'setup_fee_minor_v2' => 0,
+                'subtotal_minor' => $agreedMinor,
+                'discount_minor' => 0,
+                'tax_rate_bps' => null,
+                'tax_minor_v2' => 0,
+                'total_minor' => $agreedMinor,
+                'agreed_value_minor' => $agreedMinor,
+                'payment_terms' => $paymentTerms['type'],
+                'current_period_start' => $start->toDateString(),
+                'current_period_end' => $periodEnd->toDateString(),
+                'next_billing_date' => $nextBilling->toDateString(),
+                'billing_type' => $interval,
+                'total_price' => Money::fromMinorUnits($agreedMinor)->format(),
+                'grand_total' => Money::fromMinorUnits($agreedMinor)->format(),
+                'setup_fee' => '0.000',
+                'start_date' => $start->toDateString(),
+                'renewal_date' => $nextBilling->toDateString(),
+                'monthly_due_day' => $paymentTerms['due_day'],
+                'installments_count' => $paymentTerms['installments_count'],
+                'status' => 'active',
+                'version' => 1,
+            ]);
+
+            $subscription->systems()->attach($systems->mapWithKeys(fn (Product $system) => [$system->id => [
+                'system_code_snapshot' => $system->code,
+                'system_name_ar_snapshot' => $system->name_ar,
+                'system_name_en_snapshot' => $system->name_en,
+            ]])->all());
+
+            foreach ($systems as $system) {
+                DB::table('client_system')->updateOrInsert(
+                    ['client_id' => $client->id, 'product_id' => $system->id],
+                    ['access_type' => 'paid', 'granted_at' => $start->toDateString(), 'revoked_at' => null, 'granted_by' => $userId, 'updated_at' => now(), 'created_at' => now()]
+                );
+            }
+
+            $invoice = $this->invoiceService->createIssuedForSubscription($client, $subscription, $pricing, $start, $start, $data['notes'] ?? null, $userId);
+            if ($paymentTerms['installments_count'] > 1) {
+                $this->paymentSchedules->ensureAnnualInstallmentSchedule($subscription->fresh(), $invoice, $paymentTerms['installments_count'], $paymentTerms['due_day']);
+            }
+            $period = $this->createOrLinkPeriod($subscription->fresh(), null, $pricing, $start, $periodEnd, $invoice, 1);
+            $event = $this->recordEvent($subscription, SubscriptionEvent::TYPE_STARTED, $start, [
+                'to_price_minor' => $agreedMinor,
+                'billing_interval' => $interval,
+                'quantity' => 1,
+                'created_by' => $userId,
+                'metadata' => ['invoice_id' => $invoice->id, 'system_ids' => $systemIds],
+            ]);
+            $this->saasMetricEvents->recordNew($subscription, $event, $period);
+            $client->update(['stage' => ClientLifecycle::SUBSCRIBER, 'status' => 'subscriber', 'closed_at' => null, 'closed_reason' => null]);
+            $this->log($client->id, $userId, 'subscription_started', 'تم تحويل العميل إلى مشترك', [
+                'subscription_id' => $subscription->id,
+                'system_ids' => $systemIds,
+                'agreed_value_minor' => $agreedMinor,
+            ]);
+
+            return [$subscription->fresh(['systems', 'billingPeriods', 'lifecycleEvents']), $invoice];
+        });
+
+        $contractResult = Setting::get('auto_contract_on_paid_subscription', '1') === '1'
+            ? $this->createInitialContractDraft($client->fresh(), $subscription, $userId)
+            : ['status' => 'disabled', 'contract' => null];
 
         return [$subscription, $invoice, $contractResult];
     }
@@ -155,7 +296,7 @@ class SubscriptionBillingService
         ];
 
         Subscription::query()
-            ->where('billing_engine_version', 'v2')
+            ->whereIn('billing_engine_version', ['v2', 'v1_simple'])
             ->where('status', 'active')
             ->where('cancel_at_period_end', true)
             ->whereNotNull('current_period_end')
@@ -184,6 +325,22 @@ class SubscriptionBillingService
             ->orderBy('id')
             ->each(function (Subscription $subscription) use (&$counts, $dryRun, $userId) {
                 $result = $this->renewOne($subscription, $dryRun, $userId);
+                $counts[$result]++;
+            });
+
+        Subscription::query()
+            ->with(['client', 'systems'])
+            ->where('billing_engine_version', 'v1_simple')
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->where('cancel_at_period_end', false)->orWhereNull('cancel_at_period_end');
+            })
+            ->whereNotNull('next_billing_date')
+            ->whereDate('next_billing_date', '<=', $throughDate->toDateString())
+            ->orderBy('next_billing_date')
+            ->orderBy('id')
+            ->each(function (Subscription $subscription) use (&$counts, $dryRun, $userId) {
+                $result = $this->renewSimpleSubscription($subscription, $dryRun, $userId);
                 $counts[$result]++;
             });
 
@@ -308,7 +465,7 @@ class SubscriptionBillingService
 
     public function scheduleCancellation(Subscription $subscription, ?string $reason, ?int $userId): Subscription
     {
-        $this->assertV2($subscription);
+        $this->assertLifecycleManaged($subscription);
         if ($subscription->status !== 'active') {
             throw ValidationException::withMessages(['subscription_id' => 'يمكن جدولة إلغاء اشتراك نشط فقط.']);
         }
@@ -338,7 +495,7 @@ class SubscriptionBillingService
 
     public function undoCancellation(Subscription $subscription, ?int $userId): Subscription
     {
-        $this->assertV2($subscription);
+        $this->assertLifecycleManaged($subscription);
         if (! $subscription->cancel_at_period_end || $subscription->status !== 'active') {
             throw ValidationException::withMessages(['subscription_id' => 'لا توجد جدولة إلغاء نشطة لهذا الاشتراك.']);
         }
@@ -587,6 +744,108 @@ class SubscriptionBillingService
         });
     }
 
+    private function renewSimpleSubscription(Subscription $subscription, bool $dryRun, ?int $userId): string
+    {
+        if (! $this->subscriptionHasDates($subscription) || ! in_array($subscription->billing_interval_v2, [PlanPrice::MONTHLY, PlanPrice::ANNUAL], true)) {
+            return 'review';
+        }
+
+        $start = $subscription->next_billing_date->copy()->startOfDay();
+        $periodEnd = $this->periodEnd($start, $subscription->billing_interval_v2);
+        $existing = SubscriptionBillingPeriod::where('subscription_id', $subscription->id)
+            ->whereDate('period_start', $start->toDateString())
+            ->whereDate('period_end', $periodEnd->toDateString())
+            ->first();
+        if ($existing?->invoice_id !== null) {
+            return 'already_processed';
+        }
+        if ($dryRun) {
+            return 'renewed';
+        }
+
+        return DB::transaction(function () use ($subscription, $start, $periodEnd, $existing, $userId) {
+            Client::whereKey($subscription->client_id)->lockForUpdate()->firstOrFail();
+            $subscription = Subscription::with(['client', 'systems'])->whereKey($subscription->id)->lockForUpdate()->firstOrFail();
+            if ($subscription->next_billing_date === null || ! $subscription->next_billing_date->isSameDay($start)) {
+                return 'already_processed';
+            }
+
+            $agreedMinor = (int) ($subscription->agreed_value_minor ?: $subscription->total_minor);
+            if ($agreedMinor <= 0 || $subscription->systems->isEmpty()) {
+                return 'review';
+            }
+
+            $systemNames = $subscription->systems->pluck('pivot.system_name_ar_snapshot')->filter()->join('، ');
+            $pricing = [
+                'quantity' => 1,
+                'unit_price_minor' => $agreedMinor,
+                'setup_fee_minor' => 0,
+                'subtotal_minor' => $agreedMinor,
+                'discount_minor' => 0,
+                'tax_rate_bps' => null,
+                'tax_minor' => 0,
+                'total_minor' => $agreedMinor,
+                'lines' => [[
+                    'line_type' => InvoiceLine::TYPE_SUBSCRIPTION,
+                    'plan_id' => null,
+                    'plan_price_id' => null,
+                    'item_code_snapshot' => 'systems-'.implode('-', $subscription->systems->pluck('code')->all()),
+                    'description_snapshot' => 'تجديد اشتراك الأنظمة: '.$systemNames,
+                    'quantity' => 1,
+                    'unit_price_minor' => $agreedMinor,
+                    'subtotal_minor' => $agreedMinor,
+                    'discount_minor' => 0,
+                    'tax_rate_bps' => null,
+                    'tax_minor' => 0,
+                    'total_minor' => $agreedMinor,
+                    'metadata' => ['system_ids' => $subscription->systems->pluck('id')->all()],
+                    'sort_order' => 1,
+                ]],
+            ];
+            $nextBilling = $this->nextPeriodStart($start, $subscription->billing_interval_v2);
+            $beforePeriod = $this->periodCoveringDate($subscription, $start->copy()->subDay());
+            $subscription->update([
+                'current_period_start' => $start->toDateString(),
+                'current_period_end' => $periodEnd->toDateString(),
+                'next_billing_date' => $nextBilling->toDateString(),
+                'renewal_date' => $nextBilling->toDateString(),
+                'version' => (int) $subscription->version + 1,
+            ]);
+
+            $invoice = $this->invoiceService->createIssuedForSubscription(
+                $subscription->client,
+                $subscription->fresh(),
+                $pricing,
+                $start,
+                $start,
+                'Subscription renewal',
+                $userId
+            );
+            $installmentsCount = $subscription->billing_interval_v2 === PlanPrice::ANNUAL ? max(1, (int) $subscription->installments_count) : 1;
+            if ($installmentsCount > 1) {
+                $this->paymentSchedules->ensureAnnualInstallmentSchedule($subscription->fresh(), $invoice, $installmentsCount, (int) ($subscription->monthly_due_day ?: 1));
+            }
+
+            $period = $existing ?: $this->createOrLinkPeriod($subscription->fresh(), null, $pricing, $start, $periodEnd, null, $this->nextPeriodNumber($subscription));
+            $period->update(['invoice_id' => $invoice->id, 'status' => SubscriptionBillingPeriod::STATUS_INVOICED, 'generated_at' => now()]);
+            $event = $this->recordEvent($subscription, SubscriptionEvent::TYPE_RENEWED, $start, [
+                'to_price_minor' => $agreedMinor,
+                'billing_interval' => $subscription->billing_interval_v2,
+                'quantity' => 1,
+                'created_by' => $userId,
+                'metadata' => ['invoice_id' => $invoice->id, 'billing_period_id' => $period->id],
+            ]);
+            $this->saasMetricEvents->recordEffectivePeriodChange($subscription->fresh(), $event, $beforePeriod, $period->fresh());
+            $this->log($subscription->client_id, $userId, 'subscription_renewed', 'تم توليد فاتورة تجديد اشتراك', [
+                'subscription_id' => $subscription->id,
+                'invoice_id' => $invoice->id,
+                'billing_period_id' => $period->id,
+            ]);
+
+            return 'renewed';
+        });
+    }
+
     private function applyScheduledCancellation(Subscription $subscription, ?int $userId): void
     {
         DB::transaction(function () use ($subscription, $userId) {
@@ -711,7 +970,7 @@ class SubscriptionBillingService
         })->exists();
     }
 
-    private function createOrLinkPeriod(Subscription $subscription, PlanPrice $price, array $pricing, Carbon|string $start, Carbon|string $end, ?Invoice $invoice, int $periodNumber): SubscriptionBillingPeriod
+    private function createOrLinkPeriod(Subscription $subscription, ?PlanPrice $price, array $pricing, Carbon|string $start, Carbon|string $end, ?Invoice $invoice, int $periodNumber): SubscriptionBillingPeriod
     {
         $start = Carbon::parse($start)->startOfDay();
         $end = Carbon::parse($end)->startOfDay();
@@ -738,17 +997,17 @@ class SubscriptionBillingService
             'period_start' => $start->toDateString(),
             'period_end' => $end->toDateString(),
             'period_number' => $periodNumber,
-            'billing_interval' => $price->billing_interval,
-            'plan_id' => $price->plan_id,
-            'plan_price_id' => $price->id,
-            'plan_name_snapshot' => $price->plan?->name_ar ?: $subscription->plan_name_snapshot,
+            'billing_interval' => $price?->billing_interval ?: $subscription->billing_interval_v2,
+            'plan_id' => $price?->plan_id,
+            'plan_price_id' => $price?->id,
+            'plan_name_snapshot' => $price?->plan?->name_ar ?: $subscription->plan_name_snapshot,
             'price_snapshot_minor' => (int) $pricing['unit_price_minor'],
             'quantity' => (int) $pricing['quantity'],
             'subtotal_minor' => (int) $pricing['subtotal_minor'],
             'discount_minor' => (int) $pricing['discount_minor'],
             'tax_minor' => (int) $pricing['tax_minor'],
             'total_minor' => (int) $pricing['total_minor'],
-            'currency' => $price->currency ?: 'JOD',
+            'currency' => $price?->currency ?: $subscription->currency ?: 'JOD',
             'invoice_id' => $invoice?->id,
             'status' => $invoice ? SubscriptionBillingPeriod::STATUS_INVOICED : SubscriptionBillingPeriod::STATUS_SCHEDULED,
             'generated_at' => $invoice ? now() : null,
@@ -905,6 +1164,24 @@ class SubscriptionBillingService
         return ['type' => 'installments', 'installments_count' => $count, 'due_day' => $dueDay];
     }
 
+    private function simplePaymentTerms(string $interval, array $data): array
+    {
+        $terms = $data['payment_terms'] ?? 'full';
+        if ($interval !== PlanPrice::ANNUAL || $terms !== 'installments') {
+            return ['type' => 'full', 'installments_count' => 1, 'due_day' => 1];
+        }
+        $count = (int) ($data['installments_count'] ?? 0);
+        $dueDay = (int) ($data['installment_due_day'] ?? 0);
+        if ($count < 2 || $count > 12) {
+            throw ValidationException::withMessages(['installments_count' => 'عدد الأقساط السنوية يجب أن يكون بين 2 و12.']);
+        }
+        if ($dueDay < 1 || $dueDay > 31) {
+            throw ValidationException::withMessages(['installment_due_day' => 'يوم استحقاق الأقساط يجب أن يكون بين 1 و31.']);
+        }
+
+        return ['type' => 'installments', 'installments_count' => $count, 'due_day' => $dueDay];
+    }
+
     private function subscriptionUpdateSnapshot(PlanPrice $price, array $pricing, Carbon $start, Carbon $end, Carbon $nextBilling): array
     {
         return [
@@ -973,6 +1250,13 @@ class SubscriptionBillingService
     {
         if ($subscription->billing_engine_version !== 'v2') {
             throw ValidationException::withMessages(['subscription_id' => 'هذا الإجراء متاح فقط لاشتراكات V2.']);
+        }
+    }
+
+    private function assertLifecycleManaged(Subscription $subscription): void
+    {
+        if (! in_array($subscription->billing_engine_version, ['v2', 'v1_simple'], true)) {
+            throw ValidationException::withMessages(['subscription_id' => 'هذا الإجراء غير متاح لنوع الاشتراك الحالي.']);
         }
     }
 

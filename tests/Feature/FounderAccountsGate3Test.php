@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Partner;
 use App\Models\User;
 use App\Support\FinancialPermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -53,7 +52,6 @@ class FounderAccountsGate3Test extends TestCase
             $this->assertTrue($founder->is_active);
             $this->assertTrue($founder->isAdmin());
             $this->assertTrue($founder->isActiveApplicationUser());
-            $this->assertNull($founder->partner_id);
         }
     }
 
@@ -151,30 +149,6 @@ class FounderAccountsGate3Test extends TestCase
         $this->post(route('login.store'), [
             'email' => $founder->email,
             'password' => 'password',
-        ])->assertSessionHasErrors('email');
-    }
-
-    public function test_partner_remains_non_authenticatable_and_not_a_user_side_effect(): void
-    {
-        $partner = Partner::create([
-            'company_name' => 'Referral Only Partner',
-            'email' => 'referral-only@example.com',
-        ]);
-
-        $partnerUser = User::factory()->create([
-            'role' => User::ROLE_PARTNER,
-            'partner_id' => $partner->id,
-            'email' => 'legacy-partner@example.com',
-            'password' => Hash::make('legacy-partner-password'),
-        ]);
-
-        $this->assertFalse($partnerUser->isPartner());
-        $this->assertTrue($partnerUser->hasLegacyPartnerRole());
-        $this->assertFalse($partnerUser->isActiveApplicationUser());
-
-        $this->post(route('login.store'), [
-            'email' => 'legacy-partner@example.com',
-            'password' => 'legacy-partner-password',
         ])->assertSessionHasErrors('email');
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\Money;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -21,11 +22,14 @@ class OfferService
             $client = DB::table('clients')->where('id', $clientId)->first();
             abort_unless($client, 404, 'العميل غير موجود');
 
-            $price = (float) ($data['price'] ?? 0);
-            $discount = (float) ($data['discount'] ?? 0);
-            $finalPrice = isset($data['final_agreed_price']) && is_numeric($data['final_agreed_price'])
-                ? (float) $data['final_agreed_price']
-                : max(0, $price - $discount);
+            $priceMinor = Money::fromJod((string) $data['price'])->minorUnits();
+            $discountMinor = Money::fromJod((string) ($data['discount'] ?? '0'))->minorUnits();
+            $finalPriceMinor = isset($data['final_agreed_price'])
+                ? Money::fromJod((string) $data['final_agreed_price'])->minorUnits()
+                : max(0, $priceMinor - $discountMinor);
+            $price = Money::fromMinorUnits($priceMinor)->format();
+            $discount = Money::fromMinorUnits($discountMinor)->format();
+            $finalPrice = Money::fromMinorUnits($finalPriceMinor)->format();
 
             $offerDate = !empty($data['offer_date'])
                 ? Carbon::parse($data['offer_date'])->toDateString()
@@ -40,9 +44,9 @@ class OfferService
                 'user_id' => $userId,
                 'package' => $data['package'],
                 'billing_period' => $data['billing_period'] ?? 'monthly',
-                'price' => round($price, 2),
-                'discount' => round($discount, 2),
-                'final_agreed_price' => round($finalPrice, 2),
+                'price' => $price,
+                'discount' => $discount,
+                'final_agreed_price' => $finalPrice,
                 'offer_date' => $offerDate,
                 'decision_deadline' => $decisionDeadline,
                 'notes' => $data['notes'] ?? null,
@@ -55,7 +59,7 @@ class OfferService
                 'client_id' => $clientId,
                 'user_id' => $userId,
                 'type' => 'offer_created',
-                'description' => "تم تقديم عرض تجاري ({$data['package']} - السعر الصافي: " . number_format($finalPrice, 2) . " د.أ)",
+                'description' => "تم تقديم عرض تجاري ({$data['package']} - السعر الصافي: {$finalPrice} د.أ)",
                 'metadata' => json_encode([
                     'offer_id' => $id,
                     'package' => $data['package'],

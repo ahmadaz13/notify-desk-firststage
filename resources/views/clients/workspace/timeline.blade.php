@@ -1,4 +1,4 @@
-<div id="tab-timeline" class="tab-pane" style="display:none">
+<div id="tab-timeline">
     <section class="notify-panel">
         <div class="notify-section-head">
             <div>
@@ -14,7 +14,7 @@
                     <span aria-hidden="true"></span>
                     <div>
                         <strong>{{ $event['description'] }}</strong>
-                        <small>{{ $event['at'] }} · {{ $event['type'] }}</small>
+                        <small>{{ $event['at'] }}</small>
                     </div>
                 </article>
             @empty

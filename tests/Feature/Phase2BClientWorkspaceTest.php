@@ -131,7 +131,7 @@ class Phase2BClientWorkspaceTest extends TestCase
             ->assertSee(route('clients.follow-ups.store', $client), false)
             ->assertSee(route('clients.offers.store', $client), false)
             ->assertSee(route('clients.collections.payments.store', $client), false)
-            ->assertSee(route('clients.paid-subscriptions.store', $client), false)
+            ->assertSee(route('clients.guided-subscription.store', $client), false)
             ->assertSee(route('clients.one-time-invoices.store', $client), false);
     }
 

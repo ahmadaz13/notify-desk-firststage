@@ -14,7 +14,6 @@
             <p class="p4-subtitle">إدارة مساهمات المؤسسين والتمويل الرأسمالي، اقتناء الأصول الثابتة، وتصنيفات الأصول المسجلة.</p>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
                 <a href="{{ route('finance.index') }}" class="p4-btn p4-btn-soft p4-btn-sm">تقارير الإدارة المالية</a>
-                <a href="{{ route('financial-accounts.index') }}" class="p4-btn p4-btn-soft p4-btn-sm">الحسابات المالية والنقد</a>
                 <a href="{{ route('operating-expenses.index') }}" class="p4-btn p4-btn-soft p4-btn-sm">المصاريف التشغيلية</a>
             </div>
         </div>
@@ -55,6 +54,7 @@
                 </div>
                 <form method="POST" action="{{ route('capital-funding-transactions.store') }}">
                     @csrf
+                    <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                     <div class="p4-form-grid">
                         <div class="p4-field">
                             <label>مصدر محفوظ</label>
@@ -400,36 +400,5 @@
         </div>
     </x-notify.collapsible-section>
 
-    {{-- 4. Legacy Non-Migrated Records --}}
-    <x-notify.collapsible-section id="sec-legacy-records" :title="__('notify.assets.legacy_records')" subtitle="بيانات للقراءة والتوافق التاريخي" :open="false">
-        <div class="p4-grid-2">
-            <div>
-                <h3 style="font-size:14px;color:#0A1128;margin-bottom:8px">{{ __('notify.assets.legacy_investments') }}</h3>
-                <div class="p4-list">
-                    @forelse($legacyInvestments as $investment)
-                        <div class="p4-list-item" style="display:flex;justify-content:space-between;align-items:center">
-                            <strong style="font-size:13px;color:#0A1128">{{ $investment->investor_name }}</strong>
-                            <span class="p4-kpi-meta">{{ $investment->amount }} د.أ · {{ $investment->entry_date }}</span>
-                        </div>
-                    @empty
-                        <span class="p4-kpi-meta">{{ __('notify.assets.empty_legacy') }}</span>
-                    @endforelse
-                </div>
-            </div>
-            <div>
-                <h3 style="font-size:14px;color:#0A1128;margin-bottom:8px">{{ __('notify.assets.legacy_capital_expenses') }}</h3>
-                <div class="p4-list">
-                    @forelse($legacyCapitalExpenses as $expense)
-                        <div class="p4-list-item" style="display:flex;justify-content:space-between;align-items:center">
-                            <strong style="font-size:13px;color:#0A1128">{{ $expense->description }}</strong>
-                            <span class="p4-kpi-meta">{{ $expense->amount }} د.أ · {{ $expense->expense_date }}</span>
-                        </div>
-                    @empty
-                        <span class="p4-kpi-meta">{{ __('notify.assets.empty_legacy') }}</span>
-                    @endforelse
-                </div>
-            </div>
-        </div>
-    </x-notify.collapsible-section>
 </div>
 @endsection

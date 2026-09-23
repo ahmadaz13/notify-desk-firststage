@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\SetLocale::class,
         ]);
+        $middleware->alias([
+            'financial.idempotency' => \App\Http\Middleware\EnsureFinancialIdempotency::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

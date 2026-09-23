@@ -9,7 +9,6 @@ use App\Models\FinancialAccount;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Models\JournalEntry;
-use App\Models\Partner;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\User;
@@ -314,16 +313,6 @@ class FinancePhaseE2ATest extends TestCase
 
     private function createPartnerUser(): array
     {
-        $partner = Partner::create([
-            'company_name' => 'Phase E2A Partner',
-            'email' => 'phase-e2a-partner@example.com',
-        ]);
-
-        $user = User::factory()->create([
-            'role' => 'partner',
-            'partner_id' => $partner->id,
-        ]);
-
-        return [$partner, $user];
+        return [null, User::factory()->create(['role' => 'external'])];
     }
 }
