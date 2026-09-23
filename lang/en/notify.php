@@ -1073,7 +1073,7 @@ return array (
   ),
   'team' => array (
     'title'=>'Team & Permissions','subtitle'=>'Manage internal team members and their roles.','add'=>'Add team member','name'=>'Name','email'=>'Email','role'=>'Role','status'=>'Status','you'=>'You','deactivate'=>'Deactivate','empty'=>'No team members found.','create_account'=>'Create account','edit_member'=>'Edit: :name','active_account'=>'Active account','reset_password'=>'Reset password',
-    'roles'=>['founder'=>'Founder','admin'=>'Administrator','staff'=>'Staff'], 'created'=>'Team member created.','updated'=>'Team member updated.','password_reset'=>'Password reset.','deactivated'=>'Team member deactivated.','cannot_change_own_role'=>'You cannot change your own role.','cannot_deactivate_self'=>'You cannot deactivate your own account.','forbidden'=>'You are not authorized to access this page.','founder_protected'=>'Only a Founder can change the role of a Founder or deactivate a Founder.',
+    'roles'=>['founder'=>'Founder','admin'=>'Administrator','staff'=>'Staff'], 'created'=>'Team member created.','updated'=>'Team member updated.','password_reset'=>'Password reset.','deactivated'=>'Team member deactivated.','cannot_change_own_role'=>'You cannot change your own role.','cannot_deactivate_self'=>'You cannot deactivate your own account.','forbidden'=>'You are not authorized to access this page.','founder_protected'=>'Only a Founder can promote to Founder or change, deactivate or reset the password of a Founder account.',
   ),
   'statuses' =>
   array (

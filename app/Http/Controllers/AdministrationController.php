@@ -20,12 +20,17 @@ class AdministrationController extends Controller
     }
 
     /**
-     * Founder and Admin are equal except that only a Founder may change a Founder's role
-     * or deactivate a Founder (§2.1).
+     * Founder account protection (§2.1 hardening): only a Founder may promote a user to Founder,
+     * change a Founder's role, deactivate a Founder, or reset a Founder's password.
      */
     protected function protectFounder(User $member): void
     {
         abort_if($member->isFounder() && ! auth()->user()->isFounder(), 403, __('notify.team.founder_protected'));
+    }
+
+    protected function requireFounder(): void
+    {
+        abort_unless(auth()->user()->isFounder(), 403, __('notify.team.founder_protected'));
     }
 
     /**
@@ -124,6 +129,10 @@ class AdministrationController extends Controller
             $this->protectFounder($member);
         }
 
+        if ($request->input('role') === User::ROLE_FOUNDER && ! $member->isFounder()) {
+            $this->requireFounder();
+        }
+
         $validated = $request->validate([
             'name'      => 'required|string|max:255',
             'email'     => 'required|email|max:255|unique:users,email,' . $member->id,
@@ -147,6 +156,7 @@ class AdministrationController extends Controller
         $this->checkAdmin();
 
         $member = User::whereIn('role', User::activeInternalRoles())->findOrFail($id);
+        $this->protectFounder($member);
 
         $validated = $request->validate([
             'password' => 'required|string|min:8|confirmed',

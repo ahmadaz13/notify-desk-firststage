@@ -261,6 +261,63 @@ class V1P2PermissionMatrixTest extends TestCase
         $this->assertFalse($otherFounder->fresh()->is_active);
     }
 
+    public function test_only_a_founder_may_promote_to_founder(): void
+    {
+        $payload = fn (User $member, string $role) => [
+            'name' => $member->name, 'email' => $member->email, 'role' => $role, 'is_active' => '1',
+        ];
+        $anotherAdmin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+
+        $this->actingAs($this->admin)->put(route('administration.team.update', $this->staff->id), $payload($this->staff, 'founder'))->assertForbidden();
+        $this->actingAs($this->admin)->put(route('administration.team.update', $anotherAdmin->id), $payload($anotherAdmin, 'founder'))->assertForbidden();
+        $this->assertSame(User::ROLE_STAFF, $this->staff->fresh()->role);
+        $this->assertSame(User::ROLE_ADMIN, $anotherAdmin->fresh()->role);
+
+        // Team creation never creates a Founder, even for a Founder actor.
+        $this->actingAs($this->admin)->post(route('administration.team.store'), [
+            'name' => 'Z', 'email' => 'z@example.com', 'role' => 'founder', 'password' => 'secret123', 'password_confirmation' => 'secret123',
+        ])->assertSessionHasErrors('role');
+        $this->assertDatabaseMissing('users', ['email' => 'z@example.com']);
+
+        $this->actingAs($this->founder)->put(route('administration.team.update', $this->staff->id), $payload($this->staff, 'founder'))->assertRedirect(route('administration.team'));
+        $this->assertSame(User::ROLE_FOUNDER, $this->staff->fresh()->role);
+    }
+
+    public function test_only_a_founder_may_reset_a_founders_password(): void
+    {
+        $otherFounder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
+        $originalHash = $otherFounder->password;
+        $reset = ['password' => 'newsecret1', 'password_confirmation' => 'newsecret1'];
+
+        $this->actingAs($this->admin)->post(route('administration.team.reset-password', $otherFounder->id), $reset)->assertForbidden();
+        $this->assertSame($originalHash, $otherFounder->fresh()->password);
+
+        $this->actingAs($this->founder)->post(route('administration.team.reset-password', $otherFounder->id), $reset)->assertRedirect(route('administration.team'));
+        $this->assertNotSame($originalHash, $otherFounder->fresh()->password);
+    }
+
+    public function test_admin_manages_admin_and_staff_accounts_normally(): void
+    {
+        $anotherAdmin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+        $reset = ['password' => 'newsecret1', 'password_confirmation' => 'newsecret1'];
+
+        $this->actingAs($this->admin)->post(route('administration.team.reset-password', $this->staff->id), $reset)->assertRedirect(route('administration.team'));
+        $this->actingAs($this->admin)->post(route('administration.team.reset-password', $anotherAdmin->id), $reset)->assertRedirect(route('administration.team'));
+
+        $this->actingAs($this->admin)->put(route('administration.team.update', $this->staff->id), [
+            'name' => $this->staff->name, 'email' => $this->staff->email, 'role' => 'admin', 'is_active' => '1',
+        ])->assertRedirect(route('administration.team'));
+        $this->assertSame(User::ROLE_ADMIN, $this->staff->fresh()->role);
+
+        $this->actingAs($this->admin)->put(route('administration.team.update', $anotherAdmin->id), [
+            'name' => $anotherAdmin->name, 'email' => $anotherAdmin->email, 'role' => 'staff', 'is_active' => '1',
+        ])->assertRedirect(route('administration.team'));
+        $this->assertSame(User::ROLE_STAFF, $anotherAdmin->fresh()->role);
+
+        $this->actingAs($this->admin)->post(route('administration.team.deactivate', $anotherAdmin->id))->assertRedirect(route('administration.team'));
+        $this->assertFalse($anotherAdmin->fresh()->is_active);
+    }
+
     public function test_staff_cannot_reach_team_management(): void
     {
         $this->actingAs($this->staff)->get(route('administration.team'))->assertForbidden();
