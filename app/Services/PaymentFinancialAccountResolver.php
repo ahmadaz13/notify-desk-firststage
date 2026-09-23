@@ -8,59 +8,38 @@ use Illuminate\Validation\ValidationException;
 
 class PaymentFinancialAccountResolver
 {
-    private const METHOD_ACCOUNT_TYPES = [
-        PaymentMethods::CASH => FinancialAccount::TYPE_CASH,
-        PaymentMethods::BANK_TRANSFER => FinancialAccount::TYPE_BANK,
-        PaymentMethods::CLIQ => FinancialAccount::TYPE_BANK,
-        PaymentMethods::E_WALLET => FinancialAccount::TYPE_WALLET,
-        PaymentMethods::ZAIN_CASH => FinancialAccount::TYPE_WALLET,
-        PaymentMethods::ORANGE_MONEY => FinancialAccount::TYPE_WALLET,
-        PaymentMethods::OTHER => FinancialAccount::TYPE_OTHER,
+    /**
+     * Fixed V1 map of payment method to company account code [FROZEN D-01, D-02].
+     */
+    public const METHOD_ACCOUNT_CODES = [
+        PaymentMethods::CASH => CompanyAccountBootstrapService::CASH_BOX_CODE,
+        PaymentMethods::CLIQ => CompanyAccountBootstrapService::CLIQ_CODE,
     ];
 
     public function resolve(string $paymentMethod): FinancialAccount
     {
-        $accountType = self::METHOD_ACCOUNT_TYPES[$paymentMethod] ?? null;
+        $code = self::METHOD_ACCOUNT_CODES[$paymentMethod] ?? null;
 
-        if ($accountType === null) {
+        if ($code === null) {
             throw ValidationException::withMessages([
-                'payment_method' => 'اختر طريقة دفع معتمدة.',
+                'payment_method' => __('notify.payment_receipts.errors.unsupported_method'),
             ]);
         }
 
-        $accountsOfType = FinancialAccount::query()
-            ->where('type', $accountType)
-            ->get();
+        $account = FinancialAccount::query()->where('code', $code)->first();
 
-        if ($accountsOfType->isEmpty()) {
+        if ($account === null) {
             throw ValidationException::withMessages([
-                'payment_method' => 'لا يوجد حساب مالي مهيأ لطريقة الدفع المحددة.',
+                'payment_method' => __('notify.payment_receipts.errors.company_account_missing'),
             ]);
         }
 
-        $eligible = $accountsOfType
-            ->filter(fn (FinancialAccount $account) => $account->is_active
-                && $account->archived_at === null
-                && $account->currency === 'JOD')
-            ->values();
-
-        if ($eligible->isEmpty()) {
+        if (! $account->is_active || $account->archived_at !== null || $account->currency !== 'JOD') {
             throw ValidationException::withMessages([
-                'payment_method' => 'الحساب المالي المرتبط بطريقة الدفع غير نشط أو غير مؤهل.',
+                'payment_method' => __('notify.payment_receipts.errors.company_account_ineligible'),
             ]);
         }
 
-        if ($eligible->count() > 1) {
-            throw ValidationException::withMessages([
-                'payment_method' => 'تعذر تحديد الحساب المالي بشكل آمن.',
-            ]);
-        }
-
-        return $eligible->first();
-    }
-
-    public function mappingSourceDescription(): string
-    {
-        return 'Canonical PaymentMethods values mapped to FinancialAccount::type; exactly one active JOD account of the mapped type is required.';
+        return $account;
     }
 }

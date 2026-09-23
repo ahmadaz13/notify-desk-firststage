@@ -905,6 +905,70 @@ return array (
     'unread_tab' => 'غير المقروءة (:count)',
     'view_details' => 'عرض التفاصيل ←',
   ),
+  'payment_receipts' =>
+  array (
+    'action_payment_received' => 'استلام دفعة',
+    'action_submit' => 'إرسال للتأكيد',
+    'action_approve' => 'تأكيد',
+    'action_reject' => 'رفض',
+    'action_cancel' => 'إلغاء الإيصال',
+    'action_review' => 'مراجعة',
+    'field_amount' => 'المبلغ المستلم',
+    'field_method' => 'طريقة الدفع',
+    'field_received_at' => 'وقت الاستلام',
+    'field_reference' => 'مرجع الدفعة',
+    'field_note' => 'ملاحظة',
+    'more_options' => 'خيارات إضافية',
+    'staff_hint' => 'تُسجَّل الدفعة بعد تأكيد المالك، ولا يتغير المبلغ المستحق قبل ذلك.',
+    'pending_title' => 'بانتظار التأكيد',
+    'pending_subtitle' => 'دفعات أبلغ عنها الموظفون وتنتظر الموافقة',
+    'pending_empty' => 'لا توجد إيصالات دفع بانتظار التأكيد.',
+    'pending_not_deducted' => 'لا تُخصم الإيصالات المعلقة من المبلغ المستحق قبل تأكيدها.',
+    'submitted_by' => 'أرسلها',
+    'rejection_reason' => 'سبب الرفض',
+    'rejection_reason_placeholder' => 'سبب الرفض (مطلوب)',
+    'status' =>
+    array (
+      'pending' => 'بانتظار التأكيد',
+      'approved' => 'مؤكدة',
+      'rejected' => 'مرفوضة',
+      'cancelled' => 'ملغاة',
+    ),
+    'flash' =>
+    array (
+      'submitted' => 'تم إرسال إيصال الدفعة للتأكيد.',
+      'approved' => 'تم تأكيد الدفعة وتسجيلها.',
+      'rejected' => 'تم رفض إيصال الدفعة.',
+      'cancelled' => 'تم إلغاء إيصال الدفعة.',
+    ),
+    'activity' =>
+    array (
+      'approved' => 'تم تأكيد دفعة بقيمة :amount د.أ (:method)',
+      'rejected' => 'تم رفض إيصال دفعة بقيمة :amount د.أ: :reason',
+    ),
+    'notifications' =>
+    array (
+      'submitted_title' => 'دفعة بانتظار التأكيد: :client',
+      'submitted_message' => 'أبلغ :submitter عن استلام :amount د.أ (:method) من :client.',
+      'approved_title' => 'تم تأكيد الدفعة: :client',
+      'approved_message' => 'تمت الموافقة على إيصال الدفعة بقيمة :amount د.أ من :client.',
+      'rejected_title' => 'تم رفض إيصال الدفعة: :client',
+      'rejected_message' => 'تم رفض إيصال الدفعة بقيمة :amount د.أ من :client. السبب: :reason',
+    ),
+    'errors' =>
+    array (
+      'amount_positive' => 'المبلغ المستلم يجب أن يكون أكبر من صفر.',
+      'unsupported_method' => 'اختر نقداً أو كليك.',
+      'future_date' => 'لا يمكن أن يكون وقت الاستلام في المستقبل.',
+      'backdate_limit' => 'لا يمكن أن يكون وقت الاستلام أقدم من :days أيام.',
+      'not_pending' => 'تمت مراجعة إيصال الدفعة مسبقاً.',
+      'reason_required' => 'أدخل سبب الرفض.',
+      'not_owner' => 'يمكنك إلغاء إيصالاتك فقط.',
+      'idempotency_conflict' => 'مفتاح الطلب يخص مستخدماً آخر.',
+      'company_account_missing' => 'حساب الشركة لطريقة الدفع غير مهيأ. شغّل notify:bootstrap.',
+      'company_account_ineligible' => 'حساب الشركة لطريقة الدفع غير نشط أو ليس بالدينار.',
+    ),
+  ),
   'reports' =>
   array (
     'executive' => 'Executive Dashboard',

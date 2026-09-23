@@ -8,6 +8,7 @@ use App\Models\CreditNoteApplication;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
+use App\Models\PaymentReceiptConfirmation;
 use App\Services\CollectionCorrectionService;
 use App\Services\CreditNoteService;
 use App\Services\PaymentAllocationService;
@@ -42,8 +43,17 @@ class CollectionsController extends Controller
         $unallocatedCredits = $receivables->unallocatedCredits($filters);
         $availableCustomerCredits = $receivables->availableCustomerCredits($filters);
         $clients = Client::orderBy('business_name')->get(['id', 'business_name']);
+        $pendingReceipts = PaymentReceiptConfirmation::with(['client:id,business_name', 'submitter:id,name'])
+            ->pending()
+            ->when($filters['client_id'] ?? null, fn ($query, $clientId) => $query->where('client_id', $clientId))
+            ->orderBy('received_at')
+            ->orderBy('id')
+            ->get();
+        $canApproveReceipts = Gate::allows(FinancialPermissions::APPROVE_PAYMENT_RECEIPTS);
 
         return view('collections.index', compact(
+            'pendingReceipts',
+            'canApproveReceipts',
             'filters',
             'outstandingInvoices',
             'overdueInvoices',
@@ -65,9 +75,9 @@ class CollectionsController extends Controller
         $validated = $request->validate([
             'amount' => ['required', 'string', 'regex:/^\d+(\.\d{1,3})?$/', 'not_regex:/^0+(\.0{1,3})?$/'],
             'financial_account_id' => 'required|integer|exists:financial_accounts,id',
-            'payment_method' => ['required', 'string', Rule::in(PaymentMethods::values())],
+            'payment_method' => ['required', 'string', Rule::in(PaymentMethods::v1())],
             'reference' => 'nullable|string|max:255',
-            'received_at' => 'required|date',
+            'received_at' => 'required|date|before_or_equal:now',
             'notes' => 'nullable|string|max:1000',
             'auto_allocate_oldest' => 'nullable|boolean',
             'allocations' => 'nullable|array',
@@ -102,8 +112,8 @@ class CollectionsController extends Controller
 
         $validated = $request->validate([
             'amount' => ['required', 'string', 'regex:/^\d+(\.\d{1,3})?$/', 'not_regex:/^0+(\.0{1,3})?$/'],
-            'payment_method' => ['required', 'string', Rule::in(PaymentMethods::values())],
-            'received_at' => 'nullable|date',
+            'payment_method' => ['required', 'string', Rule::in(PaymentMethods::v1())],
+            'received_at' => 'nullable|date|before_or_equal:now',
             'reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:1000',
         ], [
@@ -112,6 +122,7 @@ class CollectionsController extends Controller
             'amount.not_regex' => 'المبلغ المستلم يجب أن يكون أكبر من صفر.',
             'payment_method.required' => 'اختر طريقة الدفع.',
             'payment_method.in' => 'اختر طريقة دفع معتمدة.',
+            'received_at.before_or_equal' => __('notify.payment_receipts.errors.future_date'),
         ]);
 
         $financialAccount = $accountResolver->resolve($validated['payment_method']);

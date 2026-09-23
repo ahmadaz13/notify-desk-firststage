@@ -244,6 +244,7 @@ class ClientWorkspaceViewModel
             'has_credit' => $totalCustomerCreditMinor > 0,
             'currency' => __('notify.common.currency_jod'),
             'can_record_payment' => $canRecordPayment,
+            'can_submit_receipt' => ! $canRecordPayment && ($actor ? FinancialPermissions::allows($actor, FinancialPermissions::SUBMIT_PAYMENT_RECEIPT) : Gate::allows(FinancialPermissions::SUBMIT_PAYMENT_RECEIPT)),
             'latest_payment' => $latestPayment,
             'view_financial_details_url' => route('collections.index', ['client_id' => $client->id]),
             'can_view_financial_details' => $canViewFinancialReports,

@@ -12,6 +12,22 @@ class PaymentMethods
     public const ORANGE_MONEY = 'orange_money';
     public const OTHER = 'other';
 
+    /**
+     * The only methods accepted for new V1 payment records [FROZEN D-02].
+     * The other constants remain solely so historical records stay readable.
+     */
+    public static function v1(): array
+    {
+        return [self::CASH, self::CLIQ];
+    }
+
+    public static function v1Labels(): array
+    {
+        return collect(self::v1())
+            ->mapWithKeys(fn (string $method) => [$method => __('notify.client_workspace.payment_methods.'.$method)])
+            ->all();
+    }
+
     public static function labels(): array
     {
         return [

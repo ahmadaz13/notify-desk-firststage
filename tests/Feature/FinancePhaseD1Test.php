@@ -46,7 +46,8 @@ class FinancePhaseD1Test extends TestCase
             'opening_date' => '2026-09-14 09:00:00',
         ])->assertSessionHas('success');
 
-        $account = FinancialAccount::firstOrFail();
+        // CASH-BOX and CLIQ are bootstrapped by migration (P1 M-1); look the new account up by code.
+        $account = FinancialAccount::where('code', 'cash_box')->firstOrFail();
         $this->assertSame('JOD', $account->currency);
         $this->assertFalse(SchemaRouteInspector::hasDeleteRouteContaining('financial-accounts'));
         $this->assertDatabaseHas('cash_movements', [

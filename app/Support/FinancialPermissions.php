@@ -45,6 +45,8 @@ class FinancialPermissions
     public const VIEW_SAAS_METRICS = 'view_saas_metrics';
     public const EXPORT_SAAS_METRICS = 'export_saas_metrics';
     public const VIEW_EXECUTIVE_DASHBOARD = 'view_executive_dashboard';
+    public const SUBMIT_PAYMENT_RECEIPT = 'submit_payment_receipt';
+    public const APPROVE_PAYMENT_RECEIPTS = 'approve_payment_receipts';
 
     public const ALL = [
         self::RECORD_PAYMENT,
@@ -86,12 +88,29 @@ class FinancialPermissions
         self::VIEW_SAAS_METRICS,
         self::EXPORT_SAAS_METRICS,
         self::VIEW_EXECUTIVE_DASHBOARD,
+        self::SUBMIT_PAYMENT_RECEIPT,
+        self::APPROVE_PAYMENT_RECEIPTS,
+    ];
+
+    /**
+     * Minimal Staff grants needed by the P1 receipt workflow (§2.3). The full role matrix is P2.
+     */
+    public const STAFF_ALLOWED = [
+        self::SUBMIT_PAYMENT_RECEIPT,
     ];
 
     public static function allows(?User $user, string $permission): bool
     {
-        return $user !== null
-            && in_array($permission, self::ALL, true)
-            && $user->isAdmin();
+        if ($user === null || ! in_array($permission, self::ALL, true)) {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $user->isStaff()
+            && $user->is_active !== false
+            && in_array($permission, self::STAFF_ALLOWED, true);
     }
 }

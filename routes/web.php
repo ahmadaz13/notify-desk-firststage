@@ -14,6 +14,7 @@ use App\Http\Controllers\ClientStageController;
 use App\Http\Controllers\ClientSystemAccessController;
 use App\Http\Controllers\CommercialCatalogController;
 use App\Http\Controllers\CollectionsController;
+use App\Http\Controllers\PaymentReceiptController;
 use App\Http\Controllers\ContactAttemptController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\CsvImportController;
@@ -72,6 +73,10 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::delete('/clients/{client}/system-access/{system}', [ClientSystemAccessController::class, 'destroy'])->name('clients.system-access.destroy');
     Route::post('/clients/{client}/one-time-invoices', [BillingController::class, 'storeOneTimeInvoice'])->middleware('financial.idempotency')->name('clients.one-time-invoices.store');
     Route::post('/clients/{client}/payments/normal', [CollectionsController::class, 'storeNormalPayment'])->middleware('financial.idempotency')->name('clients.payments.normal.store');
+    Route::post('/clients/{client}/payment-receipts', [PaymentReceiptController::class, 'store'])->middleware('financial.idempotency')->name('clients.payment-receipts.store');
+    Route::post('/payment-receipts/{paymentReceipt}/approve', [PaymentReceiptController::class, 'approve'])->middleware('financial.idempotency')->name('payment-receipts.approve');
+    Route::post('/payment-receipts/{paymentReceipt}/reject', [PaymentReceiptController::class, 'reject'])->middleware('financial.idempotency')->name('payment-receipts.reject');
+    Route::post('/payment-receipts/{paymentReceipt}/cancel', [PaymentReceiptController::class, 'cancel'])->name('payment-receipts.cancel');
     Route::post('/clients/{client}/collections/payments', [CollectionsController::class, 'storePayment'])->middleware('financial.idempotency')->name('clients.collections.payments.store');
     Route::post('/clients/{client}/credit-notes', [CollectionsController::class, 'storeCreditNote'])->middleware('financial.idempotency')->name('clients.credit-notes.store');
     Route::patch('/clients/{client}/stage', [ClientStageController::class, 'update'])->name('clients.stage.update');

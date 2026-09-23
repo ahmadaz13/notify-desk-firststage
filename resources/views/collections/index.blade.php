@@ -54,6 +54,49 @@
         </form>
     </div>
 
+    {{-- Pending Staff payment receipts (§9.3) --}}
+    @if($canApproveReceipts)
+        <x-notify.collapsible-section id="sec-pending-receipts" :title="__('notify.payment_receipts.pending_title')" :subtitle="__('notify.payment_receipts.pending_subtitle')" :badge="$pendingReceipts->count()" :badgeVariant="$pendingReceipts->count() > 0 ? 'warning' : 'neutral'" :open="$pendingReceipts->count() > 0">
+            <div class="p3-list">
+                @forelse($pendingReceipts as $receipt)
+                    <div class="p3-list-item">
+                        <div class="p3-item-top">
+                            <div>
+                                <span class="p3-badge p3-badge-warning" style="margin-inline-end:6px">{{ $receipt->statusLabel() }}</span>
+                                <strong class="p3-item-title">{{ $receipt->client?->business_name }}</strong>
+                            </div>
+                            <span class="p3-item-amount">{{ $receipt->amountFormatted() }} {{ __('notify.common.currency_jod') }}</span>
+                        </div>
+                        <div class="p3-item-meta">
+                            {{ $receipt->methodLabel() }} · <span dir="ltr">{{ $receipt->received_at->format('Y-m-d H:i') }}</span>
+                            · {{ __('notify.payment_receipts.submitted_by') }}: {{ $receipt->submitter?->name }}
+                            @if($receipt->reference) · #{{ $receipt->reference }} @endif
+                        </div>
+                        @if($receipt->note)
+                            <div class="p3-item-meta">{{ $receipt->note }}</div>
+                        @endif
+                        <div class="p3-item-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
+                            <form method="POST" action="{{ route('payment-receipts.approve', $receipt) }}">
+                                @csrf
+                                <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+                                <button type="submit" class="p3-btn p3-btn-primary p3-btn-sm">{{ __('notify.payment_receipts.action_approve') }}</button>
+                            </form>
+                            <form method="POST" action="{{ route('payment-receipts.reject', $receipt) }}" style="display:flex;gap:6px;flex-wrap:wrap">
+                                @csrf
+                                <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+                                <input name="rejection_reason" required maxlength="1000" class="p3-input" placeholder="{{ __('notify.payment_receipts.rejection_reason_placeholder') }}" aria-label="{{ __('notify.payment_receipts.rejection_reason') }}">
+                                <button type="submit" class="p3-btn p3-btn-ghost p3-btn-sm">{{ __('notify.payment_receipts.action_reject') }}</button>
+                            </form>
+                            <a class="p3-btn p3-btn-ghost p3-btn-sm" href="{{ route('clients.show', $receipt->client_id) }}">{{ __('notify.collections.open_client_billing') }}</a>
+                        </div>
+                    </div>
+                @empty
+                    <div class="p3-empty">{{ __('notify.payment_receipts.pending_empty') }}</div>
+                @endforelse
+            </div>
+        </x-notify.collapsible-section>
+    @endif
+
     {{-- Collections KPIs --}}
     <section class="p3-kpis">
         <div class="p3-kpi-card">

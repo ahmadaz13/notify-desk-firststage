@@ -33,5 +33,6 @@ class DatabaseSeeder extends Seeder
         $this->call(AssetCategorySeeder::class);
         $this->call(ServiceCatalogSeeder::class);
         $this->call(AccountingSeeder::class);
+        app(\App\Services\CompanyAccountBootstrapService::class)->ensureDefaults();
     }
 }
