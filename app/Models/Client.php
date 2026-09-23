@@ -13,6 +13,9 @@ class Client extends Model
 {
     use HasFactory;
 
+    /** Whose number clients.phone is (§28.1). */
+    public const PRIMARY_PHONE_TYPES = ['business', 'owner', 'manager'];
+
     protected $guarded = ['id'];
 
     public function createdBy(): BelongsTo

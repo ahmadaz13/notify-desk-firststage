@@ -593,8 +593,11 @@ return array (
       'installed_free' => 'Installed Free',
       'prospect' => 'Prospect',
       'subscriber' => 'Subscriber',
+      'former_subscriber' => 'Renewal / Former Subscriber',
     ),
     'workspace' => 'Client Workspace',
+    'former_subscriber_system_only' => 'Clients become former subscribers automatically when their last paid subscription ends.',
+    'activity_former_subscriber' => 'Last paid subscription ended; client is now a former subscriber awaiting renewal',
     'choose_lead_source' => 'Choose a source',
   ),
   'collections' =>
@@ -1058,7 +1061,7 @@ return array (
     'timezone' => 'Timezone', 'appointment_duration' => 'Appointment duration (minutes)', 'free_installation_duration' => 'Free installation duration (minutes)',
     'post_install_followup_days' => 'Post-install follow-up (days)', 'workday_start' => 'Workday start', 'workday_end' => 'Workday end',
     'currency' => 'Currency', 'default_billing_cycle' => 'Default billing cycle', 'auto_contract_on_paid_subscription' => 'Create a contract automatically for paid subscriptions',
-    'allow_monthly' => 'Allow monthly billing', 'allow_annual_installments' => 'Allow annual installments', 'initial_contract_status' => 'New contracts start as Draft.', 'saved' => 'Settings saved.',
+    'allow_monthly' => 'Allow monthly billing', 'allow_annual_installments' => 'Allow annual installments', 'optional_features' => 'Optional Features', 'feature_capital_financing' => 'Enable Capital & Investment Management', 'initial_contract_status' => 'New contracts start as Draft.', 'saved' => 'Settings saved.',
   ),
   'administration' => array (
     'title' => 'Administration', 'subtitle' => 'Manage systems, team permissions, imports, and company-wide settings.',
@@ -1106,6 +1109,8 @@ return array (
   ),
   'subscriptions' =>
   array (
+    'staff_started_title' => 'Staff started a paid subscription: :client',
+    'staff_started_message' => ':staff started a paid subscription for :client — agreed value :amount JOD.',
     'agreed_value_jod' => 'Agreed subscription value (JOD)',
     'active' => 'Active Subscriptions',
     'annual' => 'Annual',

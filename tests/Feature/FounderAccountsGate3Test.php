@@ -127,6 +127,8 @@ class FounderAccountsGate3Test extends TestCase
         $this->actingAs($founder)->get(route('collections.index'))->assertOk();
         $this->actingAs($founder)->get(route('financial-accounts.index'))->assertOk();
         $this->actingAs($founder)->get(route('operating-expenses.index'))->assertOk();
+        // P3 / FROZEN D-05: Capital & Financing is feature-gated (404 while OFF); check owner access with it ON.
+        \App\Models\Setting::set('feature_capital_financing', '1');
         $this->actingAs($founder)->get(route('capital-management.index'))->assertOk();
         $this->actingAs($founder)->get(route('finance.index'))->assertOk();
         $this->actingAs($founder)->get(route('saas-metrics.index'))->assertOk();

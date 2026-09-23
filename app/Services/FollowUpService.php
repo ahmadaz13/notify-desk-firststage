@@ -186,7 +186,7 @@ class FollowUpService
                 );
 
                 $currentStage = ClientLifecycle::normalizeStage($client->stage, $client->status);
-                if (!in_array($currentStage, [ClientLifecycle::SUBSCRIBER, ClientLifecycle::CLOSED], true)) {
+                if (!in_array($currentStage, ClientLifecycle::PIPELINE_LOCKED_STAGES, true)) {
                     $workflow->transition($client, ClientLifecycle::CONTACTING, $actor);
                 }
 
@@ -233,7 +233,7 @@ class FollowUpService
                 // Delegate to ClientOperationalWorkflowService to move client to decision_pending (ready for subscription)
                 // NEVER automatically create a Subscription!
                 $currentStage = ClientLifecycle::normalizeStage($client->stage, $client->status);
-                if (!in_array($currentStage, [ClientLifecycle::SUBSCRIBER, ClientLifecycle::CLOSED], true)) {
+                if (!in_array($currentStage, ClientLifecycle::PIPELINE_LOCKED_STAGES, true)) {
                     $workflow->transition($client, ClientLifecycle::DECISION_PENDING, $actor);
                 }
 

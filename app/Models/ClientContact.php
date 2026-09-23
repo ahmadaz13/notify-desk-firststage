@@ -17,6 +17,7 @@ class ClientContact extends Model
         'primary_phone',
         'secondary_phone',
         'whatsapp_number',
+        'email',
         'preferred_contact_method',
         'is_primary',
     ];

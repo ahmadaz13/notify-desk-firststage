@@ -38,6 +38,9 @@ class User extends Authenticatable
         'password',
         'role',
         'is_active',
+        'phone',
+        'job_title',
+        'avatar_path',
         'first_login_at',
         'reset_expires_at',
     ];

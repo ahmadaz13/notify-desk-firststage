@@ -11,6 +11,7 @@ class ClientLifecycle
     public const INSTALLED_FREE = 'installed_free';
     public const DECISION_PENDING = 'decision_pending';
     public const SUBSCRIBER = 'subscriber';
+    public const FORMER_SUBSCRIBER = 'former_subscriber';
     public const CLOSED = 'closed';
 
     public const STAGES = [
@@ -21,7 +22,26 @@ class ClientLifecycle
         self::INSTALLED_FREE,
         self::DECISION_PENDING,
         self::SUBSCRIBER,
+        self::FORMER_SUBSCRIBER,
         self::CLOSED,
+    ];
+
+    /**
+     * Stages that automatic sales-pipeline transitions (call outcome, installation) must never
+     * overwrite (§4: "if not subscriber/former/closed").
+     */
+    public const PIPELINE_LOCKED_STAGES = [
+        self::SUBSCRIBER,
+        self::FORMER_SUBSCRIBER,
+        self::CLOSED,
+    ];
+
+    /**
+     * Stages only the system may set, through the paid-subscription lifecycle.
+     */
+    public const SYSTEM_MANAGED_STAGES = [
+        self::SUBSCRIBER,
+        self::FORMER_SUBSCRIBER,
     ];
 
     public const CONTACT_OUTCOMES = [
@@ -36,15 +56,6 @@ class ClientLifecycle
         'call_later',
         'wrong_number',
         'not_interested',
-        'other',
-    ];
-
-    public const SOURCE_TYPES = [
-        'direct',
-        'field_visit',
-        'instagram',
-        'referral',
-        'existing_client',
         'other',
     ];
 
@@ -69,6 +80,7 @@ class ClientLifecycle
             self::INSTALLED_FREE => 'تم التركيب المجاني',
             self::DECISION_PENDING => 'بانتظار القرار',
             self::SUBSCRIBER => 'مشترك',
+            self::FORMER_SUBSCRIBER => 'بانتظار التجديد / مشترك سابق',
             self::CLOSED => 'مغلق',
         ];
     }

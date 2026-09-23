@@ -32,7 +32,7 @@ class FreeInstallationService
             $appointment->users()->sync($data['attendees'] ?? [$actor->id]);
 
             $stage = ClientLifecycle::normalizeStage($client->stage, $client->status);
-            if (!in_array($stage, [ClientLifecycle::SUBSCRIBER, ClientLifecycle::CLOSED], true)) {
+            if (!in_array($stage, ClientLifecycle::PIPELINE_LOCKED_STAGES, true)) {
                 app(ClientOperationalWorkflowService::class)->transition($client, ClientLifecycle::INSTALLATION_SCHEDULED, $actor);
             }
 
@@ -79,7 +79,7 @@ class FreeInstallationService
             $client = $appointment->client;
             if ($appointment->appointment_type === AppointmentTypes::INSTALLATION) {
                 $stage = ClientLifecycle::normalizeStage($client->stage, $client->status);
-                if (!in_array($stage, [ClientLifecycle::SUBSCRIBER, ClientLifecycle::CLOSED], true)) {
+                if (!in_array($stage, ClientLifecycle::PIPELINE_LOCKED_STAGES, true)) {
                     app(ClientOperationalWorkflowService::class)->transition($client, ClientLifecycle::INSTALLATION_SCHEDULED, $actor);
                 }
             }

@@ -237,6 +237,9 @@ class Phase1FinancialSafetyTest extends TestCase
 
     public function test_capital_funding_idempotency_prevents_duplicate_funding(): void
     {
+        // P3 / FROZEN D-05: capital funding routes exist only while Capital & Financing is ON.
+        \App\Models\Setting::set('feature_capital_financing', '1');
+
         $fundingSource = FundingSource::firstOrCreate(
             ['name' => 'Founder Personal Capital'],
             ['type' => 'founder', 'is_active' => true]

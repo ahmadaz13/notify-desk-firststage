@@ -181,7 +181,7 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/recurring-expense-obligations/{obligation}/pay', [OperatingExpenseController::class, 'payObligation'])->middleware('financial.idempotency')->name('recurring-expense-obligations.pay');
     Route::post('/recurring-expense-obligations/{obligation}/skip', [OperatingExpenseController::class, 'skipObligation'])->name('recurring-expense-obligations.skip');
     Route::post('/recurring-expense-obligations/{obligation}/cancel', [OperatingExpenseController::class, 'cancelObligation'])->name('recurring-expense-obligations.cancel');
-    Route::get('/capital-management', [CapitalManagementController::class, 'index'])->name('capital-management.index');
+    Route::get('/capital-management', [CapitalManagementController::class, 'index'])->middleware('feature:capital')->name('capital-management.index');
     Route::get('/executive', [ExecutiveDashboardController::class, 'index'])->name('executive.index');
     Route::get('/saas-metrics', [SaasMetricsController::class, 'index'])->name('saas-metrics.index');
     Route::get('/saas-metrics/export/{report}', [SaasMetricsController::class, 'export'])->name('saas-metrics.export');
@@ -190,15 +190,12 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::get('/subscription-billing', [SubscriptionBillingController::class, 'index'])->name('subscription-billing.index');
     Route::post('/subscription-billing/generate-renewals', [SubscriptionBillingController::class, 'generateRenewals'])->name('subscription-billing.generate-renewals');
     Route::post('/subscription-billing/backfill-periods', [SubscriptionBillingController::class, 'backfillPeriods'])->name('subscription-billing.backfill-periods');
-    Route::post('/funding-sources', [CapitalManagementController::class, 'storeFundingSource'])->name('funding-sources.store');
-    Route::post('/funding-sources/{fundingSource}/archive', [CapitalManagementController::class, 'archiveFundingSource'])->name('funding-sources.archive');
-    Route::post('/capital-funding-transactions', [CapitalManagementController::class, 'storeFunding'])->middleware('financial.idempotency')->name('capital-funding-transactions.store');
-    Route::post('/capital-funding-transactions/{transaction}/reverse', [CapitalManagementController::class, 'reverseFunding'])->middleware('financial.idempotency')->name('capital-funding-transactions.reverse');
-    Route::post('/asset-categories', [CapitalManagementController::class, 'storeAssetCategory'])->name('asset-categories.store');
-    Route::post('/asset-categories/{category}/archive', [CapitalManagementController::class, 'archiveAssetCategory'])->name('asset-categories.archive');
-    Route::post('/fixed-assets', [CapitalManagementController::class, 'storeFixedAsset'])->middleware('financial.idempotency')->name('fixed-assets.store');
-    Route::post('/fixed-assets/{asset}/reverse', [CapitalManagementController::class, 'reverseFixedAsset'])->middleware('financial.idempotency')->name('fixed-assets.reverse');
-    Route::patch('/fixed-assets/{asset}/status', [CapitalManagementController::class, 'updateFixedAssetStatus'])->name('fixed-assets.status');
+    // Capital & Financing (§13): 404 unless feature_capital_financing is ON. Fixed assets and asset
+    // categories are never exposed in V1 (models/services/tables are retained).
+    Route::post('/funding-sources', [CapitalManagementController::class, 'storeFundingSource'])->middleware('feature:capital')->name('funding-sources.store');
+    Route::post('/funding-sources/{fundingSource}/archive', [CapitalManagementController::class, 'archiveFundingSource'])->middleware('feature:capital')->name('funding-sources.archive');
+    Route::post('/capital-funding-transactions', [CapitalManagementController::class, 'storeFunding'])->middleware(['feature:capital', 'financial.idempotency'])->name('capital-funding-transactions.store');
+    Route::post('/capital-funding-transactions/{transaction}/reverse', [CapitalManagementController::class, 'reverseFunding'])->middleware(['feature:capital', 'financial.idempotency'])->name('capital-funding-transactions.reverse');
     Route::get('/accounting', [AccountingController::class, 'index'])->name('accounting.index');
     Route::post('/accounting/chart-accounts/{chartAccount}/archive', [AccountingController::class, 'archiveAccount'])->name('accounting.chart-accounts.archive');
     Route::post('/accounting/periods/{period}/close', [AccountingController::class, 'closePeriod'])->name('accounting.periods.close');

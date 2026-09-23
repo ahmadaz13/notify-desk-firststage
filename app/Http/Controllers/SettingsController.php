@@ -48,7 +48,7 @@ class SettingsController extends Controller
             $data['company_logo'] = $request->file('company_logo')->store('company', 'public');
             if ($previous) Storage::disk('public')->delete($previous);
         }
-        foreach (['auto_contract_on_paid_subscription', 'allow_monthly', 'allow_annual_installments'] as $key) {
+        foreach (['auto_contract_on_paid_subscription', 'allow_monthly', 'allow_annual_installments', 'feature_capital_financing'] as $key) {
             $data[$key] = $request->boolean($key) ? '1' : '0';
         }
         foreach ($data as $key => $value) Setting::set($key, $value ?? '');
@@ -64,6 +64,7 @@ class SettingsController extends Controller
             'timezone' => 'Asia/Amman', 'appointment_duration' => '60', 'free_installation_duration' => '60', 'post_install_followup_days' => '3',
             'workday_start' => '09:00', 'workday_end' => '17:00', 'currency' => 'JOD', 'default_billing_cycle' => 'monthly',
             'auto_contract_on_paid_subscription' => '1', 'allow_monthly' => '1', 'allow_annual_installments' => '1',
+            'feature_capital_financing' => '0',
         ];
     }
 }

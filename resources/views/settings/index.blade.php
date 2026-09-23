@@ -19,6 +19,9 @@
         @foreach(['auto_contract_on_paid_subscription','allow_monthly','allow_annual_installments'] as $key)<label class="notify-check"><input type="checkbox" name="{{ $key }}" value="1" @checked(old($key, $settings[$key]) == '1')><span>{{ __('notify.settings.'.$key) }}</span></label>@endforeach
         <div class="notify-form-field--wide"><small>{{ __('notify.settings.initial_contract_status') }}</small></div>
     </div></section>
+    <section class="notify-settings-section"><h2>{{ __('notify.settings.optional_features') }}</h2><div class="notify-form-grid">
+        <label class="notify-check"><input type="checkbox" name="feature_capital_financing" value="1" @checked(old('feature_capital_financing', $settings['feature_capital_financing']) == '1')><span>{{ __('notify.settings.feature_capital_financing') }}</span></label>
+    </div></section>
     <div><button class="notify-button notify-button--primary" type="submit">{{ __('notify.actions.save') }}</button></div>
 </form>
 @endsection

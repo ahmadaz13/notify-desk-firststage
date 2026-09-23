@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\ReceivableService;
+use App\Services\ReferenceDataService;
 use App\Services\ClientOperationalWorkflowService;
 use App\Services\OperationalQueueService;
 use App\Services\PaymentScheduleService;
@@ -423,19 +424,7 @@ class ClientController extends Controller
 
     private function leadSourceOptions(?string $current = null): array
     {
-        $options = [
-            'Google Maps' => __('notify.clients.lead_sources.google_maps'),
-            'Instagram' => __('notify.clients.lead_sources.instagram'),
-            'Referral' => __('notify.clients.lead_sources.referral'),
-            'Direct Prospecting' => __('notify.clients.lead_sources.direct_prospecting'),
-            'Other' => __('notify.clients.lead_sources.other'),
-        ];
-
-        if (filled($current) && ! array_key_exists($current, $options)) {
-            $options[$current] = $current;
-        }
-
-        return $options;
+        return app(ReferenceDataService::class)->options(ReferenceDataService::LEAD_SOURCE, $current);
     }
 
     private function businessCategorySuggestions(?string $current = null): array

@@ -272,6 +272,7 @@ class SubscriptionBillingService
                 'system_ids' => $systemIds,
                 'agreed_value_minor' => $agreedMinor,
             ]);
+            $this->notifyOwnersOfStaffSubscription($client, $subscription, $userId);
 
             return [$subscription->fresh(['systems', 'billingPeriods', 'lifecycleEvents']), $invoice];
         });
@@ -576,6 +577,12 @@ class SubscriptionBillingService
                 'metadata' => ['invoice_id' => $invoice->id, 'billing_period_id' => $period->id],
             ]);
             $this->saasMetricEvents->recordReactivation($subscription->fresh(), $event, $period);
+            Client::whereKey($subscription->client_id)->update([
+                'stage' => ClientLifecycle::SUBSCRIBER,
+                'status' => 'subscriber',
+                'closed_at' => null,
+                'closed_reason' => null,
+            ]);
             $this->log($subscription->client_id, $userId, 'subscription_reactivated', 'تمت إعادة تفعيل الاشتراك وإنشاء فترة وفاتورة جديدتين', [
                 'subscription_id' => $subscription->id,
                 'invoice_id' => $invoice->id,
@@ -878,7 +885,64 @@ class SubscriptionBillingService
             $this->log($subscription->client_id, $userId, 'subscription_cancelled', 'تم إلغاء الاشتراك في نهاية الفترة الحالية', [
                 'subscription_id' => $subscription->id,
             ]);
+            $this->markFormerSubscriberIfNoActiveSubscription($subscription, $userId);
         });
+    }
+
+    /**
+     * When the client's last active paid subscription has ended, the client becomes a former subscriber.
+     * Closing is separate: a closed client stays closed.
+     */
+    private function markFormerSubscriberIfNoActiveSubscription(Subscription $ended, ?int $userId): void
+    {
+        $client = Client::whereKey($ended->client_id)->lockForUpdate()->first();
+        if ($client === null) {
+            return;
+        }
+
+        $stage = ClientLifecycle::normalizeStage($client->stage, $client->status);
+        if (in_array($stage, [ClientLifecycle::CLOSED, ClientLifecycle::FORMER_SUBSCRIBER], true)) {
+            return;
+        }
+
+        $stillActive = Subscription::query()->where('client_id', $client->id)->where('status', 'active')->exists();
+        if ($stillActive) {
+            return;
+        }
+
+        $client->update(['stage' => ClientLifecycle::FORMER_SUBSCRIBER, 'status' => 'former_subscriber']);
+        $this->log($client->id, $userId, 'client_former_subscriber', __('notify.clients.activity_former_subscriber'), [
+            'from' => $stage,
+            'to' => ClientLifecycle::FORMER_SUBSCRIBER,
+            'subscription_id' => $ended->id,
+        ]);
+    }
+
+    private function notifyOwnersOfStaffSubscription(Client $client, Subscription $subscription, ?int $userId): void
+    {
+        $actor = $userId !== null ? User::find($userId) : null;
+        if ($actor === null || ! $actor->isStaff()) {
+            return;
+        }
+
+        $notifications = app(NotificationService::class);
+        $ownerIds = User::query()->where('is_active', true)->whereIn('role', User::ownerLevelRoles())->orderBy('id')->pluck('id');
+        foreach ($ownerIds as $ownerId) {
+            $notifications->createNotification(
+                (int) $ownerId,
+                'staff_subscription_started',
+                __('notify.subscriptions.staff_started_title', ['client' => $client->business_name]),
+                __('notify.subscriptions.staff_started_message', [
+                    'staff' => $actor->name,
+                    'client' => $client->business_name,
+                    'amount' => Money::fromMinorUnits((int) $subscription->agreed_value_minor)->format(),
+                ]),
+                route('clients.show', $client->id, false),
+                'subscription',
+                $subscription->id,
+                'started_by_staff'
+            );
+        }
     }
 
     private function resolveFuturePrice(Subscription $subscription, Carbon $periodStart): ?PlanPrice

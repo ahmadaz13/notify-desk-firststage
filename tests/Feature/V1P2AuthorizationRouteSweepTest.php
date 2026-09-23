@@ -78,10 +78,9 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
         'expense-categories.store', 'expense-categories.update', 'expense-categories.archive',
         'vendors.store', 'vendors.archive', 'recurring-expense-templates.store', 'recurring-expense-templates.update',
         'recurring-expense-obligations.generate', 'recurring-expense-obligations.pay', 'recurring-expense-obligations.skip', 'recurring-expense-obligations.cancel',
-        // Capital and fixed assets
+        // Capital & Financing (feature-gated, P3). Fixed-asset and asset-category routes no longer exist in V1.
         'capital-management.index', 'funding-sources.store', 'funding-sources.archive',
         'capital-funding-transactions.store', 'capital-funding-transactions.reverse',
-        'asset-categories.store', 'asset-categories.archive', 'fixed-assets.store', 'fixed-assets.reverse', 'fixed-assets.status',
         // Accounting, reports, metrics
         'accounting.index', 'accounting.chart-accounts.archive', 'accounting.periods.close', 'accounting.periods.reopen',
         'accounting.backfill', 'accounting.revenue-schedules.backfill', 'accounting.revenue-recognition.run', 'accounting.revenue-recognition.confirm',
@@ -111,6 +110,8 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
         $this->admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
         $this->staff = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true]);
         $this->teamTarget = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true]);
+        // Exercise role gates on capital routes; the OFF-state 404 is covered by the P3 capital gate tests.
+        \App\Models\Setting::set('feature_capital_financing', '1');
         $this->seedFixtures();
     }
 

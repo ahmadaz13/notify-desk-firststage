@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\Client;
 use App\Models\ClientReviewItem;
 use App\Models\ContactAttempt;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
@@ -39,6 +40,12 @@ class ClientOperationalWorkflowService
             ]);
         }
 
+        if ($stage === ClientLifecycle::FORMER_SUBSCRIBER && empty($options['allow_former_subscriber'])) {
+            throw ValidationException::withMessages([
+                'stage' => __('notify.clients.former_subscriber_system_only'),
+            ]);
+        }
+
         if ($stage === ClientLifecycle::CLOSED) {
             return $this->closeClient(
                 $client,
@@ -58,7 +65,7 @@ class ClientOperationalWorkflowService
             $oldStage = ClientLifecycle::normalizeStage($client->stage, $client->status);
             $client->update([
                 'stage' => $stage,
-                'status' => $stage === ClientLifecycle::SUBSCRIBER ? 'subscriber' : 'prospect',
+                'status' => self::legacyStatusFor($stage),
                 'closed_at' => null,
                 'closed_reason' => null,
             ]);
@@ -73,6 +80,29 @@ class ClientOperationalWorkflowService
 
             return $client->refresh();
         });
+    }
+
+    /**
+     * Automatic sales-pipeline move; subscribers and former subscribers keep their stage (§4).
+     * Closed clients still go through transition(), which requires an explicit reopen.
+     */
+    private function pipelineTransition(Client $client, string $stage, User $actor): Client
+    {
+        $current = ClientLifecycle::normalizeStage($client->stage, $client->status);
+        if (in_array($current, ClientLifecycle::SYSTEM_MANAGED_STAGES, true)) {
+            return $client;
+        }
+
+        return $this->transition($client, $stage, $actor);
+    }
+
+    public static function legacyStatusFor(string $stage): string
+    {
+        return match ($stage) {
+            ClientLifecycle::SUBSCRIBER => 'subscriber',
+            ClientLifecycle::FORMER_SUBSCRIBER => 'former_subscriber',
+            default => 'prospect',
+        };
     }
 
     public function closeClient(Client $client, User $actor, string $reasonCode, ?string $note): Client
@@ -117,7 +147,17 @@ class ClientOperationalWorkflowService
             throw ValidationException::withMessages(['stage' => 'مرحلة إعادة الفتح غير صالحة.']);
         }
 
-        return DB::transaction(function () use ($client, $actor, $stage, $reason) {
+        // §4: reopening a client with paid-subscription history returns it to former_subscriber
+        // (or subscriber while a paid subscription is still active) instead of the sales pipeline.
+        $subscriptions = Subscription::query()->where('client_id', $client->id);
+        $options = [];
+        if ((clone $subscriptions)->where('status', 'active')->exists()) {
+            [$stage, $options] = [ClientLifecycle::SUBSCRIBER, ['allow_subscriber' => true]];
+        } elseif ($subscriptions->exists()) {
+            [$stage, $options] = [ClientLifecycle::FORMER_SUBSCRIBER, ['allow_former_subscriber' => true]];
+        }
+
+        return DB::transaction(function () use ($client, $actor, $stage, $reason, $options) {
             $previous = [
                 'stage' => ClientLifecycle::normalizeStage($client->stage, $client->status),
                 'status' => $client->status,
@@ -125,7 +165,7 @@ class ClientOperationalWorkflowService
                 'closed_reason' => $client->closed_reason,
             ];
 
-            $client = $this->transition($client, $stage, $actor, [
+            $client = $this->transition($client, $stage, $actor, $options + [
                 'allow_reopen' => true,
                 'force_log' => true,
                 'reason' => 'reopened',
@@ -188,7 +228,7 @@ class ClientOperationalWorkflowService
                     'status' => 'scheduled',
                 ]);
                 $appointment->users()->sync($data['attendees'] ?? [$actor->id]);
-                $this->transition($client, ClientLifecycle::APPOINTMENT, $actor);
+                $this->pipelineTransition($client, ClientLifecycle::APPOINTMENT, $actor);
                 $this->log($client->id, $actor->id, 'appointment_scheduled', 'تم جدولة موعد بعد نتيجة التواصل', [
                     'appointment_id' => $appointment->id,
                 ]);
@@ -201,7 +241,7 @@ class ClientOperationalWorkflowService
                     'follow_up_date_time' => $data['follow_up_date_time'] ?? $data['next_follow_up_date'],
                     'notes' => $data['note'] ?? null,
                 ]);
-                $this->transition($client, ClientLifecycle::CONTACTING, $actor);
+                $this->pipelineTransition($client, ClientLifecycle::CONTACTING, $actor);
                 $this->log($client->id, $actor->id, 'callback_scheduled', 'تمت جدولة معاودة اتصال', [
                     'follow_up_id' => $followUpId,
                 ]);
@@ -213,10 +253,10 @@ class ClientOperationalWorkflowService
                     $result === 'wrong_invalid' ? ClientReviewItem::TYPE_WRONG_INVALID : ClientReviewItem::TYPE_NOT_INTERESTED,
                     $note !== '' ? $note : ($data['closed_reason'] ?? null)
                 );
-                $this->transition($client, ClientLifecycle::CONTACTING, $actor);
+                $this->pipelineTransition($client, ClientLifecycle::CONTACTING, $actor);
                 $created['review_item'] = $review;
             } else {
-                $this->transition($client, ClientLifecycle::CONTACTING, $actor);
+                $this->pipelineTransition($client, ClientLifecycle::CONTACTING, $actor);
             }
 
             return $created;

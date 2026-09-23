@@ -64,7 +64,8 @@ class Phase01CrmCoreTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $client = $this->makeClient();
 
-        $manualStages = array_diff(ClientLifecycle::STAGES, [ClientLifecycle::SUBSCRIBER]);
+        // P3: subscriber and former_subscriber are system-managed (paid-subscription lifecycle only).
+        $manualStages = array_diff(ClientLifecycle::STAGES, ClientLifecycle::SYSTEM_MANAGED_STAGES);
         foreach ($manualStages as $stage) {
             $this->actingAs($admin)
                 ->patch(route('clients.stage.update', $client->id), [

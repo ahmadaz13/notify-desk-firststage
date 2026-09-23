@@ -118,8 +118,14 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
 
         $response->assertOk();
         $response->assertSee(__('notify.finance.capital_assets_workspace'));
-        $response->assertSee(__('notify.finance.open_capital_assets'));
         $response->assertSee(__('notify.finance.capital_invariants_note'));
+        // P3 / FROZEN D-05: the Capital & Financing link is hidden while the feature is OFF (default).
+        $response->assertDontSee(__('notify.finance.open_capital_assets'));
+
+        \App\Models\Setting::set('feature_capital_financing', '1');
+        $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'capital_assets']))
+            ->assertOk()
+            ->assertSee(__('notify.finance.open_capital_assets'));
     }
 
     public function test_finance_cockpit_reports_workspace(): void

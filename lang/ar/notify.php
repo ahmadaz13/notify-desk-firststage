@@ -593,8 +593,11 @@ return array (
       'installed_free' => 'تم التركيب المجاني',
       'prospect' => 'فرصة جديدة',
       'subscriber' => 'مشترك',
+      'former_subscriber' => 'بانتظار التجديد / مشترك سابق',
     ),
     'workspace' => 'مساحة عمل العميل',
+    'former_subscriber_system_only' => 'يتم نقل العميل إلى مشترك سابق تلقائياً عند انتهاء آخر اشتراك مدفوع فقط.',
+    'activity_former_subscriber' => 'انتهى آخر اشتراك مدفوع؛ أصبح العميل مشتركاً سابقاً بانتظار التجديد',
     'choose_lead_source' => 'اختر المصدر',
   ),
   'collections' =>
@@ -1058,7 +1061,7 @@ return array (
     'timezone' => 'المنطقة الزمنية', 'appointment_duration' => 'مدة الموعد (دقيقة)', 'free_installation_duration' => 'مدة التركيب المجاني (دقيقة)',
     'post_install_followup_days' => 'المتابعة بعد التركيب (أيام)', 'workday_start' => 'بداية يوم العمل', 'workday_end' => 'نهاية يوم العمل',
     'currency' => 'العملة', 'default_billing_cycle' => 'دورة الفوترة الافتراضية', 'auto_contract_on_paid_subscription' => 'إنشاء عقد تلقائياً للاشتراك المدفوع',
-    'allow_monthly' => 'السماح بالفوترة الشهرية', 'allow_annual_installments' => 'السماح بالأقساط السنوية', 'initial_contract_status' => 'تبدأ العقود الجديدة بحالة مسودة.', 'saved' => 'تم حفظ الإعدادات.',
+    'allow_monthly' => 'السماح بالفوترة الشهرية', 'allow_annual_installments' => 'السماح بالأقساط السنوية', 'optional_features' => 'ميزات اختيارية', 'feature_capital_financing' => 'تفعيل إدارة رأس المال والاستثمار', 'initial_contract_status' => 'تبدأ العقود الجديدة بحالة مسودة.', 'saved' => 'تم حفظ الإعدادات.',
   ),
   'administration' => array (
     'title' => 'الإدارة', 'subtitle' => 'إدارة الأنظمة وصلاحيات الفريق والاستيراد والإعدادات العامة.',
@@ -1106,6 +1109,8 @@ return array (
   ),
   'subscriptions' =>
   array (
+    'staff_started_title' => 'اشتراك مدفوع جديد من موظف: :client',
+    'staff_started_message' => 'بدأ :staff اشتراكاً مدفوعاً للعميل :client بقيمة متفق عليها :amount د.أ.',
     'agreed_value_jod' => 'قيمة الاشتراك المتفق عليها (د.أ)',
     'active' => 'الاشتراكات النشطة',
     'annual' => 'سنوي',

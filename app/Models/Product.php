@@ -21,12 +21,14 @@ class Product extends Model
         'is_active',
         'default_monthly_price_minor',
         'default_annual_price_minor',
+        'requires_credentials',
         'archived_at',
         'created_by',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'requires_credentials' => 'boolean',
         'archived_at' => 'datetime',
         'default_monthly_price_minor' => 'integer',
         'default_annual_price_minor' => 'integer',

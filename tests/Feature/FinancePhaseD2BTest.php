@@ -13,6 +13,7 @@ use App\Models\FixedAssetAcquisitionReversal;
 use App\Models\FundingSource;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Models\Vendor;
@@ -23,6 +24,8 @@ use Database\Seeders\AssetCategorySeeder;
 use Database\Seeders\ExpenseCategorySeeder;
 use Database\Seeders\SettingsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class FinancePhaseD2BTest extends TestCase
@@ -35,6 +38,22 @@ class FinancePhaseD2BTest extends TestCase
         $this->seed(SettingsSeeder::class);
         $this->seed(ExpenseCategorySeeder::class);
         $this->seed(AssetCategorySeeder::class);
+        // P3 / FROZEN D-05: capital funding routes exist only while Capital & Financing is enabled.
+        Setting::set('feature_capital_financing', '1');
+    }
+
+    /**
+     * P3 / §13: fixed-asset and asset-category routes are removed from V1; the retained engine is
+     * exercised directly through CapitalManagementService.
+     */
+    private function assertRejected(callable $action, string $key): void
+    {
+        try {
+            $action();
+            $this->fail("Expected a validation error on {$key}.");
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey($key, $exception->errors());
+        }
     }
 
     public function test_admin_can_create_funding_source_and_partner_cannot(): void
@@ -121,12 +140,11 @@ class FinancePhaseD2BTest extends TestCase
         $category = AssetCategory::where('code', 'computers')->firstOrFail();
         $vendor = Vendor::create(['name' => 'Hardware Vendor', 'is_active' => true, 'created_by' => $admin->id]);
 
-        $this->actingAs($admin)->post(route('asset-categories.store'), [
-            'code' => 'custom_asset',
-            'name_ar' => 'أصل مخصص',
-        ])->assertSessionHas('success');
+        $service = app(CapitalManagementService::class);
+        $service->createAssetCategory(['code' => 'custom_asset', 'name_ar' => 'أصل مخصص'], $admin);
+        $this->assertTrue(AssetCategory::where('code', 'custom_asset')->exists());
 
-        $this->actingAs($admin)->post(route('fixed-assets.store'), [
+        $this->assertRejected(fn () => $service->acquireFixedAsset([
             'name' => 'Laptop',
             'asset_category_id' => $category->id,
             'vendor_id' => $vendor->id,
@@ -134,9 +152,9 @@ class FinancePhaseD2BTest extends TestCase
             'funding_source' => FixedAsset::FUNDING_COMPANY_ACCOUNT,
             'financial_account_id' => $archived->id,
             'acquired_at' => '2026-09-14',
-        ])->assertSessionHasErrors('financial_account_id');
+        ], $admin), 'financial_account_id');
 
-        $this->actingAs($admin)->post(route('fixed-assets.store'), [
+        $service->acquireFixedAsset([
             'name' => 'Laptop',
             'asset_category_id' => $category->id,
             'vendor_id' => $vendor->id,
@@ -148,7 +166,7 @@ class FinancePhaseD2BTest extends TestCase
             'acquired_at' => '2026-09-14',
             'in_service_at' => '2026-09-15',
             'location' => 'Office',
-        ])->assertSessionHas('success');
+        ], $admin);
 
         $asset = FixedAsset::firstOrFail();
         $this->assertSame(12375, $asset->acquisition_cost_minor);
@@ -166,15 +184,16 @@ class FinancePhaseD2BTest extends TestCase
         $payer = User::factory()->create(['role' => 'admin']);
         $category = AssetCategory::where('code', 'mobile_devices')->firstOrFail();
 
-        $this->actingAs($admin)->post(route('fixed-assets.store'), [
+        $service = app(CapitalManagementService::class);
+        $this->assertRejected(fn () => $service->acquireFixedAsset([
             'name' => 'Tablet',
             'asset_category_id' => $category->id,
             'acquisition_cost' => '40.000',
             'funding_source' => FixedAsset::FUNDING_PERSONAL,
             'acquired_at' => '2026-09-14',
-        ])->assertSessionHasErrors('paid_by_user_id');
+        ], $admin), 'paid_by_user_id');
 
-        $this->actingAs($admin)->post(route('fixed-assets.store'), [
+        $service->acquireFixedAsset([
             'name' => 'Tablet',
             'asset_category_id' => $category->id,
             'payee_name' => 'Retail Store',
@@ -182,7 +201,7 @@ class FinancePhaseD2BTest extends TestCase
             'funding_source' => FixedAsset::FUNDING_PERSONAL,
             'paid_by_user_id' => $payer->id,
             'acquired_at' => '2026-09-14',
-        ])->assertSessionHas('success');
+        ], $admin);
 
         $asset = FixedAsset::firstOrFail();
         $this->assertSame($payer->id, $asset->paid_by_user_id);
@@ -199,30 +218,22 @@ class FinancePhaseD2BTest extends TestCase
         $companyAsset = $this->createCompanyAsset($admin, $category, $account, '10.000');
         $personalAsset = $this->createPersonalAsset($admin, $payer, $category, '5.000');
 
-        $this->actingAs($admin)->patch(route('fixed-assets.status', $companyAsset), [
-            'status' => FixedAsset::STATUS_OUT_OF_SERVICE,
-        ])->assertSessionHas('success');
+        $service = app(CapitalManagementService::class);
+        $service->changeAssetStatus($companyAsset, FixedAsset::STATUS_OUT_OF_SERVICE, $admin);
         $this->assertSame(FixedAsset::STATUS_OUT_OF_SERVICE, $companyAsset->fresh()->status);
 
-        $this->actingAs($admin)->post(route('fixed-assets.reverse', $companyAsset), [])
-            ->assertSessionHasErrors('reason');
-        $this->actingAs($admin)->post(route('fixed-assets.reverse', $companyAsset), [
-            'reason' => 'Wrong asset entry',
-        ])->assertSessionHas('success');
+        $this->assertRejected(fn () => $service->reverseAssetAcquisition($companyAsset, '', $admin), 'reason');
+        $service->reverseAssetAcquisition($companyAsset, 'Wrong asset entry', $admin);
 
         $this->assertSame(1, FixedAssetAcquisitionReversal::count());
         $this->assertSame(1, CashMovement::where('event_type', CashMovement::EVENT_ASSET_ACQUISITION_REVERSAL)->count());
         $this->assertSame(60000, app(FinancialAccountBalanceService::class)->currentBalanceMinor($account->fresh()));
         $this->assertSame(0, FixedAsset::activeAcquisitions()->whereKey($companyAsset->id)->count());
 
-        $this->actingAs($admin)->post(route('fixed-assets.reverse', $companyAsset), [
-            'reason' => 'Duplicate',
-        ])->assertSessionHasErrors('fixed_asset_id');
+        $this->assertRejected(fn () => $service->reverseAssetAcquisition($companyAsset->fresh(), 'Duplicate', $admin), 'fixed_asset_id');
 
         $movementCount = CashMovement::count();
-        $this->actingAs($admin)->post(route('fixed-assets.reverse', $personalAsset), [
-            'reason' => 'Personal correction',
-        ])->assertSessionHas('success');
+        $service->reverseAssetAcquisition($personalAsset, 'Personal correction', $admin);
         $this->assertSame($movementCount, CashMovement::count());
     }
 
@@ -252,42 +263,31 @@ class FinancePhaseD2BTest extends TestCase
             'amount' => '1.000',
             'received_at' => '2026-09-14 10:00:00',
         ])->assertForbidden();
-        $this->actingAs($partnerUser)->post(route('fixed-assets.store'), [
-            'name' => 'Blocked Asset',
-            'asset_category_id' => $category->id,
-            'acquisition_cost' => '1.000',
-            'funding_source' => FixedAsset::FUNDING_COMPANY_ACCOUNT,
-            'financial_account_id' => $account->id,
-            'acquired_at' => '2026-09-14',
-        ])->assertForbidden();
+        $this->assertFalse(Route::has('fixed-assets.store'), 'Fixed assets are not part of V1 (P3 / §13).');
     }
 
     private function createCompanyAsset(User $admin, AssetCategory $category, FinancialAccount $account, string $amount): FixedAsset
     {
-        $this->actingAs($admin)->post(route('fixed-assets.store'), [
+        return app(CapitalManagementService::class)->acquireFixedAsset([
             'name' => 'Company Asset',
             'asset_category_id' => $category->id,
             'acquisition_cost' => $amount,
             'funding_source' => FixedAsset::FUNDING_COMPANY_ACCOUNT,
             'financial_account_id' => $account->id,
             'acquired_at' => '2026-09-14',
-        ])->assertSessionHas('success');
-
-        return FixedAsset::orderByDesc('id')->firstOrFail();
+        ], $admin);
     }
 
     private function createPersonalAsset(User $admin, User $payer, AssetCategory $category, string $amount): FixedAsset
     {
-        $this->actingAs($admin)->post(route('fixed-assets.store'), [
+        return app(CapitalManagementService::class)->acquireFixedAsset([
             'name' => 'Personal Asset',
             'asset_category_id' => $category->id,
             'acquisition_cost' => $amount,
             'funding_source' => FixedAsset::FUNDING_PERSONAL,
             'paid_by_user_id' => $payer->id,
             'acquired_at' => '2026-09-14',
-        ])->assertSessionHas('success');
-
-        return FixedAsset::orderByDesc('id')->firstOrFail();
+        ], $admin);
     }
 
     private function createAccount(string $code, string $name, string $openingBalance = '0.000'): FinancialAccount

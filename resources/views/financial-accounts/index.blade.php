@@ -11,7 +11,9 @@
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
                 <a href="{{ route('finance.index') }}" class="p4-btn p4-btn-soft p4-btn-sm">تقارير الإدارة المالية</a>
                 <a href="{{ route('operating-expenses.index') }}" class="p4-btn p4-btn-soft p4-btn-sm">المصاريف التشغيلية</a>
+                @if(\App\Support\Features::capitalEnabled())
                 <a href="{{ route('capital-management.index') }}" class="p4-btn p4-btn-soft p4-btn-sm">التمويل والأصول</a>
+                @endif
             </div>
         </div>
     </header>
