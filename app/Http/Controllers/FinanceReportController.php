@@ -20,7 +20,7 @@ use App\Services\FinancialStatementService;
 use App\Services\OperatingExpenseService;
 use App\Services\ReceivableService;
 use App\Services\SaasMetricsService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use App\Support\Money;
 use App\Support\ReportingPeriod;
 use Illuminate\Http\Request;
@@ -38,14 +38,14 @@ class FinanceReportController extends Controller
         OperatingExpenseService $expenseService,
         CapitalManagementService $capitalService
     ) {
-        Gate::authorize(FinancialPermissions::VIEW_FINANCIAL_STATEMENTS);
+        Gate::authorize(Permissions::VIEW_FINANCIAL_STATEMENTS);
 
         $section = $request->query('section', 'overview');
         if (! in_array($section, ['overview', 'collections', 'expenses', 'capital_assets', 'reports', 'advanced'], true)) {
             $section = 'overview';
         }
         if ($section === 'advanced') {
-            Gate::authorize(FinancialPermissions::VIEW_ACCOUNTING);
+            Gate::authorize(Permissions::VIEW_ACCOUNTING);
         }
 
         $period = ReportingPeriod::fromRequest($request);
@@ -157,7 +157,7 @@ class FinanceReportController extends Controller
 
     public function export(Request $request, string $report, FinancialStatementService $statements): StreamedResponse
     {
-        Gate::authorize(FinancialPermissions::EXPORT_FINANCIAL_REPORTS);
+        Gate::authorize(Permissions::EXPORT_FINANCIAL_REPORTS);
 
         $period = ReportingPeriod::fromRequest($request);
         [$filename, $rows] = $this->exportRows($report, $period, $statements);

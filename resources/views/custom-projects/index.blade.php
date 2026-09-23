@@ -7,7 +7,9 @@
             <h1 class="p5-title">{{ __('custom_projects.title') }}</h1>
             <p class="p5-subtitle">{{ __('custom_projects.subtitle') }}</p>
         </div>
+        @can('manage_custom_projects')
         <a href="{{ route('custom-projects.create') }}" class="p5-btn p5-btn-primary">{{ __('custom_projects.create') }}</a>
+        @endcan
     </header>
     <nav style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0" aria-label="{{ __('custom_projects.status_label') }}">
         @foreach(['all', ...\App\Models\CustomProject::STATUSES] as $key)

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\SaasMetricsReconciliationService;
 use App\Services\SaasMetricsService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use App\Support\ReportingPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -14,7 +14,7 @@ class SaasMetricsController extends Controller
 {
     public function index(Request $request, SaasMetricsService $metrics, SaasMetricsReconciliationService $reconciliation)
     {
-        Gate::authorize(FinancialPermissions::VIEW_SAAS_METRICS);
+        Gate::authorize(Permissions::VIEW_SAAS_METRICS);
 
         $period = ReportingPeriod::fromRequest($request);
         $report = $metrics->dashboard($period);
@@ -25,7 +25,7 @@ class SaasMetricsController extends Controller
 
     public function export(Request $request, string $report, SaasMetricsService $metrics): StreamedResponse
     {
-        Gate::authorize(FinancialPermissions::EXPORT_SAAS_METRICS);
+        Gate::authorize(Permissions::EXPORT_SAAS_METRICS);
 
         $period = ReportingPeriod::fromRequest($request);
         $rows = $metrics->exportRows($report, $period);

@@ -1,4 +1,5 @@
-@php($canManageBilling = \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING))
+@php($canManageSystemAccess = \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::MANAGE_SYSTEM_ACCESS))
+@php($canStartSubscription = \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::START_PAID_SUBSCRIPTION))
 
 <section id="sec-system-access" class="p3-card">
     <div class="p3-section-heading">
@@ -16,7 +17,7 @@
         <p class="muted">{{ __('notify.system_access.none') }}</p>
     @endforelse
 
-    @if($canManageBilling)
+    @if($canManageSystemAccess)
         <form method="POST" action="{{ route('clients.system-access.store', $client) }}" class="notify-action-form" style="margin-top:12px">
             @csrf
             <label><strong>{{ __('notify.system_access.grant_free') }}</strong></label>
@@ -33,7 +34,7 @@
 <section id="sec-paid-subscriptions" class="p3-card">
     <div class="p3-section-heading">
         <h3>{{ __('notify.subscriptions.title') }}</h3>
-        @if($canManageBilling)
+        @if($canStartSubscription)
             <button type="button" id="sec-start-subscription" class="p5-btn p5-btn-primary p5-btn-sm" data-trigger-start-subscription>{{ __('notify.subscriptions.convert_to_subscriber') }}</button>
         @endif
     </div>

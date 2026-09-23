@@ -72,7 +72,8 @@ class Phase7CustomProjectsTest extends TestCase
         $client = $this->client();
         $staff = User::factory()->create(['role' => 'staff']);
         $this->get(route('custom-projects.index'))->assertRedirect();
-        $this->actingAs($staff)->get(route('custom-projects.index'))->assertForbidden();
+        // P2 / FROZEN D-14: staff views custom projects read-only but cannot manage them.
+        $this->actingAs($staff)->get(route('custom-projects.index'))->assertOk();
         $this->actingAs($staff)->post(route('custom-projects.store'), [
             'client_id' => $client->id, 'name' => 'Denied', 'status' => 'planned',
         ])->assertForbidden();

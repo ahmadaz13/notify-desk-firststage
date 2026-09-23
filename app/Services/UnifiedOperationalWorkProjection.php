@@ -8,7 +8,7 @@ use App\Models\ClientReviewItem;
 use App\Models\User;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -630,8 +630,8 @@ class UnifiedOperationalWorkProjection
 
     protected function canViewCollections(User $user): bool
     {
-        return FinancialPermissions::allows($user, FinancialPermissions::RECORD_PAYMENT)
-            || FinancialPermissions::allows($user, FinancialPermissions::VIEW_FINANCIAL_REPORTS);
+        return Permissions::allows($user, Permissions::RECORD_PAYMENT)
+            || Permissions::allows($user, Permissions::VIEW_FINANCIAL_REPORTS);
     }
 
     protected function clientQuickActions(?Client $client): array

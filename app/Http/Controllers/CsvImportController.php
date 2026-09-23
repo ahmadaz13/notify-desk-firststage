@@ -3,17 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Services\CsvImportService;
+use App\Support\Permissions;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class CsvImportController extends Controller
 {
     public function index()
     {
+        Gate::authorize(Permissions::IMPORT_CLIENTS);
+
         return view('clients.import');
     }
 
     public function preview(Request $request, CsvImportService $csvService)
     {
+        Gate::authorize(Permissions::IMPORT_CLIENTS);
+
         $request->validate([
             'csv_file' => 'required|file|mimes:csv,txt|max:5120',
             'type' => 'required|in:prospect,subscriber',
@@ -35,6 +41,8 @@ class CsvImportController extends Controller
 
     public function confirm(Request $request, CsvImportService $csvService)
     {
+        Gate::authorize(Permissions::IMPORT_CLIENTS);
+
         $validRows = session('csv_import_valid');
         $type = session('csv_import_type', 'prospect');
 
@@ -52,6 +60,8 @@ class CsvImportController extends Controller
 
     public function downloadTemplate(string $type)
     {
+        Gate::authorize(Permissions::IMPORT_CLIENTS);
+
         abort_unless(in_array($type, ['prospects', 'subscribers']), 404);
 
         $path = public_path("csv-templates/{$type}_template.csv");

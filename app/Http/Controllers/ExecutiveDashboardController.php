@@ -6,7 +6,7 @@ use App\Services\FinancialReportingReconciliationService;
 use App\Services\FinancialStatementService;
 use App\Services\SaasMetricsReconciliationService;
 use App\Services\SaasMetricsService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use App\Support\ReportingPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -20,7 +20,7 @@ class ExecutiveDashboardController extends Controller
         FinancialStatementService $statements,
         FinancialReportingReconciliationService $financialReconciliation
     ) {
-        Gate::authorize(FinancialPermissions::VIEW_EXECUTIVE_DASHBOARD);
+        Gate::authorize(Permissions::VIEW_EXECUTIVE_DASHBOARD);
 
         $period = ReportingPeriod::fromRequest($request);
         $saasReport = $saas->dashboard($period);

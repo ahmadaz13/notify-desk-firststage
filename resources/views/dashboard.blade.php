@@ -167,8 +167,8 @@
             $workUpcoming = $todayViewModel->workUpcomingItems();
             $totalFilteredWork = $workOverdue->count() + $workToday->count() + $workUpcoming->count();
 
-            $canViewCollections = \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::RECORD_PAYMENT)
-                || \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::VIEW_FINANCIAL_REPORTS);
+            $canViewCollections = \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::RECORD_PAYMENT)
+                || \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::VIEW_FINANCIAL_REPORTS);
         @endphp
 
         {{-- Filter Chips --}}

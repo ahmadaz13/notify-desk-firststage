@@ -10,7 +10,7 @@ use App\Services\AccountingReportService;
 use App\Services\AccountingSetupService;
 use App\Services\JournalPostingService;
 use App\Services\RevenueRecognitionService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -27,7 +27,7 @@ class AccountingController extends Controller
         RevenueRecognitionService $revenueRecognition,
         Request $request
     ): View {
-        Gate::authorize(FinancialPermissions::VIEW_ACCOUNTING);
+        Gate::authorize(Permissions::VIEW_ACCOUNTING);
 
         $setup->ensureSeeded();
         $accounts = ChartAccount::with('parent')->orderBy('code')->get();
@@ -55,7 +55,7 @@ class AccountingController extends Controller
 
     public function archiveAccount(ChartAccount $chartAccount, Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_CHART_OF_ACCOUNTS);
+        Gate::authorize(Permissions::MANAGE_CHART_OF_ACCOUNTS);
 
         if ($chartAccount->is_system || $chartAccount->journalLines()->exists()) {
             return back()->withErrors(['chart_account_id' => 'لا يمكن أرشفة حساب نظامي أو مستخدم تاريخياً.']);
@@ -81,7 +81,7 @@ class AccountingController extends Controller
 
     public function closePeriod(AccountingPeriod $period, Request $request, JournalPostingService $journals): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_ACCOUNTING_PERIODS);
+        Gate::authorize(Permissions::MANAGE_ACCOUNTING_PERIODS);
 
         $validated = $request->validate(['notes' => 'nullable|string|max:1000']);
         $journals->closePeriod($period, $request->user()->id, $validated['notes'] ?? null);
@@ -91,7 +91,7 @@ class AccountingController extends Controller
 
     public function reopenPeriod(AccountingPeriod $period, Request $request, JournalPostingService $journals): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_ACCOUNTING_PERIODS);
+        Gate::authorize(Permissions::MANAGE_ACCOUNTING_PERIODS);
 
         $validated = $request->validate(['reason' => 'required|string|max:1000']);
         $journals->reopenPeriod($period, $request->user()->id, $validated['reason']);
@@ -101,7 +101,7 @@ class AccountingController extends Controller
 
     public function backfill(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::RUN_ACCOUNTING_BACKFILL);
+        Gate::authorize(Permissions::RUN_ACCOUNTING_BACKFILL);
 
         $dryRun = $request->boolean('dry_run', true);
         Artisan::call('finance:backfill-accounting-ledger', $dryRun ? ['--dry-run' => true] : []);
@@ -111,7 +111,7 @@ class AccountingController extends Controller
 
     public function backfillRevenueSchedules(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::RUN_REVENUE_RECOGNITION);
+        Gate::authorize(Permissions::RUN_REVENUE_RECOGNITION);
 
         $dryRun = $request->boolean('dry_run', true);
         Artisan::call('finance:backfill-revenue-schedules', $dryRun ? ['--dry-run' => true] : []);
@@ -121,7 +121,7 @@ class AccountingController extends Controller
 
     public function recognizeRevenue(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::RUN_REVENUE_RECOGNITION);
+        Gate::authorize(Permissions::RUN_REVENUE_RECOGNITION);
 
         $validated = $request->validate([
             'through' => 'nullable|date',
@@ -146,7 +146,7 @@ class AccountingController extends Controller
         Request $request,
         RevenueRecognitionService $revenueRecognition
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::RESOLVE_REVENUE_RECOGNITION_REVIEWS);
+        Gate::authorize(Permissions::RESOLVE_REVENUE_RECOGNITION_REVIEWS);
 
         $validated = $request->validate([
             'recognition_date' => 'required|date',

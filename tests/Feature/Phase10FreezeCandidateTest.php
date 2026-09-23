@@ -94,9 +94,9 @@ class Phase10FreezeCandidateTest extends TestCase
         $this->actingAs($this->staff)->get(route('clients.index'))->assertOk();
         $this->actingAs($this->staff)->get(route('clients.show', $client))->assertOk();
 
-        // Guided Financial / Subscription actions forbidden for staff
-        $this->actingAs($this->staff)->getJson(route('clients.guided-subscription.catalog', $client))->assertForbidden();
-        $this->actingAs($this->staff)->postJson(route('clients.guided-subscription.store', $client), [])->assertForbidden();
+        // P2 / FROZEN D-06: staff may start paid subscriptions (validation still applies); payments stay forbidden
+        $this->actingAs($this->staff)->getJson(route('clients.guided-subscription.catalog', $client))->assertOk();
+        $this->actingAs($this->staff)->postJson(route('clients.guided-subscription.store', $client), [])->assertStatus(422);
         $this->actingAs($this->staff)->post(route('clients.payments.normal.store', $client), [])->assertForbidden();
 
         // Advanced financial management routes forbidden for staff

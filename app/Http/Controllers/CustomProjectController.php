@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Models\CustomProject;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,19 +15,23 @@ use Illuminate\View\View;
 class CustomProjectController extends Controller
 {
     /**
-     * Gate check – manage_commercial_catalog covers project management.
-     * Admins always pass; staff are blocked.
+     * Staff may view Custom Projects read-only; only Owner-level users manage them (§2.3, D-14).
      */
+    private function authorizeView(): void
+    {
+        Gate::authorize(Permissions::VIEW_CUSTOM_PROJECTS);
+    }
+
     private function authorizeManage(): void
     {
-        Gate::authorize(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG);
+        Gate::authorize(Permissions::MANAGE_CUSTOM_PROJECTS);
     }
 
     // ─── Index (all projects) ─────────────────────────────────────────
 
     public function index(Request $request): View
     {
-        $this->authorizeManage();
+        $this->authorizeView();
 
         $status  = $request->query('status', 'all');
         $query   = CustomProject::with('client')
@@ -46,7 +50,7 @@ class CustomProjectController extends Controller
 
     public function show(CustomProject $customProject): View
     {
-        $this->authorizeManage();
+        $this->authorizeView();
         $customProject->load(['client', 'creator', 'invoices']);
 
         return view('custom-projects.show', ['project' => $customProject]);
@@ -170,7 +174,7 @@ class CustomProjectController extends Controller
 
     public function clientIndex(Client $client): View
     {
-        $this->authorizeManage();
+        $this->authorizeView();
 
         $projects = CustomProject::where('client_id', $client->id)
             ->orderByDesc('created_at')

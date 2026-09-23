@@ -7,7 +7,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Services\CommercialPricingService;
 use App\Services\InvoiceService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +23,7 @@ class BillingController extends Controller
         CommercialPricingService $pricingService,
         InvoiceService $invoiceService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::MANAGE_INVOICES);
+        Gate::authorize(Permissions::MANAGE_INVOICES);
 
         $validated = $request->validate([
             'issue_date' => 'required|date',
@@ -74,7 +74,7 @@ class BillingController extends Controller
 
     public function voidInvoice(Request $request, Invoice $invoice, InvoiceService $invoiceService): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_INVOICES);
+        Gate::authorize(Permissions::MANAGE_INVOICES);
 
         $validated = $request->validate([
             'void_reason' => 'required|string|max:1000',

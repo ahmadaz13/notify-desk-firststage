@@ -21,7 +21,7 @@
                     'expenses' => __('notify.finance.sections.expenses'),
                     'capital_assets' => __('notify.finance.sections.capital_assets'),
                     'reports' => __('notify.finance.sections.reports'),
-                    ...((\App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::VIEW_ACCOUNTING)) ? ['advanced' => __('notify.finance.sections.advanced')] : []),
+                    ...((\App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::VIEW_ACCOUNTING)) ? ['advanced' => __('notify.finance.sections.advanced')] : []),
                 ] as $secKey => $secLabel)
                     <a
                         href="{{ route('finance.index', ['section' => $secKey] + request()->except(['section', 'page'])) }}"

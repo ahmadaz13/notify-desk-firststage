@@ -13,7 +13,7 @@ use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Support\ClientLifecycle;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;

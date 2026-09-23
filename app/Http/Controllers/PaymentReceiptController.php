@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\PaymentReceiptConfirmation;
 use App\Services\PaymentReceiptService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use App\Support\PaymentMethods;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +16,7 @@ class PaymentReceiptController extends Controller
 {
     public function store(Request $request, Client $client, PaymentReceiptService $receipts): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::SUBMIT_PAYMENT_RECEIPT);
+        Gate::authorize(Permissions::SUBMIT_PAYMENT_RECEIPT);
         Gate::authorize('view', $client);
 
         $validated = $request->validate([
@@ -47,7 +47,7 @@ class PaymentReceiptController extends Controller
 
     public function approve(Request $request, PaymentReceiptConfirmation $paymentReceipt, PaymentReceiptService $receipts): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::APPROVE_PAYMENT_RECEIPTS);
+        Gate::authorize(Permissions::APPROVE_PAYMENT_RECEIPTS);
 
         $receipts->approve($paymentReceipt, $request->user());
 
@@ -56,7 +56,7 @@ class PaymentReceiptController extends Controller
 
     public function reject(Request $request, PaymentReceiptConfirmation $paymentReceipt, PaymentReceiptService $receipts): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::APPROVE_PAYMENT_RECEIPTS);
+        Gate::authorize(Permissions::APPROVE_PAYMENT_RECEIPTS);
 
         $validated = $request->validate([
             'rejection_reason' => ['required', 'string', 'max:1000'],
@@ -71,7 +71,7 @@ class PaymentReceiptController extends Controller
 
     public function cancel(Request $request, PaymentReceiptConfirmation $paymentReceipt, PaymentReceiptService $receipts): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::SUBMIT_PAYMENT_RECEIPT);
+        Gate::authorize(Permissions::SUBMIT_PAYMENT_RECEIPT);
 
         $receipts->cancel($paymentReceipt, $request->user());
 

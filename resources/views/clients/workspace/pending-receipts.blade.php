@@ -1,5 +1,5 @@
 @php
-    $canApproveReceipts = \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::APPROVE_PAYMENT_RECEIPTS);
+    $canApproveReceipts = \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::APPROVE_PAYMENT_RECEIPTS);
 @endphp
 
 @if($pendingPaymentReceipts->isNotEmpty())

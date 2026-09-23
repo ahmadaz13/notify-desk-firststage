@@ -61,7 +61,7 @@
                                 <span class="p4-kpi-meta">دخول اليوم: {{ \App\Support\Money::fromMinorUnits($card['today_inflows_minor'])->format() }} · خروج اليوم: {{ \App\Support\Money::fromMinorUnits($card['today_outflows_minor'])->format() }}</span>
                             </div>
                         </div>
-                        @can(\App\Support\FinancialPermissions::MANAGE_FINANCIAL_ACCOUNTS)
+                        @can(\App\Support\Permissions::MANAGE_FINANCIAL_ACCOUNTS)
                             @if($account->is_active)
                                 <form method="POST" action="{{ route('financial-accounts.archive', $account) }}" onsubmit="return confirm('سيتم أرشفة الحساب مع بقاء السجل التاريخي. هل تريد المتابعة؟')">
                                     @csrf
@@ -78,7 +78,7 @@
     </x-notify.collapsible-section>
 
     {{-- 2. Create Financial Account Form --}}
-    @can(\App\Support\FinancialPermissions::MANAGE_FINANCIAL_ACCOUNTS)
+    @can(\App\Support\Permissions::MANAGE_FINANCIAL_ACCOUNTS)
         <x-notify.collapsible-section id="sec-create-account" title="إنشاء حساب مالي جديد" subtitle="حساب بنكي، صندوق نقد، أو محفظة" :open="false">
             <form method="POST" action="{{ route('financial-accounts.store') }}">
                 @csrf
@@ -123,7 +123,7 @@
 
     <div class="p4-grid-2">
         {{-- 3. Internal Transfer Form --}}
-        @can(\App\Support\FinancialPermissions::MANAGE_CASH_TRANSFERS)
+        @can(\App\Support\Permissions::MANAGE_CASH_TRANSFERS)
             <x-notify.collapsible-section id="sec-internal-transfer" :title="__('notify.accounts.internal_transfer')" subtitle="تحويل مباشر دون تأثير على الأرباح أو الإيرادات" :open="false">
                 <form method="POST" action="{{ route('financial-transfers.store') }}">
                     @csrf
@@ -188,7 +188,7 @@
                                 @endif
                             </div>
                             @if(!$transfer->reversal)
-                                @can(\App\Support\FinancialPermissions::MANAGE_CASH_TRANSFERS)
+                                @can(\App\Support\Permissions::MANAGE_CASH_TRANSFERS)
                                     <form method="POST" action="{{ route('financial-transfers.reverse', $transfer) }}" onsubmit="return confirm('سيتم إنشاء حركات عكسية مساوية دون حذف التحويل الأصلي. هل تريد المتابعة؟')" style="display:flex;gap:4px">
                                         @csrf
                                         <input name="reason" required placeholder="سبب العكس" class="p4-input" style="max-width:130px;padding:4px 6px;font-size:12px">
@@ -218,7 +218,7 @@
                                 <strong style="font-size:14px;color:#0A1128;margin-inline-start:6px">{{ \App\Support\Money::fromMinorUnits($payment->amount_minor)->format() }} د.أ</strong>
                                 <span class="p4-kpi-meta" style="display:block;margin-top:2px">{{ optional($payment->client)->business_name }} · {{ $payment->received_at?->format('Y-m-d H:i') }} · {{ $payment->payment_method }} @if($payment->reference) · {{ $payment->reference }} @endif</span>
                             </div>
-                            @can(\App\Support\FinancialPermissions::ASSIGN_HISTORICAL_CASH_ACCOUNTS)
+                            @can(\App\Support\Permissions::ASSIGN_HISTORICAL_CASH_ACCOUNTS)
                                 <form method="POST" action="{{ route('cash-events.assign-account') }}" style="display:flex;gap:4px;align-items:center">
                                     @csrf
                                     <input type="hidden" name="event_type" value="payment">
@@ -242,7 +242,7 @@
                                 <strong style="font-size:14px;color:#0A1128;margin-inline-start:6px">{{ \App\Support\Money::fromMinorUnits($refund->amount_minor)->format() }} د.أ</strong>
                                 <span class="p4-kpi-meta" style="display:block;margin-top:2px">{{ optional($refund->client)->business_name }} · {{ $refund->refunded_at?->format('Y-m-d H:i') }} · {{ $refund->refund_method }} @if($refund->reference) · {{ $refund->reference }} @endif</span>
                             </div>
-                            @can(\App\Support\FinancialPermissions::ASSIGN_HISTORICAL_CASH_ACCOUNTS)
+                            @can(\App\Support\Permissions::ASSIGN_HISTORICAL_CASH_ACCOUNTS)
                                 <form method="POST" action="{{ route('cash-events.assign-account') }}" style="display:flex;gap:4px;align-items:center">
                                     @csrf
                                     <input type="hidden" name="event_type" value="refund">

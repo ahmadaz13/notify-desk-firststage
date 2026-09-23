@@ -10,7 +10,7 @@ use App\Models\FundingSource;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Services\CapitalManagementService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,7 +25,7 @@ class CapitalManagementController extends Controller
 
     public function index()
     {
-        Gate::authorize(FinancialPermissions::VIEW_CAPITAL_MANAGEMENT);
+        Gate::authorize(Permissions::VIEW_CAPITAL_MANAGEMENT);
 
         return view('capital-management.index', [
             'totals' => $this->capital->activeTotals(),
@@ -47,7 +47,7 @@ class CapitalManagementController extends Controller
 
     public function storeFundingSource(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_FUNDING_SOURCES);
+        Gate::authorize(Permissions::MANAGE_FUNDING_SOURCES);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'type' => ['required', Rule::in(FundingSource::TYPES)],
@@ -63,7 +63,7 @@ class CapitalManagementController extends Controller
 
     public function archiveFundingSource(FundingSource $fundingSource): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_FUNDING_SOURCES);
+        Gate::authorize(Permissions::MANAGE_FUNDING_SOURCES);
         $fundingSource->update(['is_active' => false, 'archived_at' => now()]);
 
         return back()->with('success', 'تم أرشفة مصدر التمويل.');
@@ -71,7 +71,7 @@ class CapitalManagementController extends Controller
 
     public function storeFunding(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_CAPITAL_FUNDING);
+        Gate::authorize(Permissions::MANAGE_CAPITAL_FUNDING);
         $validated = $request->validate([
             'funding_source_id' => 'nullable|exists:funding_sources,id',
             'source_name' => 'nullable|string|max:255',
@@ -89,7 +89,7 @@ class CapitalManagementController extends Controller
 
     public function reverseFunding(Request $request, CapitalFundingTransaction $transaction): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_CAPITAL_FUNDING);
+        Gate::authorize(Permissions::MANAGE_CAPITAL_FUNDING);
         $validated = $request->validate([
             'reason' => 'required|string|min:3|max:1000',
             'reversed_at' => 'nullable|date',
@@ -106,7 +106,7 @@ class CapitalManagementController extends Controller
 
     public function storeAssetCategory(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_ASSET_CATEGORIES);
+        Gate::authorize(Permissions::MANAGE_ASSET_CATEGORIES);
         $validated = $request->validate([
             'code' => 'required|string|max:100|unique:asset_categories,code',
             'name_ar' => 'required|string|max:255',
@@ -121,7 +121,7 @@ class CapitalManagementController extends Controller
 
     public function archiveAssetCategory(AssetCategory $category): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_ASSET_CATEGORIES);
+        Gate::authorize(Permissions::MANAGE_ASSET_CATEGORIES);
         $category->update(['is_active' => false, 'archived_at' => now()]);
 
         return back()->with('success', 'تم أرشفة تصنيف الأصل.');
@@ -129,7 +129,7 @@ class CapitalManagementController extends Controller
 
     public function storeFixedAsset(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_FIXED_ASSETS);
+        Gate::authorize(Permissions::MANAGE_FIXED_ASSETS);
         $validated = $request->validate($this->assetRules());
         $this->capital->acquireFixedAsset($validated, $request->user());
 
@@ -138,7 +138,7 @@ class CapitalManagementController extends Controller
 
     public function reverseFixedAsset(Request $request, FixedAsset $asset): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_FIXED_ASSETS);
+        Gate::authorize(Permissions::MANAGE_FIXED_ASSETS);
         $validated = $request->validate([
             'reason' => 'required|string|min:3|max:1000',
             'reversed_at' => 'nullable|date',
@@ -155,7 +155,7 @@ class CapitalManagementController extends Controller
 
     public function updateFixedAssetStatus(Request $request, FixedAsset $asset): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_FIXED_ASSETS);
+        Gate::authorize(Permissions::MANAGE_FIXED_ASSETS);
         $validated = $request->validate(['status' => ['required', Rule::in([FixedAsset::STATUS_ACTIVE, FixedAsset::STATUS_OUT_OF_SERVICE])]]);
         $this->capital->changeAssetStatus($asset, $validated['status'], $request->user());
 

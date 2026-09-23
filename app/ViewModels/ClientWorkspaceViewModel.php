@@ -10,7 +10,7 @@ use App\Models\User;
 use App\Services\OperationalQueueService;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use App\Support\Money;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -214,8 +214,8 @@ class ClientWorkspaceViewModel
         })->values()->all();
 
         // 8. Amount Due Summary & Lightweight Financial Projection
-        $canRecordPayment = $actor ? FinancialPermissions::allows($actor, FinancialPermissions::RECORD_PAYMENT) : Gate::allows(FinancialPermissions::RECORD_PAYMENT);
-        $canViewFinancialReports = $actor ? FinancialPermissions::allows($actor, FinancialPermissions::VIEW_FINANCIAL_REPORTS) : Gate::allows(FinancialPermissions::VIEW_FINANCIAL_REPORTS);
+        $canRecordPayment = $actor ? Permissions::allows($actor, Permissions::RECORD_PAYMENT) : Gate::allows(Permissions::RECORD_PAYMENT);
+        $canViewFinancialReports = $actor ? Permissions::allows($actor, Permissions::VIEW_FINANCIAL_REPORTS) : Gate::allows(Permissions::VIEW_FINANCIAL_REPORTS);
         $totalOutstandingMinor = (int) ($receivableSummary['total_outstanding_minor'] ?? 0);
         $overdueOutstandingMinor = (int) ($receivableSummary['overdue_outstanding_minor'] ?? 0);
         $totalCustomerCreditMinor = (int) ($receivableSummary['total_customer_credit_minor'] ?? 0);
@@ -244,7 +244,7 @@ class ClientWorkspaceViewModel
             'has_credit' => $totalCustomerCreditMinor > 0,
             'currency' => __('notify.common.currency_jod'),
             'can_record_payment' => $canRecordPayment,
-            'can_submit_receipt' => ! $canRecordPayment && ($actor ? FinancialPermissions::allows($actor, FinancialPermissions::SUBMIT_PAYMENT_RECEIPT) : Gate::allows(FinancialPermissions::SUBMIT_PAYMENT_RECEIPT)),
+            'can_submit_receipt' => ! $canRecordPayment && ($actor ? Permissions::allows($actor, Permissions::SUBMIT_PAYMENT_RECEIPT) : Gate::allows(Permissions::SUBMIT_PAYMENT_RECEIPT)),
             'latest_payment' => $latestPayment,
             'view_financial_details_url' => route('collections.index', ['client_id' => $client->id]),
             'can_view_financial_details' => $canViewFinancialReports,
@@ -316,11 +316,11 @@ class ClientWorkspaceViewModel
         ];
 
         // 13. Management & Finance
-        $canManageBilling = $actor ? FinancialPermissions::allows($actor, FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING) : Gate::allows(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
+        $canManageBilling = $actor ? Permissions::allows($actor, Permissions::MANAGE_SUBSCRIPTION_BILLING) : Gate::allows(Permissions::MANAGE_SUBSCRIPTION_BILLING);
         $managementFinance = [
             'can_manage_billing' => $canManageBilling,
             'can_record_payment' => $canRecordPayment,
-            'can_view_accounting' => $actor ? FinancialPermissions::allows($actor, FinancialPermissions::VIEW_ACCOUNTING) : Gate::allows(FinancialPermissions::VIEW_ACCOUNTING),
+            'can_view_accounting' => $actor ? Permissions::allows($actor, Permissions::VIEW_ACCOUNTING) : Gate::allows(Permissions::VIEW_ACCOUNTING),
             'invoices_count' => $client->relationLoaded('invoices') ? $client->invoices->count() : 0,
             'payments_count' => $payments->count(),
             'offers_count' => $offers->count(),
@@ -442,8 +442,8 @@ class ClientWorkspaceViewModel
         ?string $callHref = null,
         ?string $whatsappUrl = null
     ): array {
-        $canRecordPayment = $actor ? FinancialPermissions::allows($actor, FinancialPermissions::RECORD_PAYMENT) : Gate::allows(FinancialPermissions::RECORD_PAYMENT);
-        $canManageBilling = $actor ? FinancialPermissions::allows($actor, FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING) : Gate::allows(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
+        $canRecordPayment = $actor ? Permissions::allows($actor, Permissions::RECORD_PAYMENT) : Gate::allows(Permissions::RECORD_PAYMENT);
+        $canStartSubscription = $actor ? Permissions::allows($actor, Permissions::START_PAID_SUBSCRIPTION) : Gate::allows(Permissions::START_PAID_SUBSCRIPTION);
         $totalDue = (int) ($receivableSummary['total_outstanding_minor'] ?? 0);
         $overdueDue = (int) ($receivableSummary['overdue_outstanding_minor'] ?? 0);
 
@@ -526,7 +526,7 @@ class ClientWorkspaceViewModel
                     'variant' => 'primary',
                 ],
                 'secondary' => array_values(array_filter([
-                    $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
+                    $canStartSubscription ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
                     ['label' => __('notify.client_workspace.action_reschedule'), 'target' => '#sec-reschedule-appointment-' . $activeInstall->id, 'type' => 'anchor'],
                     ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
                     $callHref ? ['label' => __('notify.actions.call'), 'href' => $callHref, 'type' => 'call'] : null,
@@ -555,7 +555,7 @@ class ClientWorkspaceViewModel
                 ],
                 'secondary' => array_values(array_filter([
                     ['label' => __('notify.client_workspace.action_schedule_installation'), 'target' => '#sec-schedule-installation', 'type' => 'schedule_installation'],
-                    $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
+                    $canStartSubscription ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
                     ['label' => __('notify.client_workspace.action_reschedule'), 'target' => '#sec-reschedule-appointment-' . $activeAppt->id, 'type' => 'anchor'],
                     ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
                     $callHref ? ['label' => __('notify.actions.call'), 'href' => $callHref, 'type' => 'call'] : null,
@@ -568,7 +568,7 @@ class ClientWorkspaceViewModel
         if ($stage === ClientLifecycle::INSTALLED_FREE || $stage === ClientLifecycle::DECISION_PENDING || $hasDueFollowUp) {
             $stateKey = $stage === ClientLifecycle::DECISION_PENDING ? 'decision_pending' : 'free_installed_or_followup_due';
             $secondary = array_values(array_filter([
-                $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
+                $canStartSubscription ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
                 ['label' => __('notify.client_workspace.action_create_appointment'), 'target' => '#sec-create-appointment', 'type' => 'create_appointment'],
                 ['label' => __('notify.client_workspace.action_schedule_installation'), 'target' => '#sec-schedule-installation', 'type' => 'schedule_installation'],
                 ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
@@ -625,7 +625,7 @@ class ClientWorkspaceViewModel
                 'secondary' => array_values(array_filter([
                     ['label' => __('notify.client_workspace.view_financial_details'), 'href' => route('collections.index', ['client_id' => $client->id]), 'type' => 'link'],
                     ['label' => __('notify.client_workspace.view_contracts'), 'target' => '#sec-contracts', 'type' => 'anchor'],
-                    $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
+                    $canStartSubscription ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
                     ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
                 ])),
             ];
@@ -645,7 +645,7 @@ class ClientWorkspaceViewModel
             'secondary' => array_values(array_filter([
                 ['label' => __('notify.client_workspace.action_create_appointment'), 'target' => '#sec-create-appointment', 'type' => 'create_appointment'],
                 ['label' => __('notify.client_workspace.action_schedule_installation'), 'target' => '#sec-schedule-installation', 'type' => 'schedule_installation'],
-                $canManageBilling ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
+                $canStartSubscription ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
                 ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
                 ['label' => __('notify.clients.edit'), 'href' => route('clients.edit', $client->id), 'type' => 'link'],
                 $callHref ? ['label' => __('notify.actions.call'), 'href' => $callHref, 'type' => 'call'] : null,

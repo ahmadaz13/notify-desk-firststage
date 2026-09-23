@@ -17,7 +17,7 @@ use App\Services\OperationalQueueService;
 use App\Services\PaymentScheduleService;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use App\Support\PaymentMethods;
 use App\ViewModels\ClientListViewModel;
 use App\ViewModels\ClientWorkspaceViewModel;
@@ -269,7 +269,7 @@ class ClientController extends Controller
         $sellableProducts = Product::sellable()->orderBy('name_ar')->get();
         $sellablePlans = collect();
         $accountingTrace = collect();
-        if (Gate::allows(FinancialPermissions::VIEW_ACCOUNTING)) {
+        if (Gate::allows(Permissions::VIEW_ACCOUNTING)) {
             $sourcePairs = [
                 Invoice::class => $invoices->pluck('id')->all(),
                 \App\Models\PaymentAllocation::class => $payments->flatMap->allocations->pluck('id')->all(),
@@ -366,7 +366,7 @@ class ClientController extends Controller
         $primaryContactRole = $data['primary_contact_role'] ?? null;
         $commission = $data['referral_commission_percentage'] ?? null;
         unset($data['referral_commission_percentage'], $data['primary_contact_role']);
-        $data['referral_commission_bps'] = $request->user()->isAdmin()
+        $data['referral_commission_bps'] = Permissions::allows($request->user(), Permissions::EDIT_REFERRAL_COMMISSION)
             ? $this->percentageToBps($commission)
             : $client->referral_commission_bps;
 

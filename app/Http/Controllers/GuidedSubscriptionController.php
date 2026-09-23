@@ -9,7 +9,7 @@ use App\Models\Setting;
 use App\Services\PaymentScheduleService;
 use App\Services\SubscriptionBillingService;
 use App\Support\ClientLifecycle;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use App\Support\Money;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -28,7 +28,7 @@ class GuidedSubscriptionController extends Controller
 
     public function catalog(Request $request, Client $client): JsonResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
+        Gate::authorize(Permissions::START_PAID_SUBSCRIPTION);
 
         return response()->json([
             'success' => true,
@@ -44,7 +44,7 @@ class GuidedSubscriptionController extends Controller
 
     public function preview(Request $request, Client $client): JsonResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
+        Gate::authorize(Permissions::START_PAID_SUBSCRIPTION);
         $this->assertClientCanSubscribe($client);
         $data = $this->validateInputs($request);
         $minor = Money::fromJod($data['agreed_value_jod'])->minorUnits();
@@ -69,7 +69,7 @@ class GuidedSubscriptionController extends Controller
 
     public function store(Request $request, Client $client): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
+        Gate::authorize(Permissions::START_PAID_SUBSCRIPTION);
         $this->assertClientCanSubscribe($client);
         $data = $this->validateInputs($request);
         $systems = Product::sellable()->whereIn('id', $data['system_ids'])->get();

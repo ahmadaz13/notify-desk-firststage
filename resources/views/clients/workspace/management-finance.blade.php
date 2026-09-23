@@ -71,7 +71,7 @@
     </div>
 
     {{-- Lightweight Management & Financial Direction (Gated for authorized users) --}}
-    @if(auth()->user()?->isAdmin() || \Illuminate\Support\Facades\Gate::allows(\App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING) || \Illuminate\Support\Facades\Gate::allows(\App\Support\FinancialPermissions::RECORD_PAYMENT))
+    @if(auth()->user()?->isAdmin() || \Illuminate\Support\Facades\Gate::allows(\App\Support\Permissions::MANAGE_SUBSCRIPTION_BILLING) || \Illuminate\Support\Facades\Gate::allows(\App\Support\Permissions::RECORD_PAYMENT))
         <section class="notify-workspace-card notify-workspace-card--finance-management" style="margin-bottom:20px">
             <div class="notify-workspace-card__head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
                 <div>
@@ -84,12 +84,12 @@
             </div>
             <div class="notify-workspace-card__body" style="padding-top:16px">
                 <div style="display:flex;gap:12px;flex-wrap:wrap">
-                    @if(\Illuminate\Support\Facades\Gate::allows(\App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING))
+                    @if(\Illuminate\Support\Facades\Gate::allows(\App\Support\Permissions::MANAGE_SUBSCRIPTION_BILLING))
                         <button type="button" id="sec-start-subscription" class="notify-button notify-button--soft notify-button--sm" data-trigger-start-subscription>
                             <span>{{ __('notify.client_workspace.action_start_subscription') }}</span>
                         </button>
                     @endif
-                    @if(\Illuminate\Support\Facades\Gate::allows(\App\Support\FinancialPermissions::RECORD_PAYMENT))
+                    @if(\Illuminate\Support\Facades\Gate::allows(\App\Support\Permissions::RECORD_PAYMENT))
                         <button type="button" id="sec-record-payment" class="notify-button notify-button--soft notify-button--sm" data-trigger-record-payment>
                             <span>{{ __('notify.client_workspace.action_record_payment') }}</span>
                         </button>

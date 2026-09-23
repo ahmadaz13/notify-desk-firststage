@@ -7,7 +7,7 @@
 @php
     use App\Models\Client;
     use App\Models\User;
-    use App\Support\FinancialPermissions;
+    use App\Support\Permissions;
     use Illuminate\Support\Facades\Gate;
 
     $appLocale = $locale ?? str_replace('_', '-', app()->getLocale());
@@ -90,8 +90,8 @@
         || request()->routeIs('settings.*')
         || request()->routeIs('clients.import*');
 
-    $canViewFinance = auth()->check() && ! $isStaff && ($allows(FinancialPermissions::VIEW_FINANCIAL_STATEMENTS) || $allows(FinancialPermissions::VIEW_FINANCIAL_REPORTS) || $admin);
-    $canViewAdministration = auth()->check() && ! $isStaff && ($admin || $allows(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG) || $allows(FinancialPermissions::MANAGE_FINANCIAL_SETTINGS));
+    $canViewFinance = auth()->check() && ! $isStaff && ($allows(Permissions::VIEW_FINANCIAL_STATEMENTS) || $allows(Permissions::VIEW_FINANCIAL_REPORTS) || $admin);
+    $canViewAdministration = auth()->check() && ! $isStaff && ($admin || $allows(Permissions::MANAGE_COMMERCIAL_CATALOG) || $allows(Permissions::MANAGE_COMPANY_SETTINGS));
 
     // Determine page context & title
     $pageContextLabel = $labels['workspace'];

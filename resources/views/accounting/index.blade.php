@@ -10,14 +10,14 @@
             <p class="p5-subtitle">قيود مزدوجة غير قابلة للتعديل، دليل الحسابات، ميزان المراجعة، الفترات المحاسبية، ومطابقة جداول الاعتراف بالإيراد.</p>
         </div>
         <div class="p5-header-actions">
-            @can(\App\Support\FinancialPermissions::RUN_ACCOUNTING_BACKFILL)
+            @can(\App\Support\Permissions::RUN_ACCOUNTING_BACKFILL)
                 <form method="POST" action="{{ route('accounting.backfill') }}">
                     @csrf
                     <input type="hidden" name="dry_run" value="1">
                     <button class="p5-btn p5-btn-soft p5-btn-sm" type="submit">{{ __('notify.accounting.dry_run_backfill') }}</button>
                 </form>
             @endcan
-            @can(\App\Support\FinancialPermissions::RUN_REVENUE_RECOGNITION)
+            @can(\App\Support\Permissions::RUN_REVENUE_RECOGNITION)
                 <form method="POST" action="{{ route('accounting.revenue-schedules.backfill') }}">
                     @csrf
                     <input type="hidden" name="dry_run" value="1">
@@ -115,7 +115,7 @@
                         <strong style="font-size:15px;color:#0055CC">{{ \App\Support\Money::fromMinorUnits($revenueRecognitionDashboard['recognized_one_time_mtd_minor'])->format() }} {{ __('notify.common.currency_jod') }}</strong>
                     </div>
                 </div>
-                @can(\App\Support\FinancialPermissions::RUN_REVENUE_RECOGNITION)
+                @can(\App\Support\Permissions::RUN_REVENUE_RECOGNITION)
                     <form method="POST" action="{{ route('accounting.revenue-recognition.run') }}" style="display:flex;gap:8px;align-items:flex-end;margin-top:14px;flex-wrap:wrap">
                         @csrf
                         <div class="p5-field">
@@ -143,7 +143,7 @@
                                     <strong style="font-size:13px;color:#0A1128;margin-inline-start:6px">{{ $schedule->invoice?->invoice_number }} · سطر {{ $schedule->invoice_line_id }}</strong>
                                     <span class="p5-kpi-meta" style="display:block;margin-top:2px">{{ \App\Support\Money::fromMinorUnits($schedule->original_recognizable_minor)->format() }} د.أ · حساب {{ $schedule->revenueAccount?->code }}</span>
                                 </div>
-                                @can(\App\Support\FinancialPermissions::RESOLVE_REVENUE_RECOGNITION_REVIEWS)
+                                @can(\App\Support\Permissions::RESOLVE_REVENUE_RECOGNITION_REVIEWS)
                                     @if($schedule->requires_manual_confirmation)
                                         <form method="POST" action="{{ route('accounting.revenue-recognition.confirm', $schedule) }}" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
                                             @csrf
@@ -196,7 +196,7 @@
                                     <span class="p5-badge {{ $account->allow_direct_posting && $account->is_active ? 'p5-badge-success' : 'p5-badge-neutral' }}">
                                         {{ $account->allow_direct_posting ? 'مباشر' : 'رئيسي' }}
                                     </span>
-                                    @can(\App\Support\FinancialPermissions::MANAGE_CHART_OF_ACCOUNTS)
+                                    @can(\App\Support\Permissions::MANAGE_CHART_OF_ACCOUNTS)
                                         @if(! $account->is_system && $account->journalLines()->count() === 0 && $account->is_active)
                                             <form method="POST" action="{{ route('accounting.chart-accounts.archive', $account) }}" style="display:inline;margin-inline-start:4px" onsubmit="return confirm('أرشفة هذا الحساب غير المستخدم؟')">
                                                 @csrf
@@ -359,7 +359,7 @@
                                 <strong style="font-size:14px;color:#0A1128;margin-inline-start:6px">{{ $period->period_key }}</strong>
                                 <span class="p5-kpi-meta" style="display:block;margin-top:2px">{{ $period->start_date?->format('Y-m-d') }} ← {{ $period->end_date?->format('Y-m-d') }}</span>
                             </div>
-                            @can(\App\Support\FinancialPermissions::MANAGE_ACCOUNTING_PERIODS)
+                            @can(\App\Support\Permissions::MANAGE_ACCOUNTING_PERIODS)
                                 @if($period->status === 'open')
                                     <form method="POST" action="{{ route('accounting.periods.close', $period) }}" style="display:flex;gap:4px">
                                         @csrf

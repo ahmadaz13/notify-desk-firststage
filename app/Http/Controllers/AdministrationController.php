@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\User;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -16,9 +16,16 @@ class AdministrationController extends Controller
 {
     protected function checkAdmin(): void
     {
-        if (!auth()->check() || !auth()->user()->isAdmin()) {
-            abort(403, __('notify.team.forbidden'));
-        }
+        abort_unless(Permissions::allows(auth()->user(), Permissions::MANAGE_TEAM), 403, __('notify.team.forbidden'));
+    }
+
+    /**
+     * Founder and Admin are equal except that only a Founder may change a Founder's role
+     * or deactivate a Founder (§2.1).
+     */
+    protected function protectFounder(User $member): void
+    {
+        abort_if($member->isFounder() && ! auth()->user()->isFounder(), 403, __('notify.team.founder_protected'));
     }
 
     /**
@@ -26,7 +33,7 @@ class AdministrationController extends Controller
      */
     public function index(): View
     {
-        Gate::authorize(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG);
+        Gate::authorize(Permissions::MANAGE_COMMERCIAL_CATALOG);
 
         $user = auth()->user();
         $isAdmin = $user->isAdmin();
@@ -113,6 +120,10 @@ class AdministrationController extends Controller
             return back()->withErrors(['role' => __('notify.team.cannot_change_own_role')]);
         }
 
+        if ($request->input('role') !== $member->role || ! $request->has('is_active')) {
+            $this->protectFounder($member);
+        }
+
         $validated = $request->validate([
             'name'      => 'required|string|max:255',
             'email'     => 'required|email|max:255|unique:users,email,' . $member->id,
@@ -158,6 +169,7 @@ class AdministrationController extends Controller
         }
 
         $member = User::whereIn('role', User::activeInternalRoles())->findOrFail($id);
+        $this->protectFounder($member);
         $member->update(['is_active' => false]);
 
         return redirect()->route('administration.team')

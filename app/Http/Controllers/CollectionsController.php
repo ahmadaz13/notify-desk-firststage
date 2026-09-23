@@ -15,7 +15,7 @@ use App\Services\PaymentAllocationService;
 use App\Services\PaymentFinancialAccountResolver;
 use App\Services\ReceivableService;
 use App\Services\RefundService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use App\Support\PaymentMethods;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,7 +26,7 @@ class CollectionsController extends Controller
 {
     public function index(Request $request, ReceivableService $receivables)
     {
-        Gate::authorize(FinancialPermissions::VIEW_FINANCIAL_REPORTS);
+        Gate::authorize(Permissions::VIEW_FINANCIAL_REPORTS);
 
         $filters = $request->validate([
             'client_id' => 'nullable|integer|exists:clients,id',
@@ -49,7 +49,7 @@ class CollectionsController extends Controller
             ->orderBy('received_at')
             ->orderBy('id')
             ->get();
-        $canApproveReceipts = Gate::allows(FinancialPermissions::APPROVE_PAYMENT_RECEIPTS);
+        $canApproveReceipts = Gate::allows(Permissions::APPROVE_PAYMENT_RECEIPTS);
 
         return view('collections.index', compact(
             'pendingReceipts',
@@ -69,7 +69,7 @@ class CollectionsController extends Controller
         Client $client,
         PaymentAllocationService $paymentAllocationService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::RECORD_PAYMENT);
+        Gate::authorize(Permissions::RECORD_PAYMENT);
         Gate::authorize('view', $client);
 
         $validated = $request->validate([
@@ -107,7 +107,7 @@ class CollectionsController extends Controller
         PaymentAllocationService $paymentAllocationService,
         PaymentFinancialAccountResolver $accountResolver
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::RECORD_PAYMENT);
+        Gate::authorize(Permissions::RECORD_PAYMENT);
         Gate::authorize('view', $client);
 
         $validated = $request->validate([
@@ -152,7 +152,7 @@ class CollectionsController extends Controller
         Payment $payment,
         PaymentAllocationService $paymentAllocationService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::RECORD_PAYMENT);
+        Gate::authorize(Permissions::RECORD_PAYMENT);
 
         $validated = $request->validate([
             'invoice_id' => 'required|integer|exists:invoices,id',
@@ -170,7 +170,7 @@ class CollectionsController extends Controller
         Payment $payment,
         PaymentAllocationService $paymentAllocationService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::RECORD_PAYMENT);
+        Gate::authorize(Permissions::RECORD_PAYMENT);
 
         $paymentAllocationService->autoAllocateOldest($payment, $request->user()->id);
 
@@ -182,7 +182,7 @@ class CollectionsController extends Controller
         PaymentAllocation $paymentAllocation,
         CollectionCorrectionService $correctionService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::MANAGE_COLLECTION_CORRECTIONS);
+        Gate::authorize(Permissions::MANAGE_COLLECTION_CORRECTIONS);
 
         $validated = $request->validate([
             'reason' => 'required|string|max:1000',
@@ -198,7 +198,7 @@ class CollectionsController extends Controller
         Payment $payment,
         CollectionCorrectionService $correctionService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::MANAGE_COLLECTION_CORRECTIONS);
+        Gate::authorize(Permissions::MANAGE_COLLECTION_CORRECTIONS);
 
         $validated = $request->validate([
             'reason' => 'required|string|max:1000',
@@ -214,7 +214,7 @@ class CollectionsController extends Controller
         Client $client,
         CreditNoteService $creditNoteService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::MANAGE_CREDIT_NOTES);
+        Gate::authorize(Permissions::MANAGE_CREDIT_NOTES);
         Gate::authorize('view', $client);
 
         $validated = $request->validate([
@@ -239,7 +239,7 @@ class CollectionsController extends Controller
         CreditNote $creditNote,
         CreditNoteService $creditNoteService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::MANAGE_CREDIT_NOTES);
+        Gate::authorize(Permissions::MANAGE_CREDIT_NOTES);
 
         $validated = $request->validate([
             'invoice_id' => 'required|integer|exists:invoices,id',
@@ -257,7 +257,7 @@ class CollectionsController extends Controller
         CreditNoteApplication $creditNoteApplication,
         CreditNoteService $creditNoteService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::MANAGE_CREDIT_NOTES);
+        Gate::authorize(Permissions::MANAGE_CREDIT_NOTES);
 
         $validated = $request->validate([
             'reason' => 'required|string|max:1000',
@@ -273,7 +273,7 @@ class CollectionsController extends Controller
         CreditNote $creditNote,
         CreditNoteService $creditNoteService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::MANAGE_CREDIT_NOTES);
+        Gate::authorize(Permissions::MANAGE_CREDIT_NOTES);
 
         $validated = $request->validate([
             'void_reason' => 'required|string|max:1000',
@@ -289,7 +289,7 @@ class CollectionsController extends Controller
         Payment $payment,
         RefundService $refundService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::ISSUE_REFUNDS);
+        Gate::authorize(Permissions::ISSUE_REFUNDS);
 
         $validated = $request->validate([
             'amount' => ['required', 'string', 'regex:/^\d+(\.\d{1,3})?$/', 'not_regex:/^0+(\.0{1,3})?$/'],
@@ -310,7 +310,7 @@ class CollectionsController extends Controller
         CreditNote $creditNote,
         RefundService $refundService
     ): RedirectResponse {
-        Gate::authorize(FinancialPermissions::ISSUE_REFUNDS);
+        Gate::authorize(Permissions::ISSUE_REFUNDS);
 
         $validated = $request->validate([
             'amount' => ['required', 'string', 'regex:/^\d+(\.\d{1,3})?$/', 'not_regex:/^0+(\.0{1,3})?$/'],

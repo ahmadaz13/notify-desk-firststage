@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -14,7 +14,7 @@ class SettingsController extends Controller
 {
     private function checkAdmin(): void
     {
-        Gate::authorize(FinancialPermissions::MANAGE_FINANCIAL_SETTINGS);
+        Gate::authorize(Permissions::MANAGE_COMPANY_SETTINGS);
     }
 
     public function index(Request $request): View

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Subscription;
 use App\Services\SubscriptionBillingService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -13,7 +13,7 @@ class SubscriptionController extends Controller
 {
     public function scheduleCancellation(Request $request, Subscription $subscription, SubscriptionBillingService $billing): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_LIFECYCLE);
+        Gate::authorize(Permissions::MANAGE_SUBSCRIPTION_LIFECYCLE);
         Gate::authorize('update', $subscription->client);
 
         $validated = $request->validate([
@@ -27,7 +27,7 @@ class SubscriptionController extends Controller
 
     public function undoCancellation(Request $request, Subscription $subscription, SubscriptionBillingService $billing): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_LIFECYCLE);
+        Gate::authorize(Permissions::MANAGE_SUBSCRIPTION_LIFECYCLE);
         Gate::authorize('update', $subscription->client);
 
         $billing->undoCancellation($subscription, $request->user()->id);

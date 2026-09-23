@@ -201,7 +201,7 @@ class Phase3ClientWorkspaceTest extends TestCase
         $this->assertSame(ClientLifecycle::SUBSCRIBER, $client->fresh()->stage);
     }
 
-    public function test_staff_cannot_directly_create_subscription(): void
+    public function test_staff_subscription_start_rejects_legacy_plan_payload(): void
     {
         $client = $this->createClient(['stage' => ClientLifecycle::PROSPECT]);
         $product = Product::create(['name_ar' => 'برنامج سحابي', 'code' => 'CLOUD']);
@@ -214,7 +214,8 @@ class Phase3ClientWorkspaceTest extends TestCase
             'start_date' => now()->toDateString(),
         ]);
 
-        $response->assertForbidden();
+        // P2 / FROZEN D-06: staff is authorized; the legacy plan payload fails validation and creates nothing.
+        $response->assertSessionHasErrors(['system_ids', 'agreed_value_jod']);
         $this->assertDatabaseMissing('subscriptions', ['client_id' => $client->id]);
     }
 

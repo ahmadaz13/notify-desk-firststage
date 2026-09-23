@@ -190,13 +190,13 @@
                                 data-trigger-close-client>
                             <span>{{ $primaryAction['label'] }}</span>
                         </button>
-                    @elseif($pIsStartSub && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING))
+                    @elseif($pIsStartSub && \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::START_PAID_SUBSCRIPTION))
                         <button type="button"
                                 class="notify-button notify-button--primary notify-button--hero"
                                 data-trigger-start-subscription>
                             <span>{{ $primaryAction['label'] }}</span>
                         </button>
-                    @elseif($pIsRecordPayment && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::RECORD_PAYMENT))
+                    @elseif($pIsRecordPayment && \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::RECORD_PAYMENT))
                         <button type="button"
                                 class="notify-button notify-button--primary notify-button--hero"
                                 data-trigger-record-payment>
@@ -284,13 +284,13 @@
                                     data-trigger-close-client>
                                 <span>{{ $secAction['label'] }}</span>
                             </button>
-                        @elseif($sIsStartSub && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING))
+                        @elseif($sIsStartSub && \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::START_PAID_SUBSCRIPTION))
                             <button type="button"
                                     class="notify-button notify-button--soft"
                                     data-trigger-start-subscription>
                                 <span>{{ $secAction['label'] }}</span>
                             </button>
-                        @elseif($sIsRecordPayment && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::RECORD_PAYMENT))
+                        @elseif($sIsRecordPayment && \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::RECORD_PAYMENT))
                             <button type="button"
                                     class="notify-button notify-button--soft"
                                     data-trigger-record-payment>
@@ -373,7 +373,7 @@
                                                     <a href="{{ $sub['contract']['download_pdf_url'] }}" class="notify-button notify-button--ghost notify-button--sm">
                                                         <span>PDF</span>
                                                     </a>
-                                                    @if($sub['contract']['status'] === 'draft' && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING))
+                                                    @if($sub['contract']['status'] === 'draft' && \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::ISSUE_CONTRACTS))
                                                         <form method="POST" action="{{ route('contracts.issue', $sub['contract']['id']) }}" style="display:inline">
                                                             @csrf
                                                             <button type="submit" class="notify-button notify-button--soft notify-button--sm">
@@ -455,7 +455,7 @@
         </section>
     </div>
 
-    @if(\App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_COMMERCIAL_CATALOG))
+    @if(\App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::MANAGE_COMMERCIAL_CATALOG))
         <section class="notify-workspace-card" style="margin-block:16px" aria-label="{{ __('custom_projects.title') }}">
             <div class="notify-workspace-card__head"><h2 class="notify-workspace-card__title">{{ __('custom_projects.title') }}</h2><a class="notify-button notify-button--soft notify-button--sm" href="{{ route('custom-projects.create', ['client_id' => $client->id]) }}">{{ __('custom_projects.create') }}</a></div>
             <div class="notify-workspace-card__body">
@@ -495,7 +495,7 @@
 
     {{-- ADVANCED COLLAPSED SECTIONS (11, 12, 13) --}}
     <div class="notify-workspace-advanced-stack">
-        @if(request()->boolean('finance_advanced') && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::VIEW_ACCOUNTING))
+        @if(request()->boolean('finance_advanced') && \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::VIEW_ACCOUNTING))
             <x-notify.collapsible-section
                 :title="__('notify.finance.sections.advanced')"
                 id="finance-advanced-tools"

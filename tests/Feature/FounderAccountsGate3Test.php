@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Gate;
@@ -117,7 +117,7 @@ class FounderAccountsGate3Test extends TestCase
     {
         $founder = User::factory()->create(['role' => User::ROLE_FOUNDER]);
 
-        foreach (FinancialPermissions::ALL as $permission) {
+        foreach (Permissions::ALL as $permission) {
             $this->assertTrue(Gate::forUser($founder)->allows($permission), $permission);
         }
 

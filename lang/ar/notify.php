@@ -1073,7 +1073,7 @@ return array (
   ),
   'team' => array (
     'title'=>'الفريق والصلاحيات','subtitle'=>'إدارة أعضاء الفريق الداخلي وأدوارهم.','add'=>'إضافة عضو فريق','name'=>'الاسم','email'=>'البريد الإلكتروني','role'=>'الدور','status'=>'الحالة','you'=>'أنت','deactivate'=>'إلغاء التفعيل','empty'=>'لا يوجد أعضاء فريق.','create_account'=>'إنشاء الحساب','edit_member'=>'تعديل: :name','active_account'=>'الحساب فعّال','reset_password'=>'إعادة تعيين كلمة المرور',
-    'roles'=>['founder'=>'مؤسس','admin'=>'مدير','staff'=>'موظف'], 'created'=>'تم إنشاء عضو الفريق.','updated'=>'تم تحديث عضو الفريق.','password_reset'=>'تمت إعادة تعيين كلمة المرور.','deactivated'=>'تم إلغاء تفعيل عضو الفريق.','cannot_change_own_role'=>'لا يمكنك تغيير دورك الخاص.','cannot_deactivate_self'=>'لا يمكنك إلغاء تفعيل حسابك الخاص.','forbidden'=>'غير مصرح لك بالوصول إلى هذه الصفحة.',
+    'roles'=>['founder'=>'مؤسس','admin'=>'مدير','staff'=>'موظف'], 'created'=>'تم إنشاء عضو الفريق.','updated'=>'تم تحديث عضو الفريق.','password_reset'=>'تمت إعادة تعيين كلمة المرور.','deactivated'=>'تم إلغاء تفعيل عضو الفريق.','cannot_change_own_role'=>'لا يمكنك تغيير دورك الخاص.','cannot_deactivate_self'=>'لا يمكنك إلغاء تفعيل حسابك الخاص.','forbidden'=>'غير مصرح لك بالوصول إلى هذه الصفحة.','founder_protected'=>'فقط المؤسس يمكنه تغيير دور مؤسس أو إلغاء تفعيله.',
   ),
   'statuses' =>
   array (

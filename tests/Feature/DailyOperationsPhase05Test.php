@@ -15,7 +15,7 @@ use App\Services\NotificationService;
 use App\Services\OperationalQueueService;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -722,17 +722,20 @@ class DailyOperationsPhase05Test extends TestCase
             ->assertForbidden();
     }
 
-    public function test_staff_does_not_gain_start_subscription_or_payment_permission(): void
+    public function test_staff_may_start_subscription_but_does_not_gain_payment_permission(): void
     {
-        $this->assertFalse(FinancialPermissions::allows($this->staff, FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING));
-        $this->assertFalse(FinancialPermissions::allows($this->staff, FinancialPermissions::RECORD_PAYMENT));
+        // P2 / FROZEN D-06: Staff may start paid subscriptions; billing management and payments stay owner-only.
+        $this->assertTrue(Permissions::allows($this->staff, Permissions::START_PAID_SUBSCRIPTION));
+        $this->assertFalse(Permissions::allows($this->staff, Permissions::MANAGE_SUBSCRIPTION_BILLING));
+        $this->assertFalse(Permissions::allows($this->staff, Permissions::RECORD_PAYMENT));
 
         $client = $this->createTestClient();
 
-        // Direct write route to start subscription is forbidden for staff
+        // Start-subscription route is authorized for staff; an empty payload fails validation only.
         $this->actingAs($this->staff)
             ->post(route('clients.guided-subscription.store', $client->id), [])
-            ->assertForbidden();
+            ->assertSessionHasErrors('system_ids');
+        $this->assertDatabaseMissing('subscriptions', ['client_id' => $client->id]);
 
         // Direct payment route is forbidden for staff
         $this->actingAs($this->staff)

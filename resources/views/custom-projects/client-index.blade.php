@@ -7,7 +7,9 @@
             <a href="{{ route('clients.show', $client) }}">{{ $client->business_name }}</a>
             <h1 class="p5-title">{{ __('custom_projects.title') }}</h1>
         </div>
+        @can('manage_custom_projects')
         <a href="{{ route('custom-projects.create', ['client_id' => $client->id]) }}" class="p5-btn p5-btn-primary">{{ __('custom_projects.create') }}</a>
+        @endcan
     </header>
     @forelse($projects as $project)
         <div class="p5-card" style="margin-block:10px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">

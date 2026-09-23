@@ -6,8 +6,8 @@
 
 @php
     // Owner-level users record a confirmed payment directly (§9.4); Staff submit a receipt for approval (§9.2).
-    $canRecordPayment = \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::RECORD_PAYMENT);
-    $canSubmitReceipt = ! $canRecordPayment && \App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::SUBMIT_PAYMENT_RECEIPT);
+    $canRecordPayment = \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::RECORD_PAYMENT);
+    $canSubmitReceipt = ! $canRecordPayment && \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::SUBMIT_PAYMENT_RECEIPT);
     $amountDueMinor = (int) ($amountDue['total_minor'] ?? 0);
     $amountDueValue = \App\Support\Money::fromMinorUnits(max(0, $amountDueMinor))->format();
     $sheetTitle = $canRecordPayment

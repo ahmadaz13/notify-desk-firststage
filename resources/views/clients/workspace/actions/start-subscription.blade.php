@@ -1,6 +1,6 @@
 @props(['client', 'sellableProducts' => collect()])
 
-@if(\App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING))
+@if(\App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::START_PAID_SUBSCRIPTION))
 <div class="notify-modal-backdrop" id="modal-start-subscription" hidden>
     <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-start-subscription-title" style="max-width:680px">
         <div class="notify-modal-header">

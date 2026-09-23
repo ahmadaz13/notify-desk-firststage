@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Models\Product;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -13,7 +13,7 @@ class ClientSystemAccessController extends Controller
 {
     public function store(Request $request, Client $client): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
+        Gate::authorize(Permissions::MANAGE_SYSTEM_ACCESS);
         $data = $request->validate([
             'system_ids' => ['required', 'array', 'min:1'],
             'system_ids.*' => ['integer', 'distinct', 'exists:products,id'],
@@ -35,7 +35,7 @@ class ClientSystemAccessController extends Controller
 
     public function destroy(Client $client, Product $system): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING);
+        Gate::authorize(Permissions::MANAGE_SYSTEM_ACCESS);
         $client->systems()->updateExistingPivot($system->id, ['revoked_at' => now('Asia/Amman')->toDateString()]);
 
         return back()->with('success', __('notify.system_access.revoked'));

@@ -17,7 +17,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Services\AccountingSetupService;
 use App\Services\PlanPriceService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use App\Support\Money;
 use Database\Seeders\SettingsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -285,7 +285,7 @@ class Phase1FinancialSafetyTest extends TestCase
         $this->assertDatabaseCount('payments', 0);
     }
 
-    public function test_unauthorized_staff_cannot_create_subscription(): void
+    public function test_staff_subscription_start_rejects_legacy_plan_payload(): void
     {
         $payload = [
             'product_id' => $this->product->id,
@@ -295,10 +295,11 @@ class Phase1FinancialSafetyTest extends TestCase
             'start_date' => now()->toDateString(),
         ];
 
+        // P2 / FROZEN D-06: staff is authorized to start subscriptions; the legacy plan payload fails validation.
         $response = $this->actingAs($this->staff)
             ->post(route('clients.guided-subscription.store', $this->client->id), $payload);
 
-        $response->assertStatus(403);
+        $response->assertSessionHasErrors(['system_ids', 'agreed_value_jod']);
         $this->assertDatabaseCount('subscriptions', 0);
     }
 
@@ -307,20 +308,20 @@ class Phase1FinancialSafetyTest extends TestCase
         $nullUser = new User(['role' => null]);
         $this->assertFalse($nullUser->isAdmin());
         $this->assertFalse($nullUser->isOwnerLevelInternalUser());
-        $this->assertFalse(FinancialPermissions::allows($nullUser, FinancialPermissions::RECORD_PAYMENT));
-        $this->assertFalse(FinancialPermissions::allows($nullUser, FinancialPermissions::MANAGE_SUBSCRIPTION_BILLING));
+        $this->assertFalse(Permissions::allows($nullUser, Permissions::RECORD_PAYMENT));
+        $this->assertFalse(Permissions::allows($nullUser, Permissions::MANAGE_SUBSCRIPTION_BILLING));
 
         $unknownUser = new User(['role' => 'unsupported_role_xyz']);
         $this->assertFalse($unknownUser->isAdmin());
         $this->assertFalse($unknownUser->isOwnerLevelInternalUser());
-        $this->assertFalse(FinancialPermissions::allows($unknownUser, FinancialPermissions::RECORD_PAYMENT));
+        $this->assertFalse(Permissions::allows($unknownUser, Permissions::RECORD_PAYMENT));
 
         $employee = User::factory()->create([
             'role' => User::ROLE_EMPLOYEE,
             'is_active' => true,
         ]);
         $this->assertFalse($employee->isAdmin());
-        $this->assertFalse(FinancialPermissions::allows($employee, FinancialPermissions::RECORD_PAYMENT));
+        $this->assertFalse(Permissions::allows($employee, Permissions::RECORD_PAYMENT));
 
         $response = $this->actingAs($employee)
             ->post(route('clients.payments.normal.store', $this->client->id), [

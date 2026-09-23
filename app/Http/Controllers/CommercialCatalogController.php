@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +16,7 @@ class CommercialCatalogController extends Controller
 {
     public function index(): View
     {
-        Gate::authorize(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG);
+        Gate::authorize(Permissions::MANAGE_COMMERCIAL_CATALOG);
 
         return view('commercial-catalog.index', [
             'products' => Product::orderBy('archived_at')->orderBy('name_ar')->get(),
@@ -25,7 +25,7 @@ class CommercialCatalogController extends Controller
 
     public function storeProduct(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG);
+        Gate::authorize(Permissions::MANAGE_COMMERCIAL_CATALOG);
         $data = $this->validateSystem($request);
         $system = Product::create($this->attributes($data) + [
             'code' => $this->uniqueCode($data['name_en'] ?: $data['name_ar']),
@@ -39,7 +39,7 @@ class CommercialCatalogController extends Controller
 
     public function updateProduct(Request $request, Product $product): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG);
+        Gate::authorize(Permissions::MANAGE_COMMERCIAL_CATALOG);
         $data = $this->validateSystem($request);
         $product->update($this->attributes($data) + ['is_active' => $request->boolean('is_active')]);
 
@@ -48,7 +48,7 @@ class CommercialCatalogController extends Controller
 
     public function archiveProduct(Product $product): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_COMMERCIAL_CATALOG);
+        Gate::authorize(Permissions::MANAGE_COMMERCIAL_CATALOG);
         $product->update(['is_active' => false, 'archived_at' => now()]);
         $this->log('system_archived', 'تمت أرشفة النظام: '.$product->name_ar, $product);
 

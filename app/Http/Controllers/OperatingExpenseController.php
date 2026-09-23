@@ -11,7 +11,7 @@ use App\Models\User;
 use App\Models\Vendor;
 use App\Services\OperatingExpenseService;
 use App\Services\RecurringExpenseService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +28,7 @@ class OperatingExpenseController extends Controller
 
     public function index()
     {
-        Gate::authorize(FinancialPermissions::VIEW_EXPENSE_MANAGEMENT);
+        Gate::authorize(Permissions::VIEW_EXPENSE_MANAGEMENT);
 
         $totals = $this->expenses->activeTotals();
         $today = today();
@@ -84,7 +84,7 @@ class OperatingExpenseController extends Controller
 
     public function storeExpense(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_EXPENSES);
+        Gate::authorize(Permissions::MANAGE_EXPENSES);
 
         $validated = $request->validate($this->expenseRules());
         $this->expenses->createV2Expense($validated, $request->user());
@@ -94,7 +94,7 @@ class OperatingExpenseController extends Controller
 
     public function reverseExpense(Request $request, Expense $expense): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_EXPENSES);
+        Gate::authorize(Permissions::MANAGE_EXPENSES);
 
         $validated = $request->validate([
             'reason' => 'required|string|min:3|max:1000',
@@ -113,7 +113,7 @@ class OperatingExpenseController extends Controller
 
     public function storeCategory(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_EXPENSE_CATEGORIES);
+        Gate::authorize(Permissions::MANAGE_EXPENSE_CATEGORIES);
 
         $validated = $request->validate([
             'key' => 'required|string|max:100|unique:expense_categories,key',
@@ -141,7 +141,7 @@ class OperatingExpenseController extends Controller
 
     public function updateCategory(Request $request, ExpenseCategory $category): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_EXPENSE_CATEGORIES);
+        Gate::authorize(Permissions::MANAGE_EXPENSE_CATEGORIES);
 
         $validated = $request->validate([
             'name_ar' => 'required|string|max:255',
@@ -165,7 +165,7 @@ class OperatingExpenseController extends Controller
 
     public function archiveCategory(ExpenseCategory $category): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_EXPENSE_CATEGORIES);
+        Gate::authorize(Permissions::MANAGE_EXPENSE_CATEGORIES);
 
         $category->update(['is_active' => false, 'archived_at' => now()]);
 
@@ -174,7 +174,7 @@ class OperatingExpenseController extends Controller
 
     public function storeVendor(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_VENDORS);
+        Gate::authorize(Permissions::MANAGE_VENDORS);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -195,7 +195,7 @@ class OperatingExpenseController extends Controller
 
     public function archiveVendor(Vendor $vendor): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_VENDORS);
+        Gate::authorize(Permissions::MANAGE_VENDORS);
 
         $vendor->update(['is_active' => false, 'archived_at' => now()]);
 
@@ -204,7 +204,7 @@ class OperatingExpenseController extends Controller
 
     public function storeTemplate(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_RECURRING_EXPENSES);
+        Gate::authorize(Permissions::MANAGE_RECURRING_EXPENSES);
 
         $validated = $request->validate($this->templateRules());
         $this->recurring->createTemplate($validated, $request->user());
@@ -214,7 +214,7 @@ class OperatingExpenseController extends Controller
 
     public function updateTemplate(Request $request, RecurringExpenseTemplate $template): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_RECURRING_EXPENSES);
+        Gate::authorize(Permissions::MANAGE_RECURRING_EXPENSES);
 
         $validated = $request->validate($this->templateRules(false));
         $this->recurring->updateTemplate($template, $validated + ['is_active' => $request->boolean('is_active')], $request->user());
@@ -224,7 +224,7 @@ class OperatingExpenseController extends Controller
 
     public function generateRecurring(Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_RECURRING_EXPENSES);
+        Gate::authorize(Permissions::MANAGE_RECURRING_EXPENSES);
 
         $validated = $request->validate(['business_date' => 'nullable|date']);
         $count = $this->recurring->generateDueObligations(isset($validated['business_date']) ? \Carbon\Carbon::parse($validated['business_date']) : null);
@@ -234,7 +234,7 @@ class OperatingExpenseController extends Controller
 
     public function payObligation(Request $request, RecurringExpenseObligation $obligation): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_EXPENSES);
+        Gate::authorize(Permissions::MANAGE_EXPENSES);
 
         $defaults = [
             'amount' => $request->input('amount') ?: $obligation->expectedAmountJod(),
@@ -256,7 +256,7 @@ class OperatingExpenseController extends Controller
 
     public function skipObligation(Request $request, RecurringExpenseObligation $obligation): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_RECURRING_EXPENSES);
+        Gate::authorize(Permissions::MANAGE_RECURRING_EXPENSES);
 
         $validated = $request->validate(['notes' => 'nullable|string|max:1000']);
         $this->recurring->skipObligation($obligation, $request->user(), $validated['notes'] ?? null);
@@ -266,7 +266,7 @@ class OperatingExpenseController extends Controller
 
     public function cancelObligation(Request $request, RecurringExpenseObligation $obligation): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_RECURRING_EXPENSES);
+        Gate::authorize(Permissions::MANAGE_RECURRING_EXPENSES);
 
         $validated = $request->validate(['notes' => 'nullable|string|max:1000']);
         $this->recurring->cancelObligation($obligation, $request->user(), $validated['notes'] ?? null);

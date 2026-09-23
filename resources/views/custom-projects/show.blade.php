@@ -8,7 +8,9 @@
             <h1 class="p5-title">{{ $project->name }}</h1>
             <p>{{ $project->statusLabel() }} · {{ $project->agreedValueFormatted() }} {{ __('notify.common.currency_jod') }}</p>
         </div>
+        @can('manage_custom_projects')
         <a href="{{ route('custom-projects.edit', $project) }}" class="p5-btn p5-btn-ghost">{{ __('custom_projects.edit') }}</a>
+        @endcan
     </header>
 
     <div class="p5-card" style="margin-block:16px">
@@ -32,7 +34,7 @@
         @empty
             <p>{{ __('custom_projects.no_invoices') }}</p>
         @endforelse
-        @if(\App\Support\FinancialPermissions::allows(auth()->user(), \App\Support\FinancialPermissions::MANAGE_INVOICES) && !$project->archived_at && !$project->isCancelled())
+        @if(\App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::MANAGE_INVOICES) && !$project->archived_at && !$project->isCancelled())
             @if($errors->any())
                 <div role="alert" class="p5-field-error">
                     @foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach
@@ -52,6 +54,7 @@
         @endif
     </section>
 
+    @can('manage_custom_projects')
     <section class="p5-card" style="margin-block:16px">
         <h2>{{ __('custom_projects.status_label') }}</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -77,5 +80,6 @@
             </form>
         @endif
     </section>
+    @endcan
 </div>
 @endsection

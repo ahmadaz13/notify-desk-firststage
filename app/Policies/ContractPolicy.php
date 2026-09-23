@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Contract;
 use App\Models\User;
+use App\Support\Permissions;
 
 class ContractPolicy
 {
@@ -48,7 +49,7 @@ class ContractPolicy
      */
     public function issue(User $user, Contract $contract): bool
     {
-        return $user->isAdmin();
+        return Permissions::allows($user, Permissions::ISSUE_CONTRACTS);
     }
 
     /**
@@ -56,7 +57,7 @@ class ContractPolicy
      */
     public function void(User $user, Contract $contract): bool
     {
-        return $user->isAdmin();
+        return Permissions::allows($user, Permissions::ISSUE_CONTRACTS);
     }
 
     /**
@@ -64,6 +65,6 @@ class ContractPolicy
      */
     public function supersede(User $user, Contract $contract): bool
     {
-        return $user->isAdmin();
+        return Permissions::allows($user, Permissions::ISSUE_CONTRACTS);
     }
 }

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\SubscriptionBillingService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,7 +14,7 @@ class SubscriptionBillingController extends Controller
 {
     public function index(SubscriptionBillingService $billing): View
     {
-        Gate::authorize(FinancialPermissions::RUN_SUBSCRIPTION_BILLING);
+        Gate::authorize(Permissions::RUN_SUBSCRIPTION_BILLING);
 
         $snapshot = $billing->operationsSnapshot();
 
@@ -23,7 +23,7 @@ class SubscriptionBillingController extends Controller
 
     public function generateRenewals(Request $request, SubscriptionBillingService $billing): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::RUN_SUBSCRIPTION_BILLING);
+        Gate::authorize(Permissions::RUN_SUBSCRIPTION_BILLING);
 
         $validated = $request->validate([
             'through' => 'nullable|date',
@@ -40,7 +40,7 @@ class SubscriptionBillingController extends Controller
 
     public function backfillPeriods(Request $request, SubscriptionBillingService $billing): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::RESOLVE_SUBSCRIPTION_BILLING_REVIEWS);
+        Gate::authorize(Permissions::RESOLVE_SUBSCRIPTION_BILLING_REVIEWS);
 
         $counts = $billing->backfillInitialPeriods($request->boolean('dry_run'));
 

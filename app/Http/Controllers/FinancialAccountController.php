@@ -10,7 +10,7 @@ use App\Models\Refund;
 use App\Services\CashMovementService;
 use App\Services\FinancialAccountBalanceService;
 use App\Services\FinancialAccountService;
-use App\Support\FinancialPermissions;
+use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -21,7 +21,7 @@ class FinancialAccountController extends Controller
 {
     public function index(FinancialAccountBalanceService $balances): View
     {
-        Gate::authorize(FinancialPermissions::VIEW_CASH_MANAGEMENT);
+        Gate::authorize(Permissions::VIEW_CASH_MANAGEMENT);
 
         $accountCards = $balances->accountCards();
         $activeAccounts = FinancialAccount::where('is_active', true)->whereNull('archived_at')->orderBy('name_ar')->get();
@@ -81,7 +81,7 @@ class FinancialAccountController extends Controller
 
     public function store(Request $request, FinancialAccountService $accounts): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_FINANCIAL_ACCOUNTS);
+        Gate::authorize(Permissions::MANAGE_FINANCIAL_ACCOUNTS);
 
         $validated = $request->validate([
             'code' => 'required|string|max:50|unique:financial_accounts,code',
@@ -101,7 +101,7 @@ class FinancialAccountController extends Controller
 
     public function archive(FinancialAccount $financialAccount, FinancialAccountService $accounts, Request $request): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_FINANCIAL_ACCOUNTS);
+        Gate::authorize(Permissions::MANAGE_FINANCIAL_ACCOUNTS);
 
         $accounts->archiveAccount($financialAccount, $request->user()->id);
 
@@ -110,7 +110,7 @@ class FinancialAccountController extends Controller
 
     public function storeTransfer(Request $request, FinancialAccountService $accounts): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_CASH_TRANSFERS);
+        Gate::authorize(Permissions::MANAGE_CASH_TRANSFERS);
 
         $validated = $request->validate([
             'from_financial_account_id' => 'required|integer|exists:financial_accounts,id',
@@ -128,7 +128,7 @@ class FinancialAccountController extends Controller
 
     public function reverseTransfer(Request $request, FinancialTransfer $financialTransfer, FinancialAccountService $accounts): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::MANAGE_CASH_TRANSFERS);
+        Gate::authorize(Permissions::MANAGE_CASH_TRANSFERS);
 
         $validated = $request->validate([
             'reason' => 'required|string|max:1000',
@@ -141,7 +141,7 @@ class FinancialAccountController extends Controller
 
     public function assignCashEvent(Request $request, CashMovementService $cashMovements): RedirectResponse
     {
-        Gate::authorize(FinancialPermissions::ASSIGN_HISTORICAL_CASH_ACCOUNTS);
+        Gate::authorize(Permissions::ASSIGN_HISTORICAL_CASH_ACCOUNTS);
 
         $validated = $request->validate([
             'event_type' => ['required', 'string', Rule::in(['payment', 'refund'])],
