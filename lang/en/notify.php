@@ -905,6 +905,70 @@ return array (
     'unread_tab' => 'Unread (:count)',
     'view_details' => 'View Details →',
   ),
+  'payment_receipts' =>
+  array (
+    'action_payment_received' => 'Payment received',
+    'action_submit' => 'Send for confirmation',
+    'action_approve' => 'Approve',
+    'action_reject' => 'Reject',
+    'action_cancel' => 'Cancel receipt',
+    'action_review' => 'Review',
+    'field_amount' => 'Amount received',
+    'field_method' => 'Payment method',
+    'field_received_at' => 'Received at',
+    'field_reference' => 'Payment reference',
+    'field_note' => 'Note',
+    'more_options' => 'More options',
+    'staff_hint' => 'The payment is recorded after the owner confirms it. The amount due does not change until then.',
+    'pending_title' => 'Pending confirmations',
+    'pending_subtitle' => 'Payments reported by staff awaiting approval',
+    'pending_empty' => 'No payment receipts are awaiting confirmation.',
+    'pending_not_deducted' => 'Pending receipts are not deducted from the amount due until approved.',
+    'submitted_by' => 'Submitted by',
+    'rejection_reason' => 'Rejection reason',
+    'rejection_reason_placeholder' => 'Rejection reason (required)',
+    'status' =>
+    array (
+      'pending' => 'Awaiting confirmation',
+      'approved' => 'Approved',
+      'rejected' => 'Rejected',
+      'cancelled' => 'Cancelled',
+    ),
+    'flash' =>
+    array (
+      'submitted' => 'Payment receipt sent for confirmation.',
+      'approved' => 'Payment confirmed and recorded.',
+      'rejected' => 'Payment receipt rejected.',
+      'cancelled' => 'Payment receipt cancelled.',
+    ),
+    'activity' =>
+    array (
+      'approved' => 'Payment of :amount JOD (:method) confirmed',
+      'rejected' => 'Payment receipt of :amount JOD rejected: :reason',
+    ),
+    'notifications' =>
+    array (
+      'submitted_title' => 'Payment awaiting confirmation: :client',
+      'submitted_message' => ':submitter reported receiving :amount JOD (:method) from :client.',
+      'approved_title' => 'Payment confirmed: :client',
+      'approved_message' => 'Your payment receipt of :amount JOD from :client was approved.',
+      'rejected_title' => 'Payment receipt rejected: :client',
+      'rejected_message' => 'Your payment receipt of :amount JOD from :client was rejected. Reason: :reason',
+    ),
+    'errors' =>
+    array (
+      'amount_positive' => 'The amount received must be greater than zero.',
+      'unsupported_method' => 'Choose Cash or CliQ.',
+      'future_date' => 'The received time cannot be in the future.',
+      'backdate_limit' => 'The received time cannot be more than :days days ago.',
+      'not_pending' => 'This payment receipt has already been reviewed.',
+      'reason_required' => 'Enter the rejection reason.',
+      'not_owner' => 'You can only cancel your own payment receipts.',
+      'idempotency_conflict' => 'This request key belongs to another user.',
+      'company_account_missing' => 'The company account for this payment method is not set up. Run notify:bootstrap.',
+      'company_account_ineligible' => 'The company account for this payment method is inactive or not in JOD.',
+    ),
+  ),
   'reports' =>
   array (
     'executive' => 'Executive Dashboard',

@@ -83,7 +83,9 @@ class Phase07PaymentsTest extends TestCase
 
     public function test_authorized_normal_payment_resolves_canonical_account_and_ignores_browser_account_override(): void
     {
-        $cash = $this->createAccount('cash', FinancialAccount::TYPE_CASH);
+        // V1: cash resolves by code to the bootstrapped CASH-BOX, never by account type [FROZEN D-01/D-02].
+        $cash = FinancialAccount::where('code', 'CASH-BOX')->firstOrFail();
+        $this->createAccount('cash', FinancialAccount::TYPE_CASH);
         $bank = $this->createAccount('bank', FinancialAccount::TYPE_BANK);
         $invoice = $this->createInvoice($this->client, 10000, '2026-09-01');
 
@@ -117,17 +119,12 @@ class Phase07PaymentsTest extends TestCase
         $this->assertTrue(JournalEntry::where('event_type', 'payment_allocation_accounting')->exists());
     }
 
-    public function test_resolver_fails_safely_for_missing_ambiguous_and_inactive_mappings(): void
+    public function test_resolver_fails_safely_for_missing_or_inactive_company_account(): void
     {
-        $this->actingAs($this->admin)
-            ->post(route('clients.payments.normal.store', $this->client), [
-                'amount' => '1.000',
-                'payment_method' => 'cash',
-            ])
-            ->assertSessionHasErrors('payment_method');
-
-        $inactive = $this->createAccount('inactive_cash', FinancialAccount::TYPE_CASH);
-        $inactive->update(['is_active' => false]);
+        // Retired: type-based ambiguity. V1 resolves strictly by code (CASH-BOX), so extra cash-type
+        // accounts cannot make resolution ambiguous; missing or inactive CASH-BOX still fails safely.
+        $cashBox = FinancialAccount::where('code', 'CASH-BOX')->firstOrFail();
+        $cashBox->update(['is_active' => false]);
 
         $this->actingAs($this->admin)
             ->post(route('clients.payments.normal.store', $this->client), [
@@ -136,9 +133,7 @@ class Phase07PaymentsTest extends TestCase
             ])
             ->assertSessionHasErrors('payment_method');
 
-        $inactive->delete();
-        $this->createAccount('cash_a', FinancialAccount::TYPE_CASH);
-        $this->createAccount('cash_b', FinancialAccount::TYPE_CASH);
+        $cashBox->update(['is_active' => true, 'code' => 'CASH-BOX-RENAMED']);
 
         $this->actingAs($this->admin)
             ->post(route('clients.payments.normal.store', $this->client), [
@@ -146,6 +141,8 @@ class Phase07PaymentsTest extends TestCase
                 'payment_method' => 'cash',
             ])
             ->assertSessionHasErrors('payment_method');
+
+        $this->assertSame(0, Payment::count());
     }
 
     public function test_zero_and_negative_amounts_are_rejected_with_no_payment_created(): void

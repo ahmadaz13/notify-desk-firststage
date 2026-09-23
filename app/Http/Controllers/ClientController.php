@@ -256,7 +256,12 @@ class ClientController extends Controller
         $lifecycleStages = ClientLifecycle::STAGES;
         $lifecycleLabels = ClientLifecycle::labels();
         $contactOutcomes = ClientLifecycle::CONTACT_OUTCOMES;
-        $paymentMethodOptions = PaymentMethods::labels();
+        $paymentMethodOptions = PaymentMethods::v1Labels();
+        $pendingPaymentReceipts = \App\Models\PaymentReceiptConfirmation::with('submitter:id,name')
+            ->where('client_id', $client->id)
+            ->pending()
+            ->orderByDesc('received_at')
+            ->get();
         $activeFinancialAccounts = \App\Models\FinancialAccount::where('is_active', true)
             ->whereNull('archived_at')
             ->orderBy('name_ar')
@@ -314,7 +319,7 @@ class ClientController extends Controller
         );
         $contactOutcomeViewModel = ContactOutcomeViewModel::make($appointmentTypeLabels);
 
-        return view('clients.show', compact('customProjects', 'client', 'timeline', 'appointments', 'payments', 'creditNotes', 'refunds', 'offers', 'subscriptions', 'installmentScheduleProjections', 'invoices', 'invoiceReceivables', 'paymentReceivables', 'creditNoteReceivables', 'availableCustomerCredits', 'receivableSummary', 'followUps', 'outcomes', 'schedules', 'teamUsers', 'catalogServices', 'contracts', 'contactAttempts', 'installations', 'installationAppointments', 'activeInstallationAppointments', 'appointmentTypeLabels', 'lifecycleStages', 'lifecycleLabels', 'contactOutcomes', 'paymentMethodOptions', 'activeFinancialAccounts', 'sellableProducts', 'sellablePlans', 'accountingTrace', 'clientWorkspaceViewModel', 'contactOutcomeViewModel'));
+        return view('clients.show', compact('customProjects', 'client', 'timeline', 'appointments', 'payments', 'creditNotes', 'refunds', 'offers', 'subscriptions', 'installmentScheduleProjections', 'invoices', 'invoiceReceivables', 'paymentReceivables', 'creditNoteReceivables', 'availableCustomerCredits', 'receivableSummary', 'followUps', 'outcomes', 'schedules', 'teamUsers', 'catalogServices', 'contracts', 'contactAttempts', 'installations', 'installationAppointments', 'activeInstallationAppointments', 'appointmentTypeLabels', 'lifecycleStages', 'lifecycleLabels', 'contactOutcomes', 'paymentMethodOptions', 'pendingPaymentReceipts', 'activeFinancialAccounts', 'sellableProducts', 'sellablePlans', 'accountingTrace', 'clientWorkspaceViewModel', 'contactOutcomeViewModel'));
     }
 
     public function edit(int $id): View
