@@ -20,5 +20,6 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Client credential secrets/notes are never flashed back as old input (§18.3).
+        $exceptions->dontFlash(['credential_secret', 'credential_note']);
     })->create();

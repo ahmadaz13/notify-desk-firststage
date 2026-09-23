@@ -5334,3 +5334,31 @@ table {
 @media (pointer:coarse) {
   .notify-client-form input, .notify-client-form select, .notify-client-form textarea { font-size:16px; }
 }
+
+/* P5 client system credentials: minimal surface (§18.3); final card design in P10 */
+.notify-credentials { margin-block:16px; }
+.notify-credentials__meta { margin:4px 0 0; font-size:12px; }
+.notify-credentials__errors { margin-block-end:12px; padding:10px 12px; border:1px solid var(--notify-danger); border-radius:var(--radius-sm); color:var(--notify-danger); }
+.notify-credentials__errors p { margin:0; }
+.notify-credentials__list { display:grid; gap:12px; }
+.notify-credential { display:grid; gap:10px; min-width:0; padding:14px; border:1px solid var(--notify-border); border-radius:var(--radius-sm); background:var(--notify-surface); }
+.notify-credential__system { margin:0; font-size:15px; font-weight:800; color:var(--notify-text); }
+.notify-credential__facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px 16px; margin:0; }
+.notify-credential__facts dt { color:var(--notify-muted); font-size:12px; }
+.notify-credential__facts dd { margin:2px 0 0; min-width:0; overflow-wrap:anywhere; color:var(--notify-text); font-weight:600; }
+.notify-credential__secret { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; letter-spacing:.04em; }
+.notify-credential__actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.notify-credential__actions .notify-button, .notify-credential__edit .notify-button, .notify-credential__send .notify-button { min-height:44px; }
+.notify-credential__status { flex-basis:100%; margin:0; color:var(--notify-muted); font-size:13px; }
+.notify-credential__edit summary { display:flex; align-items:center; min-height:44px; color:var(--notify-primary); font-weight:700; cursor:pointer; }
+.notify-credential__form { display:grid; gap:12px; padding-block:8px; }
+.notify-credential__delete { margin-block-start:8px; }
+.notify-credential__add { margin-block-start:12px; }
+.notify-credential__preview { margin:6px 0; padding:10px 12px; border:1px solid var(--notify-border); border-radius:var(--radius-sm); background:var(--notify-canvas); color:var(--notify-text); font:inherit; font-size:14px; white-space:pre-wrap; overflow-wrap:anywhere; }
+@media (max-width:767px) {
+  .notify-credential__actions .notify-button { flex:1 1 auto; }
+  .notify-credentials input, .notify-credentials select, .notify-credentials textarea { font-size:16px; }
+}
+@media (pointer:coarse) {
+  .notify-credentials input, .notify-credentials select, .notify-credentials textarea { font-size:16px; }
+}

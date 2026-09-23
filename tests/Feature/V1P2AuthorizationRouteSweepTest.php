@@ -43,6 +43,9 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
         'appointments.outcome.create', 'appointments.outcome.store', 'appointments.compact-outcome.store',
         'clients.follow-ups.store', 'follow-ups.complete', 'clients.offers.store',
         'clients.system-access.store', 'clients.system-access.destroy',
+        // P5 client system credentials (manage/reveal_client_credentials: Owner + Staff)
+        'clients.credentials.store', 'clients.credentials.update', 'clients.credentials.destroy',
+        'clients.credentials.reveal', 'clients.credentials.copied', 'clients.credentials.send',
         'clients.guided-subscription.catalog', 'clients.guided-subscription.preview', 'clients.guided-subscription.store',
         'contracts.preview', 'contracts.print', 'contracts.download', 'contracts.download-pdf',
         'clients.payment-receipts.store', 'payment-receipts.cancel',

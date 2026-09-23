@@ -116,6 +116,11 @@ class Client extends Model
             ->withTimestamps();
     }
 
+    public function credentials(): HasMany
+    {
+        return $this->hasMany(ClientSystemCredential::class);
+    }
+
     public function reviewItems(): HasMany
     {
         return $this->hasMany(ClientReviewItem::class)->orderByDesc('created_at');

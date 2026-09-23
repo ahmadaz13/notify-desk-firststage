@@ -455,6 +455,9 @@
         </section>
     </div>
 
+    {{-- System credentials (P5 minimal surface; final card design in P10) --}}
+    @include('clients.workspace.credentials')
+
     @if(\App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::MANAGE_COMMERCIAL_CATALOG))
         <section class="notify-workspace-card" style="margin-block:16px" aria-label="{{ __('custom_projects.title') }}">
             <div class="notify-workspace-card__head"><h2 class="notify-workspace-card__title">{{ __('custom_projects.title') }}</h2><a class="notify-button notify-button--soft notify-button--sm" href="{{ route('custom-projects.create', ['client_id' => $client->id]) }}">{{ __('custom_projects.create') }}</a></div>

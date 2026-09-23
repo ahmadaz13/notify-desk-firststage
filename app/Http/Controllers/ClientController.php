@@ -11,6 +11,7 @@ use App\Models\JournalEntry;
 use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\ClientCredentialService;
 use App\Services\ClientPrimaryContactService;
 use App\Services\ReceivableService;
 use App\Services\ReferenceDataService;
@@ -239,6 +240,17 @@ class ClientController extends Controller
             ->whereNull('archived_at')
             ->orderBy('name_ar')
             ->get();
+        $credentialService = app(ClientCredentialService::class);
+        $credentialSystems = $credentialService->applicableSystems($client);
+        $credentialPanel = [
+            'systems' => $credentialSystems,
+            // Hidden attributes: secret/note never reach the view as values.
+            'credentials' => $client->credentials()->get()->keyBy('product_id'),
+            'addable' => $credentialService->addableSystems($client)->whereNotIn('id', $credentialSystems->pluck('id')),
+            'recipient' => $credentialService->defaultRecipient($client),
+            'can_manage' => Permissions::allows(auth()->user(), Permissions::MANAGE_CLIENT_CREDENTIALS),
+            'can_reveal' => Permissions::allows(auth()->user(), Permissions::REVEAL_CLIENT_CREDENTIALS),
+        ];
         $sellableProducts = Product::sellable()->orderBy('name_ar')->get();
         $sellablePlans = collect();
         $accountingTrace = collect();
@@ -292,7 +304,7 @@ class ClientController extends Controller
         );
         $contactOutcomeViewModel = ContactOutcomeViewModel::make($appointmentTypeLabels);
 
-        return view('clients.show', compact('customProjects', 'client', 'timeline', 'appointments', 'payments', 'creditNotes', 'refunds', 'offers', 'subscriptions', 'installmentScheduleProjections', 'invoices', 'invoiceReceivables', 'paymentReceivables', 'creditNoteReceivables', 'availableCustomerCredits', 'receivableSummary', 'followUps', 'outcomes', 'schedules', 'teamUsers', 'catalogServices', 'contracts', 'contactAttempts', 'installations', 'installationAppointments', 'activeInstallationAppointments', 'appointmentTypeLabels', 'lifecycleStages', 'lifecycleLabels', 'contactOutcomes', 'paymentMethodOptions', 'pendingPaymentReceipts', 'activeFinancialAccounts', 'sellableProducts', 'sellablePlans', 'accountingTrace', 'clientWorkspaceViewModel', 'contactOutcomeViewModel'));
+        return view('clients.show', compact('customProjects', 'client', 'timeline', 'appointments', 'payments', 'creditNotes', 'refunds', 'offers', 'subscriptions', 'installmentScheduleProjections', 'invoices', 'invoiceReceivables', 'paymentReceivables', 'creditNoteReceivables', 'availableCustomerCredits', 'receivableSummary', 'followUps', 'outcomes', 'schedules', 'teamUsers', 'catalogServices', 'contracts', 'contactAttempts', 'installations', 'installationAppointments', 'activeInstallationAppointments', 'appointmentTypeLabels', 'lifecycleStages', 'lifecycleLabels', 'contactOutcomes', 'paymentMethodOptions', 'pendingPaymentReceipts', 'activeFinancialAccounts', 'sellableProducts', 'sellablePlans', 'accountingTrace', 'clientWorkspaceViewModel', 'contactOutcomeViewModel', 'credentialPanel', 'credentialService'));
     }
 
     public function edit(int $id): View

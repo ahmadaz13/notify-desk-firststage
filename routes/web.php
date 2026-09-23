@@ -9,6 +9,7 @@ use App\Http\Controllers\CapitalManagementController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientContactController;
+use App\Http\Controllers\ClientCredentialController;
 use App\Http\Controllers\ClientReviewItemController;
 use App\Http\Controllers\ClientStageController;
 use App\Http\Controllers\ClientSystemAccessController;
@@ -71,6 +72,15 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/clients/{client}/guided-subscription', [GuidedSubscriptionController::class, 'store'])->middleware('financial.idempotency')->name('clients.guided-subscription.store');
     Route::post('/clients/{client}/system-access', [ClientSystemAccessController::class, 'store'])->name('clients.system-access.store');
     Route::delete('/clients/{client}/system-access/{system}', [ClientSystemAccessController::class, 'destroy'])->name('clients.system-access.destroy');
+    // Client system credentials (§18.3): secrets only leave the server through these throttled POST actions.
+    Route::post('/clients/{client}/credentials', [ClientCredentialController::class, 'store'])->name('clients.credentials.store');
+    Route::put('/clients/{client}/credentials/{credential}', [ClientCredentialController::class, 'update'])->name('clients.credentials.update');
+    Route::delete('/clients/{client}/credentials/{credential}', [ClientCredentialController::class, 'destroy'])->name('clients.credentials.destroy');
+    Route::middleware('throttle:20,1')->group(function () {
+        Route::post('/clients/{client}/credentials/{credential}/reveal', [ClientCredentialController::class, 'reveal'])->name('clients.credentials.reveal');
+        Route::post('/clients/{client}/credentials/{credential}/copied', [ClientCredentialController::class, 'copied'])->name('clients.credentials.copied');
+        Route::post('/clients/{client}/credentials/{credential}/send', [ClientCredentialController::class, 'send'])->name('clients.credentials.send');
+    });
     Route::post('/clients/{client}/one-time-invoices', [BillingController::class, 'storeOneTimeInvoice'])->middleware('financial.idempotency')->name('clients.one-time-invoices.store');
     Route::post('/clients/{client}/payments/normal', [CollectionsController::class, 'storeNormalPayment'])->middleware('financial.idempotency')->name('clients.payments.normal.store');
     Route::post('/clients/{client}/payment-receipts', [PaymentReceiptController::class, 'store'])->middleware('financial.idempotency')->name('clients.payment-receipts.store');
