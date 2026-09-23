@@ -79,11 +79,13 @@ class ClientContactController extends Controller
     private function validateContact(Request $request): array
     {
         return $request->validate([
-            'name' => 'required|string|max:255',
+            // §28.1: a contact's name is optional.
+            'name' => 'nullable|string|max:255|required_without_all:primary_phone,secondary_phone,whatsapp_number,email',
             'role' => 'nullable|string|max:120',
             'primary_phone' => 'nullable|string|max:50',
             'secondary_phone' => 'nullable|string|max:50',
             'whatsapp_number' => 'nullable|string|max:50',
+            'email' => 'nullable|email|max:255',
             'preferred_contact_method' => 'nullable|string|max:50',
             'is_primary' => 'nullable|boolean',
         ]);

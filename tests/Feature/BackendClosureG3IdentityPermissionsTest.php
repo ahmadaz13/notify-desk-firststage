@@ -19,6 +19,7 @@ class BackendClosureG3IdentityPermissionsTest extends TestCase
         $this->actingAs($staff)->post(route('clients.store'), [
             'business_name' => 'G3 Staff Prospect',
             'phone' => '0791112233',
+            'primary_phone_type' => 'business',
             'city_area' => 'Amman',
             'business_category' => 'Retail',
             'lead_source' => 'Direct',

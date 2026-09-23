@@ -1,5 +1,5 @@
-business_name,phone,contact_person,city_area,business_category,lead_source,notes
-مطعم القدس الجديد,0791234567,أبو عمر,وسط البلد,مطاعم,Google Maps,مهتم بنظام الإشعارات الآلية
-صالون الأناقة,0788765432,سارة,الصويفية,صالونات,Instagram,تواصل مبدئي ممتاز
-عيادة الشفاء,0779876543,د. طارق,خلدا,عيادات,Referral,طلب عرض توضيحي
-مكتبة المعرفة,0795551122,محمود,الجامعة,مكتبات,Direct Prospecting,زيارة ميدانية الأسبوع القادم
+business_name,phone,primary_phone_type,contact_name,city_area,business_category,lead_source,notes
+مطعم القدس الجديد,0791234567,owner,أبو عمر,وسط البلد,مطاعم,Google Maps,مهتم بنظام الإشعارات الآلية
+صالون الأناقة,0788765432,owner,سارة,الصويفية,صالونات,Instagram,تواصل مبدئي ممتاز
+عيادة الشفاء,0779876543,owner,د. طارق,خلدا,عيادات,Referral,طلب عرض توضيحي
+مكتبة المعرفة,0795551122,owner,محمود,الجامعة,مكتبات,Direct Prospecting,زيارة ميدانية الأسبوع القادم

@@ -5313,3 +5313,24 @@ table {
 .notify-check { display:flex; align-items:center; gap:8px; min-height:44px; }
 @media (max-width:768px) { .notify-form-grid { grid-template-columns:1fr; } .notify-form-field--wide { grid-column:auto; } }
 @media (max-width:390px) { .notify-content { padding-inline:12px; } .notify-topbar__actions { gap:4px; } .notify-locale-switcher span { display:none; } .notify-button { min-height:44px; } }
+
+/* P4 client create/edit: business vs primary-contact model (§28.1, §22) */
+.notify-client-form__body { display:grid; gap:20px; }
+.notify-client-form__section { min-width:0; }
+.notify-field-hint { display:block; margin-block-start:4px; color:var(--notify-muted); font-size:12px; }
+.notify-phone-type { margin:0; padding:0; border:0; min-width:0; }
+.notify-phone-type legend { margin-block-end:8px; padding:0; color:var(--notify-text); font-weight:700; }
+.notify-phone-type__options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.notify-phone-type__option { position:relative; display:flex; align-items:center; justify-content:center; min-height:48px; padding:8px 12px; border:1.5px solid var(--notify-border); border-radius:var(--radius-sm); background:var(--notify-surface); color:var(--notify-text); font-weight:600; text-align:center; cursor:pointer; }
+.notify-phone-type__option input { position:absolute; opacity:0; pointer-events:none; }
+.notify-phone-type__option:has(input:checked) { border-color:var(--notify-primary); background:var(--notify-info-soft); color:var(--notify-primary); font-weight:700; }
+.notify-phone-type__option:has(input:focus-visible) { outline:2px solid var(--notify-primary); outline-offset:2px; }
+.notify-phone-type[aria-invalid="true"] .notify-phone-type__option { border-color:var(--notify-danger); }
+.notify-client-form .notify-details summary { min-height:44px; }
+@media (max-width:767px) {
+  .notify-phone-type__options { grid-template-columns:1fr; }
+  .notify-client-form input, .notify-client-form select, .notify-client-form textarea { font-size:16px; }
+}
+@media (pointer:coarse) {
+  .notify-client-form input, .notify-client-form select, .notify-client-form textarea { font-size:16px; }
+}

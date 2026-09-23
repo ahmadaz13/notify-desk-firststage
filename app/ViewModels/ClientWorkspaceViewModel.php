@@ -369,8 +369,10 @@ class ClientWorkspaceViewModel
             sections: $sections,
             overview: [
                 ['label' => 'اسم النشاط التجاري', 'value' => (string) $client->business_name],
-                ['label' => 'هاتف النشاط التجاري', 'value' => (string) $businessPhone, 'ltr' => true],
-                ['label' => 'جهة الاتصال الأساسية', 'value' => trim(($contactName ?: 'غير محدد').' '.($contactPhone ? '· '.$contactPhone : ''))],
+                ['label' => __('notify.clients.contact_model.primary_phone'), 'value' => (string) $client->phone, 'ltr' => true],
+                ['label' => __('notify.clients.contact_model.phone_owner_label'), 'value' => __('notify.clients.contact_model.phone_types.'.self::primaryPhoneType($client))],
+                ['label' => 'هاتف النشاط التجاري', 'value' => (string) ($client->business_phone ?: ''), 'ltr' => true],
+                ['label' => 'جهة الاتصال الأساسية', 'value' => self::primaryContactSummary($client)],
                 ['label' => 'المنطقة والمدينة', 'value' => trim(collect([$client->city ?: $client->city_area, $client->area])->filter()->join(' / ')) ?: 'غير محدد'],
                 ['label' => 'نوع النشاط والفئة', 'value' => ($client->business_type ?: $client->business_category ?: 'غير محدد').' · '.($client->number_of_branches ?? 1).' فروع'],
                 ['label' => 'مصدر العميل', 'value' => trim(($client->lead_source ?: 'غير محدد').' '.($client->source_reference ? '· '.$client->source_reference : ''))],
@@ -380,10 +382,12 @@ class ClientWorkspaceViewModel
             ],
             contacts: $client->contacts
                 ->map(fn ($contact) => [
-                    'name' => (string) $contact->name,
-                    'role' => $contact->role ?: 'بدون دور',
+                    'name' => filled($contact->name) ? (string) $contact->name : __('notify.clients.contact_model.unnamed_contact'),
+                    'role' => self::contactRoleLabel($contact->role) ?: 'بدون دور',
                     'primary_phone' => $contact->primary_phone,
+                    'secondary_phone' => $contact->secondary_phone,
                     'whatsapp_number' => $contact->whatsapp_number,
+                    'email' => $contact->email,
                     'preferred_contact_method' => $contact->preferred_contact_method,
                     'is_primary' => (bool) $contact->is_primary,
                 ])
@@ -652,6 +656,43 @@ class ClientWorkspaceViewModel
                 $whatsappUrl ? ['label' => __('notify.actions.whatsapp'), 'href' => $whatsappUrl, 'type' => 'whatsapp'] : null,
             ])),
         ];
+    }
+
+    private static function primaryPhoneType(Client $client): string
+    {
+        return in_array($client->primary_phone_type, Client::PRIMARY_PHONE_TYPES, true)
+            ? $client->primary_phone_type
+            : 'business';
+    }
+
+    /** Primary contact line (§28.1): the name is optional, so a nameless contact still shows its details. */
+    private static function primaryContactSummary(Client $client): string
+    {
+        $primary = $client->contacts->firstWhere('is_primary', true);
+
+        if (! $primary) {
+            return filled($client->contact_person)
+                ? (string) $client->contact_person
+                : __('notify.clients.contact_model.no_primary_contact');
+        }
+
+        return collect([
+            filled($primary->name) ? $primary->name : __('notify.clients.contact_model.unnamed_contact'),
+            self::contactRoleLabel($primary->role),
+            $primary->primary_phone,
+            $primary->email,
+        ])->filter()->join(' · ');
+    }
+
+    private static function contactRoleLabel(?string $role): ?string
+    {
+        if (blank($role)) {
+            return null;
+        }
+
+        $key = 'notify.clients.contact_roles.'.$role;
+
+        return in_array($role, ['owner', 'manager', 'other'], true) ? __($key) : $role;
     }
 
     private static function stageVariant(string $stage): string

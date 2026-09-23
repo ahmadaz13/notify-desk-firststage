@@ -175,6 +175,7 @@ class V1P2PermissionMatrixTest extends TestCase
         $payload = [
             'business_name' => 'Referral Client',
             'phone' => '0791111111',
+            'primary_phone_type' => 'business',
             'city_area' => 'Amman',
             'business_category' => 'Cafe',
             'lead_source' => 'Referral',

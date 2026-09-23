@@ -11,6 +11,7 @@ use App\Models\JournalEntry;
 use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\ClientPrimaryContactService;
 use App\Services\ReceivableService;
 use App\Services\ReferenceDataService;
 use App\Services\ClientOperationalWorkflowService;
@@ -32,6 +33,9 @@ use Illuminate\View\View;
 
 class ClientController extends Controller
 {
+    /** Category select value for "Other" -> free text stored as typed (§15.1). */
+    public const OTHER_CATEGORY = '__other__';
+
     public function index(Request $request, ?OperationalQueueService $operationalQueues = null): View
     {
         Gate::authorize('viewAny', Client::class);
@@ -93,71 +97,39 @@ class ClientController extends Controller
     {
         Gate::authorize('create', Client::class);
 
-        $leadSourceOptions = $this->leadSourceOptions();
-        $businessCategorySuggestions = $this->businessCategorySuggestions();
-
-        return view('clients.create', compact('leadSourceOptions', 'businessCategorySuggestions'));
+        return view('clients.create', $this->formOptions());
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, ClientPrimaryContactService $contacts): RedirectResponse
     {
         Gate::authorize('create', Client::class);
 
-        $data = $request->validate([
-            'business_name' => 'required|string|max:255',
-            'phone' => 'required|string|max:50',
-            'business_phone' => 'nullable|string|max:50',
-            'city_area' => 'required|string|max:120',
-            'city' => 'nullable|string|max:120',
-            'area' => 'nullable|string|max:120',
-            'business_category' => 'required|string|max:120',
-            'business_type' => 'nullable|string|max:120',
-            'lead_source' => 'required|string|max:80',
-            'source_reference' => 'nullable|string|max:255',
-            'number_of_branches' => 'nullable|integer|min:1|max:999',
-            'instagram' => 'nullable|string|max:255',
-            'website' => 'nullable|string|max:255',
-            'maps_url' => 'nullable|string|max:500',
-            'location_text' => 'nullable|string|max:255',
-            'contact_person' => 'nullable|string|max:120',
-            'primary_contact_role' => ['nullable', Rule::in(['owner', 'manager', 'other'])],
-            'notes' => 'nullable|string',
-            'referred_by_name' => 'nullable|string|max:255',
-            'referral_note' => 'nullable|string|max:1000',
-        ], $this->clientValidationMessages());
+        $data = $this->validateClient($request);
 
-        $primaryContactRole = $data['primary_contact_role'] ?? 'owner';
-        unset($data['primary_contact_role']);
-        $data['referral_commission_bps'] = null;
+        $clientData = $this->clientAttributes($data);
+        // Commission is only set later by Owner-level users on edit (P2 field-level rule).
+        $clientData['referral_commission_bps'] = null;
+        $clientData['business_type'] = filled($data['business_type'] ?? null) ? $data['business_type'] : $clientData['business_category'];
+        $clientData['number_of_branches'] = $data['number_of_branches'] ?? 1;
+        $clientData['stage'] = ClientLifecycle::PROSPECT;
+        $clientData['status'] = 'prospect';
+        $clientData['primary_owner_id'] = auth()->id();
 
-        $data['business_phone'] = filled($data['business_phone'] ?? null) ? $data['business_phone'] : $data['phone'];
-        $data['business_type'] = filled($data['business_type'] ?? null) ? $data['business_type'] : $data['business_category'];
-        $data['city'] = filled($data['city'] ?? null) ? $data['city'] : $data['city_area'];
-        $data['number_of_branches'] = $data['number_of_branches'] ?? 1;
-        $data['stage'] = ClientLifecycle::PROSPECT;
-        $data['status'] = 'prospect';
+        $client = DB::transaction(function () use ($clientData, $data, $contacts) {
+            $client = new Client($clientData);
+            $contacts->sync($client, $data['primary_phone_type'], $data['phone'], $data['business_phone'] ?? null, $this->contactInput($data));
 
-        $data['primary_owner_id'] = auth()->id();
-
-        $client = Client::create($data);
-
-        DB::table('activity_logs')->insert([
-            'client_id' => $client->id,
-            'user_id' => auth()->id(),
-            'type' => 'client_created',
-            'description' => 'تم إنشاء عميل جديد',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        if (!empty($data['contact_person'])) {
-            $client->contacts()->create([
-                'name' => $data['contact_person'],
-                'role' => $primaryContactRole,
-                'primary_phone' => $data['phone'],
-                'is_primary' => true,
+            DB::table('activity_logs')->insert([
+                'client_id' => $client->id,
+                'user_id' => auth()->id(),
+                'type' => 'client_created',
+                'description' => 'تم إنشاء عميل جديد',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
-        }
+
+            return $client;
+        });
 
         return redirect()->route('clients.show', $client->id)->with('success', __('notify.clients.created_successfully'));
     }
@@ -329,85 +301,41 @@ class ClientController extends Controller
         Gate::authorize('update', $client);
 
         $client->load(['contacts', 'primaryContact']);
-        $leadSourceOptions = $this->leadSourceOptions($client->lead_source);
-        $businessCategorySuggestions = $this->businessCategorySuggestions($client->business_category);
 
-        return view('clients.edit', compact('client', 'leadSourceOptions', 'businessCategorySuggestions'));
+        return view('clients.edit', ['client' => $client] + $this->formOptions($client));
     }
 
-    public function update(Request $request, int $id): RedirectResponse
+    public function update(Request $request, int $id, ClientPrimaryContactService $contacts): RedirectResponse
     {
         $client = Client::findOrFail($id);
         Gate::authorize('update', $client);
 
-        $data = $request->validate([
-            'business_name' => 'required|string|max:255',
-            'phone' => 'required|string|max:50',
-            'business_phone' => 'nullable|string|max:50',
-            'city_area' => 'required|string|max:120',
-            'city' => 'nullable|string|max:120',
-            'area' => 'nullable|string|max:120',
-            'business_category' => 'required|string|max:120',
-            'business_type' => 'nullable|string|max:120',
-            'lead_source' => 'required|string|max:80',
-            'source_reference' => 'nullable|string|max:255',
-            'number_of_branches' => 'nullable|integer|min:1|max:999',
-            'instagram' => 'nullable|string|max:255',
-            'website' => 'nullable|string|max:255',
-            'maps_url' => 'nullable|string|max:500',
-            'location_text' => 'nullable|string|max:255',
-            'contact_person' => 'nullable|string|max:120',
-            'primary_contact_role' => ['nullable', Rule::in(['owner', 'manager', 'other'])],
-            'notes' => 'nullable|string',
-            'referred_by_name' => 'nullable|string|max:255',
-            'referral_commission_percentage' => 'nullable|numeric|min:0|max:100',
-            'referral_note' => 'nullable|string|max:1000',
-        ], $this->clientValidationMessages());
+        $data = $this->validateClient($request);
 
-        $primaryContactRole = $data['primary_contact_role'] ?? null;
-        $commission = $data['referral_commission_percentage'] ?? null;
-        unset($data['referral_commission_percentage'], $data['primary_contact_role']);
-        $data['referral_commission_bps'] = Permissions::allows($request->user(), Permissions::EDIT_REFERRAL_COMMISSION)
-            ? $this->percentageToBps($commission)
+        $clientData = $this->clientAttributes($data);
+        $clientData['referral_commission_bps'] = Permissions::allows($request->user(), Permissions::EDIT_REFERRAL_COMMISSION)
+            ? $this->percentageToBps($data['referral_commission_percentage'] ?? null)
             : $client->referral_commission_bps;
-
-        $data['business_phone'] = filled($data['business_phone'] ?? null) ? $data['business_phone'] : $data['phone'];
-        $data['business_type'] = filled($data['business_type'] ?? null)
+        $clientData['business_type'] = filled($data['business_type'] ?? null)
             ? $data['business_type']
             : ($client->business_type && $client->business_type !== $client->business_category
                 ? $client->business_type
-                : $data['business_category']);
-        $data['city'] = filled($data['city'] ?? null) ? $data['city'] : $data['city_area'];
-        $data['number_of_branches'] = $data['number_of_branches'] ?? 1;
+                : $clientData['business_category']);
+        $clientData['number_of_branches'] = $data['number_of_branches'] ?? 1;
 
-        $client->update($data);
+        DB::transaction(function () use ($client, $clientData, $data, $contacts) {
+            $client->fill($clientData);
+            $contacts->sync($client, $data['primary_phone_type'], $data['phone'], $data['business_phone'] ?? null, $this->contactInput($data));
 
-        if (filled($data['contact_person'] ?? null)) {
-            $primaryContact = $client->primaryContact()->first();
-            if ($primaryContact) {
-                $primaryContact->update([
-                    'name' => $data['contact_person'],
-                    'role' => $primaryContactRole ?: $primaryContact->role,
-                    'primary_phone' => $data['phone'],
-                ]);
-            } else {
-                $client->contacts()->create([
-                    'name' => $data['contact_person'],
-                    'role' => $primaryContactRole ?: 'owner',
-                    'primary_phone' => $data['phone'],
-                    'is_primary' => true,
-                ]);
-            }
-        }
-
-        DB::table('activity_logs')->insert([
-            'client_id' => $client->id,
-            'user_id' => auth()->id(),
-            'type' => 'client_updated',
-            'description' => 'تم تحديث بيانات العميل',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+            DB::table('activity_logs')->insert([
+                'client_id' => $client->id,
+                'user_id' => auth()->id(),
+                'type' => 'client_updated',
+                'description' => 'تم تحديث بيانات العميل',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
 
         return redirect()->route('clients.show', $client->id)->with('success', __('notify.clients.updated_successfully'));
     }
@@ -422,9 +350,100 @@ class ClientController extends Controller
         return redirect()->route('clients.index')->with('success', 'تم إغلاق ملف العميل مع الحفاظ على سجله.');
     }
 
-    private function leadSourceOptions(?string $current = null): array
+    /**
+     * Shared create/edit validation (§28.1). Reference lists stay strings: unknown historical values and
+     * free-text categories/cities are accepted (§15.1, D-20).
+     */
+    private function validateClient(Request $request): array
     {
-        return app(ReferenceDataService::class)->options(ReferenceDataService::LEAD_SOURCE, $current);
+        return $request->validate([
+            'business_name' => 'required|string|max:255',
+            'business_category' => 'required|string|max:120',
+            'business_category_other' => ['nullable', 'string', 'max:120', 'required_if:business_category,'.self::OTHER_CATEGORY],
+            'phone' => 'required|string|max:50',
+            'primary_phone_type' => ['required', Rule::in(Client::PRIMARY_PHONE_TYPES)],
+            'business_phone' => 'nullable|string|max:50',
+            'city_area' => 'required|string|max:120',
+            'city' => 'nullable|string|max:120',
+            'area' => 'nullable|string|max:120',
+            'business_type' => 'nullable|string|max:120',
+            'lead_source' => 'required|string|max:80',
+            'source_reference' => 'nullable|string|max:255',
+            'number_of_branches' => 'nullable|integer|min:1|max:999',
+            'instagram' => 'nullable|string|max:255',
+            'website' => 'nullable|string|max:255',
+            'maps_url' => 'nullable|string|max:500',
+            'location_text' => 'nullable|string|max:255',
+            'contact_name' => 'nullable|string|max:120',
+            'contact_role' => 'nullable|string|max:120',
+            'contact_phone' => 'nullable|string|max:50',
+            'contact_whatsapp' => 'nullable|string|max:50',
+            'contact_email' => 'nullable|email|max:255',
+            'notes' => 'nullable|string',
+            'referred_by_name' => 'nullable|string|max:255',
+            'referral_commission_percentage' => 'nullable|numeric|min:0|max:100',
+            'referral_note' => 'nullable|string|max:1000',
+        ], $this->clientValidationMessages());
+    }
+
+    /**
+     * Client columns only; phone ownership and contact details are applied by ClientPrimaryContactService.
+     */
+    private function clientAttributes(array $data): array
+    {
+        $attributes = collect($data)->except([
+            'phone', 'primary_phone_type', 'business_phone', 'business_category_other',
+            'contact_name', 'contact_role', 'contact_phone', 'contact_whatsapp', 'contact_email',
+            'referral_commission_percentage',
+        ])->all();
+
+        if ($attributes['business_category'] === self::OTHER_CATEGORY) {
+            $attributes['business_category'] = trim((string) $data['business_category_other']);
+        }
+
+        $attributes['city'] = filled($data['city'] ?? null) ? $data['city'] : $data['city_area'];
+
+        return $attributes;
+    }
+
+    /**
+     * Only submitted contact fields are passed on, so omitted fields never erase stored contact details.
+     */
+    private function contactInput(array $data): array
+    {
+        $map = [
+            'contact_name' => 'name',
+            'contact_role' => 'role',
+            'contact_phone' => 'phone',
+            'contact_whatsapp' => 'whatsapp',
+            'contact_email' => 'email',
+        ];
+
+        $contact = [];
+        foreach ($map as $input => $key) {
+            if (array_key_exists($input, $data)) {
+                $contact[$key] = $data[$input];
+            }
+        }
+
+        return $contact;
+    }
+
+    private function formOptions(?Client $client = null): array
+    {
+        $referenceData = app(ReferenceDataService::class);
+        $hasCategoryOptions = $referenceData->options(ReferenceDataService::CLIENT_CATEGORY) !== [];
+
+        return [
+            'leadSourceOptions' => $referenceData->options(ReferenceDataService::LEAD_SOURCE, $client?->lead_source),
+            // Controlled category select once categories are configured; until then free text keeps create usable.
+            'categoryOptions' => $hasCategoryOptions
+                ? $referenceData->options(ReferenceDataService::CLIENT_CATEGORY, $client?->business_category)
+                : [],
+            'businessCategorySuggestions' => $this->businessCategorySuggestions($client?->business_category),
+            'cityAreaSuggestions' => array_keys($referenceData->options(ReferenceDataService::CITY_AREA)),
+            'otherCategoryValue' => self::OTHER_CATEGORY,
+        ];
     }
 
     private function businessCategorySuggestions(?string $current = null): array
@@ -450,6 +469,10 @@ class ClientController extends Controller
             'phone.required' => __('notify.clients.validation.phone_required'),
             'city_area.required' => __('notify.clients.validation.city_area_required'),
             'lead_source.required' => __('notify.clients.validation.lead_source_required'),
+            'primary_phone_type.required' => __('notify.clients.contact_model.validation.primary_phone_type_required'),
+            'primary_phone_type.in' => __('notify.clients.contact_model.validation.primary_phone_type_invalid'),
+            'contact_email.email' => __('notify.clients.contact_model.validation.contact_email_invalid'),
+            'business_category_other.required_if' => __('notify.clients.contact_model.validation.business_category_other_required'),
         ];
     }
 

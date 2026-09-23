@@ -149,9 +149,9 @@ class FinalCleanupTimeIntegrityGate6Test extends TestCase
             'business_category' => 'Retail',
             'business_phone' => '064441111',
             'city_area' => 'Amman',
-            'contact_person' => 'Owner Person',
+            'contact_name' => 'Owner Person',
             'phone' => '0793333333',
-            'primary_contact_role' => 'owner',
+            'primary_phone_type' => 'owner',
             'lead_source' => 'Direct Prospecting',
         ])->assertRedirect();
 

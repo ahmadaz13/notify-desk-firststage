@@ -23,6 +23,7 @@ class BackendClosureG2OperationalWorkflowTest extends TestCase
         $this->actingAs($admin)->post(route('clients.store'), [
             'business_name' => 'G2 Prospect',
             'phone' => '0791112233',
+            'primary_phone_type' => 'business',
             'city_area' => 'Amman',
             'business_category' => 'Retail',
             'lead_source' => 'Direct',

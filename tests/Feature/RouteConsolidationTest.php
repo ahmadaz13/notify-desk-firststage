@@ -43,7 +43,8 @@ class RouteConsolidationTest extends TestCase
                 'city_area' => 'عمان - الجبيهة',
                 'business_category' => 'مطاعم',
                 'lead_source' => 'ميداني',
-                'contact_person' => 'طارق',
+                'primary_phone_type' => 'owner',
+                'contact_name' => 'طارق',
             ]);
         $createResponse->assertRedirect();
 
@@ -71,7 +72,8 @@ class RouteConsolidationTest extends TestCase
                 'city_area' => 'عمان - الجبيهة',
                 'business_category' => 'مطاعم',
                 'lead_source' => 'ميداني',
-                'contact_person' => 'طارق',
+                'primary_phone_type' => 'owner',
+                'contact_name' => 'طارق',
             ]);
         $updateResponse->assertRedirect(route('clients.show', $client->id));
         $this->assertEquals('مطعم الرشيد الحديث', $client->fresh()->business_name);

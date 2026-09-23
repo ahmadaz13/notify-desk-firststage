@@ -153,7 +153,7 @@ class V1DomainSimplificationTest extends TestCase
     private function clientPayload(): array
     {
         return [
-            'business_name' => 'عميل إحالة جديد', 'phone' => '0791111111', 'city_area' => 'عمان',
+            'business_name' => 'عميل إحالة جديد', 'phone' => '0791111111', 'primary_phone_type' => 'business', 'city_area' => 'عمان',
             'business_category' => 'تجاري', 'lead_source' => 'Referral', 'number_of_branches' => 1,
         ];
     }

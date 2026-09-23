@@ -47,7 +47,8 @@
             <ul style="padding-inline-start:18px;font-size:13px;line-height:1.8;color:#475569;margin:0">
                 <li>استخدم التنسيق القياسي الموجود في النماذج أعلاه دون تعديل أسماء الأعمدة.</li>
                 <li>الحقول الإلزامية: <strong>اسم النشاط، الهاتف، المنطقة، الفئة</strong>.</li>
-                <li>استخدم جوال المالك أو صاحب القرار، ثم جوال المدير؛ هاتف النشاط التجاري هو الخيار الاحتياطي فقط.</li>
+                <li>عمود <code>primary_phone_type</code> (اختياري) يحدد لمن يعود رقم الهاتف: <code>business</code> أو <code>owner</code> أو <code>manager</code>. إذا تُرك فارغاً يُعتبر الرقم رقم النشاط التجاري (<code>business</code>).</li>
+                <li>أعمدة جهة الاتصال اختيارية: <code>contact_name</code> (أو <code>contact_person</code>)، <code>contact_role</code>، <code>contact_phone</code>، <code>contact_whatsapp</code>، <code>contact_email</code>. اسم المالك غير مطلوب.</li>
                 <li>الاستيراد ينشئ فرصاً تشغيلية فقط؛ لا ينشئ اشتراكات أو فواتير أو دفعات أو جداول تحصيل.</li>
                 <li>يتم فحص أرقام الهواتف ومقارنتها تلقائياً مع قاعدة البيانات الحالية وداخل الملف لتجنب أي تكرار.</li>
                 <li>لا يتم إدخال أي سجل فعلي إلى النظام إلا بعد فحص المعاينة والضغط على "تأكيد الاستيراد".</li>
@@ -114,7 +115,7 @@
                                         <td dir="ltr" style="text-align:right">{{ $row['data']['phone'] ?? '' }}</td>
                                         <td>{{ $row['data']['city_area'] ?? '' }}</td>
                                         <td>{{ $row['data']['business_category'] ?? '' }}</td>
-                                        <td>{{ $row['data']['contact_person'] ?? '—' }}</td>
+                                        <td>{{ ($row['data']['contact_name'] ?? '') ?: (($row['data']['contact_person'] ?? '') ?: '—') }} <small>({{ __('notify.clients.contact_model.phone_types.'.(app(\App\Services\CsvImportService::class)->primaryPhoneType($row['data']) ?? 'business')) }})</small></td>
                                     </tr>
                                 @endforeach
                             </tbody>

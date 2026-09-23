@@ -13,14 +13,16 @@
                 @forelse($clientWorkspaceViewModel->contacts as $contact)
                     <article class="notify-list-row">
                         <span class="notify-badge notify-badge--{{ $contact['is_primary'] ? 'success' : 'neutral' }}">
-                            {{ $contact['is_primary'] ? 'أساسية' : 'إضافية' }}
+                            {{ $contact['is_primary'] ? __('notify.clients.contact_model.primary_badge') : __('notify.clients.contact_model.additional_badge') }}
                         </span>
                         <div>
                             <strong>{{ $contact['name'] }}</strong>
                             <small>
                                 {{ $contact['role'] }}
                                 @if($contact['primary_phone']) · <span class="ltr">{{ $contact['primary_phone'] }}</span>@endif
+                                @if($contact['secondary_phone'] ?? null) · <span class="ltr">{{ $contact['secondary_phone'] }}</span>@endif
                                 @if($contact['whatsapp_number']) · واتساب <span class="ltr">{{ $contact['whatsapp_number'] }}</span>@endif
+                                @if($contact['email'] ?? null) · <span class="ltr">{{ $contact['email'] }}</span>@endif
                             </small>
                             @if($contact['preferred_contact_method'])
                                 <small>المفضل: {{ $contact['preferred_contact_method'] }}</small>
@@ -29,7 +31,8 @@
                     </article>
                 @empty
                     <div class="notify-empty-state notify-empty-state--compact">
-                        <h3>لا توجد جهات اتصال منفصلة بعد</h3>
+                        <h3>{{ __('notify.clients.contact_model.no_primary_contact') }}</h3>
+                        <a class="notify-button notify-button--soft notify-button--sm" href="{{ route('clients.edit', $client->id) }}">{{ __('notify.clients.contact_model.add_contact_details') }}</a>
                     </div>
                 @endforelse
             </div>
@@ -47,8 +50,8 @@
                 @csrf
                 <div class="notify-form-grid">
                     <label class="field">
-                        <span>الاسم *</span>
-                        <input name="name" required>
+                        <span>{{ __('notify.clients.contact_model.contact_name') }} <span class="notify-label-note">({{ __('notify.common.optional') }})</span></span>
+                        <input name="name" maxlength="255" autocomplete="name">
                     </label>
                     <label class="field">
                         <span>{{ __('notify.clients.role') }}</span>
@@ -61,6 +64,10 @@
                     <label class="field">
                         <span>واتساب</span>
                         <input name="whatsapp_number" class="ltr">
+                    </label>
+                    <label class="field">
+                        <span>{{ __('notify.clients.contact_model.contact_email') }}</span>
+                        <input name="email" type="email" inputmode="email" class="ltr" maxlength="255">
                     </label>
                     <label class="field">
                         <span>{{ __('notify.clients.preferred_method') }}</span>

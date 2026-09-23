@@ -33,7 +33,8 @@ class Phase01CrmCoreTest extends TestCase
             'lead_source' => 'referral',
             'source_reference' => 'عميل سابق',
             'number_of_branches' => 2,
-            'contact_person' => 'ليان',
+            'primary_phone_type' => 'owner',
+            'contact_name' => 'ليان',
         ]);
 
         $response->assertRedirect();

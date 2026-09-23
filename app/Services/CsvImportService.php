@@ -2,12 +2,36 @@
 
 namespace App\Services;
 
+use App\Models\Client;
 use App\Support\ClientLifecycle;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 class CsvImportService
 {
+    private readonly ClientPrimaryContactService $primaryContacts;
+
+    public function __construct(?ClientPrimaryContactService $primaryContacts = null)
+    {
+        $this->primaryContacts = $primaryContacts ?? app(ClientPrimaryContactService::class);
+    }
+
+    /**
+     * Optional primary_phone_type column (§28.1). A missing/blank value defaults to "business": the stored
+     * default for every client created before P4, where clients.phone was also copied into business_phone.
+     * Returns null for an unknown value so the row is reported as invalid instead of guessed.
+     */
+    public function primaryPhoneType(array $data): ?string
+    {
+        $type = strtolower(trim((string) ($data['primary_phone_type'] ?? '')));
+
+        if ($type === '') {
+            return ClientPrimaryContactService::BUSINESS;
+        }
+
+        return in_array($type, Client::PRIMARY_PHONE_TYPES, true) ? $type : null;
+    }
+
     /**
      * Normalize a phone number by stripping non-digit characters and standardizing format.
      */
@@ -102,9 +126,6 @@ class CsvImportService
             $phone = $data['phone'] ?? '';
             $cityArea = $data['city_area'] ?? '';
             $businessCategory = $data['business_category'] ?? '';
-            $leadSource = $data['lead_source'] ?? 'CSV Import';
-            $contactPerson = $data['contact_person'] ?? null;
-            $notes = $data['notes'] ?? null;
 
             // Validation checks
             $errors = [];
@@ -119,6 +140,13 @@ class CsvImportService
             }
             if ($businessCategory === '') {
                 $errors[] = 'فئة النشاط مطلوبة';
+            }
+            if ($this->primaryPhoneType($data) === null) {
+                $errors[] = __('notify.clients.contact_model.import_invalid_phone_type');
+            }
+            $contactEmail = $data['contact_email'] ?? '';
+            if ($contactEmail !== '' && filter_var($contactEmail, FILTER_VALIDATE_EMAIL) === false) {
+                $errors[] = __('notify.clients.contact_model.import_invalid_email');
             }
 
             if (!empty($errors)) {
@@ -194,28 +222,43 @@ class CsvImportService
 
             foreach ($validRows as $item) {
                 $data = $item['data'] ?? $item;
+                $primaryPhoneType = $this->primaryPhoneType($data);
 
-                $clientData = [
+                if ($primaryPhoneType === null) {
+                    throw new \InvalidArgumentException(__('notify.clients.contact_model.import_invalid_phone_type'));
+                }
+
+                $client = new Client([
                     'business_name' => $data['business_name'],
-                    'phone' => $data['phone'],
-                    'business_phone' => $data['business_phone'] ?? $data['phone'],
-                    'contact_person' => !empty($data['contact_person']) ? $data['contact_person'] : null,
                     'city_area' => $data['city_area'],
-                    'city' => $data['city'] ?? $data['city_area'],
-                    'area' => $data['area'] ?? null,
+                    'city' => !empty($data['city']) ? $data['city'] : $data['city_area'],
+                    'area' => !empty($data['area']) ? $data['area'] : null,
                     'business_category' => $data['business_category'],
-                    'business_type' => $data['business_type'] ?? $data['business_category'],
+                    'business_type' => !empty($data['business_type']) ? $data['business_type'] : $data['business_category'],
                     'lead_source' => !empty($data['lead_source']) ? $data['lead_source'] : 'CSV Import',
                     'source_reference' => !empty($data['source_reference']) ? $data['source_reference'] : null,
+                    'location_text' => !empty($data['location_text']) ? $data['location_text'] : null,
                     'primary_owner_id' => $userId,
                     'status' => 'prospect',
                     'stage' => ClientLifecycle::PROSPECT,
                     'notes' => !empty($data['notes']) ? $data['notes'] : null,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
+                ]);
 
-                $clientId = DB::table('clients')->insertGetId($clientData);
+                // Same §28.1 rules as manual creation; names are never guessed, only taken from the file.
+                $this->primaryContacts->sync(
+                    $client,
+                    $primaryPhoneType,
+                    $data['phone'],
+                    $data['business_phone'] ?? null,
+                    [
+                        'name' => ($data['contact_name'] ?? '') !== '' ? $data['contact_name'] : ($data['contact_person'] ?? null),
+                        'role' => $data['contact_role'] ?? null,
+                        'phone' => $data['contact_phone'] ?? null,
+                        'whatsapp' => $data['contact_whatsapp'] ?? null,
+                        'email' => $data['contact_email'] ?? null,
+                    ]
+                );
+                $clientId = $client->id;
                 $importedCount++;
 
                 // Append activity log
@@ -228,26 +271,12 @@ class CsvImportService
                         'requested_import_type' => $type,
                         'policy' => 'normal_csv_import_does_not_create_subscriber_or_billing_records',
                         'referral_policy' => 'csv_import_leaves_referral_metadata_empty',
+                        'primary_phone_type' => $primaryPhoneType,
+                        'primary_phone_type_source' => ($data['primary_phone_type'] ?? '') === '' ? 'default_business' : 'file',
                     ], JSON_UNESCAPED_UNICODE),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
-
-                if (!empty($data['contact_person'])) {
-                    DB::table('client_contacts')->insert([
-                        'client_id' => $clientId,
-                        'name' => $data['contact_person'],
-                        'role' => null,
-                        'primary_phone' => $data['phone'],
-                        'secondary_phone' => null,
-                        'whatsapp_number' => null,
-                        'preferred_contact_method' => null,
-                        'is_primary' => true,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ]);
-                }
-
             }
 
             return $importedCount;
