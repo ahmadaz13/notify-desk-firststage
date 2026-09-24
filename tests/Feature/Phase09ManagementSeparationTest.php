@@ -52,6 +52,8 @@ class Phase09ManagementSeparationTest extends TestCase
 
     public function test_founder_sees_four_top_level_areas_without_nested_sidebar_layers(): void
     {
+        // P9 (§3.1): the Owner sidebar is the full, grouped structure — Today, Clients, Custom
+        // Projects + Finance and Administration groups — not the earlier four-link minimum.
         $founder = User::factory()->create([
             'role' => User::ROLE_FOUNDER,
             'is_active' => true,
@@ -62,13 +64,13 @@ class Phase09ManagementSeparationTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk();
 
-        // 4 Clean Areas
-        $response->assertSee('data-nav-destination="today"', false)
-            ->assertSee('data-nav-destination="clients"', false)
-            ->assertSee('data-nav-destination="finance"', false)
-            ->assertSee('data-nav-destination="administration"', false);
+        $sidebar = str($response->getContent())->between('<aside class="notify-sidebar"', '</aside>')->toString();
+        foreach (['today', 'clients', 'custom-projects', 'finance-overview', 'finance-collections', 'finance-expenses', 'finance-accounts', 'finance-accounting', 'finance-reports', 'admin-systems', 'admin-team', 'admin-import', 'admin-settings'] as $destination) {
+            $this->assertStringContainsString('data-nav-destination="'.$destination.'"', $sidebar);
+        }
 
-        foreach (['collections','operating-expenses','capital-management','subscription-management','executive','saas-metrics','products-pricing','import','settings','financial-accounts','accounting'] as $destination) {
+        // Retired / legacy destinations never come back as navigation.
+        foreach (['collections', 'operating-expenses', 'capital-management', 'subscription-management', 'executive', 'saas-metrics', 'products-pricing', 'financial-accounts', 'accounting', 'finance-capital'] as $destination) {
             $response->assertDontSee('data-nav-destination="'.$destination.'"', false);
         }
     }
@@ -116,9 +118,12 @@ class Phase09ManagementSeparationTest extends TestCase
         $this->assertSame(1, substr_count($adminMobileGrid, 'data-nav-destination="more"'));
         $this->assertSame(0, substr_count($adminMobileGrid, 'data-nav-destination="work"'));
 
-        // Notifications is header only, never a bottom nav tab
+        // Notifications: header control on every device, and a More-sheet entry on phone (§3.3,
+        // §3.4) — never a bottom-bar tab.
         $this->assertSame(1, substr_count($adminHtml, 'data-shell-action="notifications"'));
-        $this->assertSame(0, substr_count($adminHtml, 'data-nav-destination="notifications"'));
+        $this->assertSame(0, substr_count($adminMobileGrid, 'data-nav-destination="notifications"'));
+        $moreSheet = str($adminHtml)->between('id="notify-mobile-more"', '</section>')->toString();
+        $this->assertSame(1, substr_count($moreSheet, 'data-nav-destination="notifications"'));
     }
 
     public function test_desktop_daily_nav_not_polluted_by_finance_or_admin(): void

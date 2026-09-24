@@ -77,19 +77,22 @@ class Phase1VerificationTest extends TestCase
 
     public function test_shell_add_client_action_has_touch_target_and_accessibility(): void
     {
+        // P9 (§3.3): "Add client" lives on Today and the Clients page header, not in the shell header.
         $admin = User::factory()->create(['role' => 'admin']);
 
-        $response = $this->actingAs($admin)->get(route('dashboard'));
-        $response->assertOk();
+        foreach ([route('dashboard'), route('clients.index')] as $url) {
+            $response = $this->actingAs($admin)->get($url);
+            $response->assertOk();
 
-        $content = $response->getContent();
+            $content = $response->getContent();
 
-        $this->assertSame(1, substr_count($content, 'data-shell-action="add-client"'));
-        $response->assertSee('notify-button--primary', false);
-        $response->assertSee('href="'.route('clients.create').'"', false);
-        $response->assertSee('aria-label="إضافة عميل"', false);
-        $response->assertSee('data-lucide="plus"', false);
-        $response->assertDontSee('quick-expense-fab-btn', false);
+            $this->assertSame(0, substr_count($content, 'data-shell-action="add-client"'));
+            $this->assertSame(1, substr_count($content, 'data-page-action="add-client"'));
+            $response->assertSee('notify-button--primary', false);
+            $response->assertSee('href="'.route('clients.create').'"', false);
+            $response->assertSee('data-lucide="plus"', false);
+            $response->assertDontSee('quick-expense-fab-btn', false);
+        }
 
         $css = file_get_contents(resource_path('css/app.css'));
         $this->assertStringContainsString('.notify-button', $css);

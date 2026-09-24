@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="notify-page-head">
-    <div>
-        <div class="eyebrow">CLIENTS_01</div>
-        <h1 class="page-title">{{ __('notify.clients.title') }}</h1>
-        <p class="notify-page-lede">{{ __('notify.clients.subtitle') }}</p>
-    </div>
-</div>
+<x-notify.page-header :title="__('notify.clients.title')" :description="__('notify.clients.subtitle')">
+    @can('create', \App\Models\Client::class)
+        <x-slot:actions>
+            <x-notify.button :href="route('clients.create')" variant="primary" icon="plus" data-page-action="add-client">{{ __('notify.actions.add_client') }}</x-notify.button>
+        </x-slot:actions>
+    @endcan
+</x-notify.page-header>
 
 <section class="notify-filter-panel">
     <form method="GET" class="notify-filter-grid">

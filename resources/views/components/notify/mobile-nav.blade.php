@@ -1,25 +1,22 @@
 @props([
-    'labels',
-    'canViewClients' => false,
-    'canViewFinance' => false,
-    'canViewAdministration' => false,
-    'isStaff' => false,
-    'canViewCollectionsDue' => false,
-    'isCollectionsDue' => false,
-    'isToday' => false,
-    'isClients' => false,
-    'isFinance' => false,
-    'isAdministration' => false,
-    'moreActive' => false,
+    'nav',
     'targetLocale',
     'targetLocaleLabel',
     'userName',
     'roleLabel',
 ])
 
+{{--
+    Phone and iPad-portrait navigation (§3.4, §22, §23). Exactly three destinations + More;
+    the sidebar is never copied here. Items come from App\Support\ShellNavigation.
+--}}
+@php
+    $moreLabel = __('notify.shell_nav.more');
+    $closeLabel = __('notify.shell_nav.close');
+@endphp
 <nav
     class="notify-mobile-nav"
-    aria-label="{{ $labels['mobile_navigation'] }}"
+    aria-label="{{ __('notify.shell_nav.mobile_navigation') }}"
     x-data="{
         moreOpen: false,
         openMore() {
@@ -50,10 +47,11 @@
     <button
         class="notify-mobile-nav__backdrop"
         type="button"
-        aria-label="{{ $labels['close'] }}"
+        tabindex="-1"
+        aria-label="{{ $closeLabel }}"
         x-show="moreOpen"
         x-cloak
-        x-transition.opacity
+        x-transition.opacity.duration.150ms
         @click="closeMore()"
     ></button>
 
@@ -77,99 +75,88 @@
     >
         <header class="notify-mobile-nav__more-header">
             <div class="notify-mobile-nav__account-summary">
-                <span class="notify-avatar">{{ mb_substr($userName, 0, 1) }}</span>
+                <span class="notify-avatar" aria-hidden="true">{{ mb_substr($userName, 0, 1) }}</span>
                 <div class="notify-user__identity">
-                    <h2 id="notify-mobile-more-title">{{ $labels['more'] }}</h2>
+                    <h2 id="notify-mobile-more-title">{{ $moreLabel }}</h2>
                     <span>{{ $userName }} · {{ $roleLabel }}</span>
                 </div>
             </div>
-            <button class="notify-icon-button" type="button" x-ref="moreClose" @click="closeMore()" aria-label="{{ $labels['close'] }}">
+            <button class="notify-icon-button" type="button" x-ref="moreClose" @click="closeMore()" aria-label="{{ $closeLabel }}">
                 <x-notify.icon name="x" />
             </button>
         </header>
 
         <div class="notify-mobile-nav__more-content">
-            @if(!$isStaff && $canViewAdministration)
-                <div class="notify-mobile-nav__layer" data-mobile-nav-layer="administration">
-                    <a class="notify-mobile-nav__more-link {{ $isAdministration ? 'is-active' : '' }}" href="{{ route('administration.index') }}">
-                        <span class="notify-mobile-nav__more-link-main"><x-notify.icon name="settings" /><span>{{ $labels['administration'] }}</span></span>
-                    </a>
+            @foreach($nav->moreSections as $section)
+                <div class="notify-mobile-nav__layer" data-mobile-nav-layer="{{ $section['key'] }}">
+                    <p class="notify-mobile-nav__layer-label" id="notify-more-{{ $section['key'] }}">{{ $section['label'] }}</p>
+                    <ul class="notify-mobile-nav__links" aria-labelledby="notify-more-{{ $section['key'] }}">
+                        @foreach($section['items'] as $item)
+                            <li>
+                                <a class="notify-mobile-nav__more-link {{ $item['active'] ? 'is-active' : '' }}" href="{{ $item['href'] }}" data-nav-destination="{{ $item['destination'] }}" @if($item['active']) aria-current="page" @endif>
+                                    <span class="notify-mobile-nav__more-link-main"><x-notify.icon :name="$item['icon']" /><span>{{ $item['label'] }}</span></span>
+                                    @if($item['badge'])
+                                        <span class="notify-count-badge" aria-hidden="true">{{ $item['badge'] > 99 ? '99+' : $item['badge'] }}</span>
+                                        <span class="notify-visually-hidden">{{ __('notify.shell_nav.unread_badge', ['count' => $item['badge']]) }}</span>
+                                    @endif
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
                 </div>
-            @endif
+            @endforeach
 
             <div class="notify-mobile-nav__layer notify-mobile-nav__layer--account" data-mobile-nav-layer="account">
-                <p class="notify-mobile-nav__layer-label">{{ $labels['account'] }}</p>
-                <a class="notify-mobile-nav__more-link" href="{{ route('profile.edit') }}">
-                    <span class="notify-mobile-nav__more-link-main">
-                        <x-notify.icon name="user" />
-                        <span>{{ $labels['profile'] }}</span>
-                    </span>
-                </a>
-                <a class="notify-mobile-nav__more-link" href="{{ route('profile.edit') }}#password">
-                    <span class="notify-mobile-nav__more-link-main"><x-notify.icon name="settings" /><span>{{ $labels['change_password'] }}</span></span>
-                </a>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button class="notify-mobile-nav__more-link" type="submit">
-                        <span class="notify-mobile-nav__more-link-main">
-                            <x-notify.icon name="log-out" />
-                            <span>{{ $labels['logout'] }}</span>
-                        </span>
-                    </button>
-                </form>
+                <p class="notify-mobile-nav__layer-label" id="notify-more-account">{{ __('notify.shell_nav.sections.account') }}</p>
+                <ul class="notify-mobile-nav__links" aria-labelledby="notify-more-account">
+                    <li>
+                        <a class="notify-mobile-nav__more-link {{ $nav->area === 'profile' ? 'is-active' : '' }}" href="{{ route('profile.edit') }}" data-nav-destination="profile" @if($nav->area === 'profile') aria-current="page" @endif>
+                            <span class="notify-mobile-nav__more-link-main"><x-notify.icon name="user" /><span>{{ __('notify.shell_nav.areas.profile') }}</span></span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="notify-mobile-nav__more-link" href="{{ route('profile.edit') }}#password" data-nav-destination="change-password">
+                            <span class="notify-mobile-nav__more-link-main"><x-notify.icon name="key-round" /><span>{{ __('notify.shell_nav.change_password') }}</span></span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="notify-mobile-nav__more-link" href="{{ route('locale.switch', $targetLocale) }}" data-nav-destination="language" lang="{{ $targetLocale }}">
+                            <span class="notify-mobile-nav__more-link-main"><x-notify.icon name="languages" /><span>{{ $targetLocaleLabel }}</span></span>
+                        </a>
+                    </li>
+                    <li>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button class="notify-mobile-nav__more-link" type="submit" data-nav-destination="logout">
+                                <span class="notify-mobile-nav__more-link-main"><x-notify.icon name="log-out" class="notify-icon--directional" /><span>{{ __('notify.shell_nav.logout') }}</span></span>
+                            </button>
+                        </form>
+                    </li>
+                </ul>
             </div>
         </div>
     </section>
 
-    {{-- Bottom Nav Grid: Staff = Today · Clients · Collections · More (§3.4); Owner-level = Today · Clients · Finance · More --}}
-    <div class="notify-mobile-nav__grid {{ $isStaff && ! $canViewCollectionsDue ? 'notify-mobile-nav__grid--3' : 'notify-mobile-nav__grid--4' }}">
-        {{-- Item 1: Today --}}
-        <a class="notify-mobile-nav__item {{ $isToday ? 'is-active' : '' }}" data-nav-destination="today" href="{{ route('dashboard', ['mode' => 'daily']) }}" @if($isToday) aria-current="page" @endif>
-            <x-notify.icon name="home" />
-            <span class="notify-mobile-nav__label">{{ $labels['today'] }}</span>
-        </a>
-
-        {{-- Item 2: Clients --}}
-        @if($canViewClients)
-            <a class="notify-mobile-nav__item {{ $isClients ? 'is-active' : '' }}" data-nav-destination="clients" href="{{ route('clients.index') }}" @if($isClients) aria-current="page" @endif>
-                <x-notify.icon name="users" />
-                <span class="notify-mobile-nav__label">{{ $labels['clients'] }}</span>
+    <div class="notify-mobile-nav__grid notify-mobile-nav__grid--{{ count($nav->tabs) + 1 }}">
+        @foreach($nav->tabs as $tab)
+            <a class="notify-mobile-nav__item {{ $tab['active'] ? 'is-active' : '' }}" data-nav-destination="{{ $tab['destination'] }}" href="{{ $tab['href'] }}" @if($tab['active']) aria-current="page" @endif>
+                <x-notify.icon :name="$tab['icon']" />
+                <span class="notify-mobile-nav__label">{{ $tab['label'] }}</span>
             </a>
-        @else
-            <span class="notify-mobile-nav__item" aria-disabled="true">
-                <x-notify.icon name="users" />
-                <span class="notify-mobile-nav__label">{{ $labels['clients'] }}</span>
-            </span>
-        @endif
+        @endforeach
 
-        {{-- Item 3 (Staff): Collections due --}}
-        @if($isStaff && $canViewCollectionsDue)
-            <a class="notify-mobile-nav__item {{ $isCollectionsDue ? 'is-active' : '' }}" data-nav-destination="collections-due" href="{{ route('collections-due.index') }}" @if($isCollectionsDue) aria-current="page" @endif>
-                <x-notify.icon name="wallet" />
-                <span class="notify-mobile-nav__label">{{ $labels['collections_due'] }}</span>
-            </a>
-        @endif
-
-        {{-- Item 3: Finance (Only for non-staff with finance access) --}}
-        @if(!$isStaff && $canViewFinance)
-            <a class="notify-mobile-nav__item {{ $isFinance ? 'is-active' : '' }}" data-nav-destination="finance" href="{{ route('finance.index') }}" @if($isFinance) aria-current="page" @endif>
-                <x-notify.icon name="chart" />
-                <span class="notify-mobile-nav__label">{{ $labels['finance'] }}</span>
-            </a>
-        @endif
-
-        {{-- More: Item 3 for Staff, Item 4 for Finance/Admin --}}
         <button
-            class="notify-mobile-nav__item {{ $moreActive ? 'is-active' : '' }}"
+            class="notify-mobile-nav__item {{ $nav->moreActive ? 'is-active' : '' }}"
             data-nav-destination="more"
             type="button"
             x-ref="moreButton"
             @click="moreOpen ? closeMore(false) : openMore()"
             :aria-expanded="moreOpen.toString()"
+            aria-expanded="false"
             aria-controls="notify-mobile-more"
         >
             <x-notify.icon name="menu" />
-            <span class="notify-mobile-nav__label">{{ $labels['more'] }}</span>
+            <span class="notify-mobile-nav__label">{{ $moreLabel }}</span>
         </button>
     </div>
 </nav>

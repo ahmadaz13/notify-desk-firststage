@@ -46,6 +46,8 @@ class Phase2FinalShellTodayBoardTest extends TestCase
 
     public function test_role_aware_desktop_navigation_shows_4_areas_for_admin_and_founder(): void
     {
+        // P9 (§3.1): Owner-level sidebar = primary destinations + expanded Finance and
+        // Administration groups (replaces the earlier four-link minimum).
         $founder = User::factory()->create([
             'role' => User::ROLE_FOUNDER,
             'is_active' => true,
@@ -56,15 +58,15 @@ class Phase2FinalShellTodayBoardTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk();
 
-        // 4 Clean Areas
         $response->assertSee('data-nav-destination="today"', false)
             ->assertSee('data-nav-destination="clients"', false)
             ->assertSee('data-nav-destination="finance"', false)
-            ->assertSee('data-nav-destination="administration"', false)
+            ->assertSee('data-nav-group="finance"', false)
+            ->assertSee('data-nav-group="administration"', false)
             ->assertDontSee('data-nav-area="finance"', false)
             ->assertDontSee('data-nav-area="administration"', false);
 
-        // Subordinate engine isolation
+        // Legacy engine destinations stay out of navigation.
         $response->assertDontSee('data-nav-destination="financial-accounts"', false)
             ->assertDontSee('data-nav-destination="accounting"', false);
     }

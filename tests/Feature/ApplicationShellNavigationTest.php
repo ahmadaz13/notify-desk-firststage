@@ -54,6 +54,7 @@ class ApplicationShellNavigationTest extends TestCase
 
     public function test_founder_sees_only_four_top_level_destinations(): void
     {
+        // P9 (§3.1): primary destinations + Finance/Administration groups; no legacy links.
         $founder = User::factory()->create([
             'role' => User::ROLE_FOUNDER,
             'is_active' => true,
@@ -64,10 +65,10 @@ class ApplicationShellNavigationTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk();
 
-        foreach (['today', 'clients', 'finance', 'administration'] as $destination) {
+        foreach (['today', 'clients', 'custom-projects', 'finance', 'finance-overview', 'admin-settings'] as $destination) {
             $response->assertSee('data-nav-destination="'.$destination.'"', false);
         }
-        foreach (['subscription-management','products-pricing','collections','operating-expenses','capital-management','executive','saas-metrics','import','settings','financial-accounts','accounting'] as $destination) {
+        foreach (['subscription-management','products-pricing','collections','operating-expenses','capital-management','executive','saas-metrics','import','settings','financial-accounts','accounting','administration'] as $destination) {
             $response->assertDontSee('data-nav-destination="'.$destination.'"', false);
         }
     }
@@ -84,7 +85,9 @@ class ApplicationShellNavigationTest extends TestCase
             ->get(route('dashboard', ['mode' => 'daily']))
             ->assertOk();
         $this->assertDestinationIsCurrent($today->getContent(), 'today');
-        $today->assertSee('data-shell-action="add-client"', false);
+        // P9 (§3.3): Add client is a page action (Today quick action / Clients header), never in the shell header.
+        $today->assertSee('data-page-action="add-client"', false)
+            ->assertDontSee('data-shell-action="add-client"', false);
 
         $work = $this->actingAs($founder)
             ->withSession(['locale' => 'en'])
@@ -99,7 +102,7 @@ class ApplicationShellNavigationTest extends TestCase
             ->get(route('clients.index'))
             ->assertOk();
         $this->assertDestinationIsCurrent($clients->getContent(), 'clients');
-        $clients->assertSee('data-shell-action="add-client"', false);
+        $clients->assertSee('data-page-action="add-client"', false);
     }
 
     public function test_notifications_are_header_only_and_more_is_an_accessible_sheet(): void
@@ -114,13 +117,17 @@ class ApplicationShellNavigationTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('data-shell-action="notifications"', false)
-            ->assertDontSee('data-nav-destination="notifications"', false)
             ->assertSee('role="dialog"', false)
             ->assertSee('aria-modal="true"', false)
             ->assertSee('aria-controls="notify-mobile-more"', false)
             ->getContent();
 
+        // One header control; on phone it is also listed in the More sheet (§3.4), never in the sidebar or bottom bar.
         $this->assertSame(1, substr_count($content, 'data-shell-action="notifications"'));
+        $sidebar = str($content)->between('<aside class="notify-sidebar"', '</aside>')->toString();
+        $bar = str($content)->between('class="notify-mobile-nav__grid', '</nav>')->toString();
+        $this->assertStringNotContainsString('data-nav-destination="notifications"', $sidebar);
+        $this->assertStringNotContainsString('data-nav-destination="notifications"', $bar);
     }
 
     public function test_internal_pages_keep_their_top_level_shell_context_active(): void
@@ -134,14 +141,17 @@ class ApplicationShellNavigationTest extends TestCase
             ->withSession(['locale' => 'en'])
             ->get(route('settings.index'))
             ->assertOk();
-        $this->assertDestinationIsCurrent($settings->getContent(), 'administration');
-        $settings->assertDontSee('data-nav-area="administration"', false);
+        // P9: Settings is a child of the Administration group.
+        $this->assertDestinationIsCurrent($settings->getContent(), 'admin-settings');
+        $settings->assertSee('data-nav-group="administration"', false)
+            ->assertDontSee('data-nav-area="administration"', false);
 
         $finance = $this->actingAs($founder)
             ->withSession(['locale' => 'en'])
             ->get(route('finance.index'))
             ->assertOk();
         $this->assertDestinationIsCurrent($finance->getContent(), 'finance');
+        $this->assertDestinationIsCurrent($finance->getContent(), 'finance-overview');
         $finance->assertDontSee('data-nav-area="finance"', false);
     }
 
@@ -165,10 +175,14 @@ class ApplicationShellNavigationTest extends TestCase
 
     public function test_header_exposes_persistent_theme_language_and_profile_controls(): void
     {
+        // §26 FROZEN D-04: no theme control or theme script; language and profile controls remain.
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'password' => Hash::make('old-password')]);
         $response = $this->actingAs($admin)->withSession(['locale' => 'en'])->get(route('dashboard'))->assertOk();
-        $response->assertSee("localStorage.getItem('notify_theme')", false)
-            ->assertSee("localStorage.setItem('notify_theme'", false)
+        $response->assertDontSee('notify_theme', false)
+            ->assertDontSee('toggleTheme', false)
+            ->assertDontSee('data-theme', false)
+            ->assertDontSee('data-lucide="sun-moon"', false)
+            ->assertSee('<meta name="color-scheme" content="light">', false)
             ->assertSee(route('locale.switch', 'ar'), false)
             ->assertSee(route('profile.edit'), false);
 

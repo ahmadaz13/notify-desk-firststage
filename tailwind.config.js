@@ -13,9 +13,9 @@ export default {
         extend: {
             colors: {
                 notify: {
-                    primary: '#0055CC',
-                    hover: '#0044AA',
-                    pressed: '#003388',
+                    primary: '#2873CD',
+                    hover: '#1F5FAE',
+                    pressed: '#184C8C',
                     canvas: '#F7F6F3',
                     surface: '#FFFFFF',
                     text: '#0A1128',

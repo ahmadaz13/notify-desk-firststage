@@ -1474,7 +1474,44 @@ return array (
   array (
     'collapse_sidebar' => 'طي القائمة',
     'expand_sidebar' => 'توسيع القائمة',
-    'toggle_theme' => 'تبديل المظهر اللوني',
+  ),
+  'shell_nav' =>
+  array (
+    'app' => 'Notify Desk',
+    'areas' =>
+    array (
+      'today' => 'اليوم',
+      'clients' => 'العملاء',
+      'custom-projects' => 'المشاريع المخصصة',
+      'collections-due' => 'التحصيلات المستحقة',
+      'finance' => 'المالية',
+      'administration' => 'الإدارة',
+      'notifications' => 'التنبيهات',
+      'profile' => 'الملف الشخصي',
+    ),
+    'collections_tab' => 'التحصيل',
+    'administration' =>
+    array (
+      'systems' => 'الأنظمة',
+      'team' => 'الفريق والصلاحيات',
+      'import' => 'استيراد العملاء',
+      'settings' => 'الإعدادات',
+    ),
+    'sections' =>
+    array (
+      'work' => 'العمل',
+      'account' => 'الحساب',
+    ),
+    'main_navigation' => 'التنقل الرئيسي',
+    'mobile_navigation' => 'التنقل السفلي',
+    'more' => 'المزيد',
+    'close' => 'إغلاق',
+    'account_menu' => 'قائمة الحساب',
+    'change_password' => 'تغيير كلمة المرور',
+    'logout' => 'تسجيل الخروج',
+    'pending_badge' => ':count بانتظار التأكيد',
+    'unread_badge' => ':count غير مقروءة',
+    'skip_to_content' => 'تخطَّ إلى المحتوى',
   ),
   'credentials' =>
   array (

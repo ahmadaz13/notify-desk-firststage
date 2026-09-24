@@ -1474,7 +1474,44 @@ return array (
   array (
     'collapse_sidebar' => 'Collapse sidebar',
     'expand_sidebar' => 'Expand sidebar',
-    'toggle_theme' => 'Toggle color theme',
+  ),
+  'shell_nav' =>
+  array (
+    'app' => 'Notify Desk',
+    'areas' =>
+    array (
+      'today' => 'Today',
+      'clients' => 'Clients',
+      'custom-projects' => 'Custom Projects',
+      'collections-due' => 'Collections due',
+      'finance' => 'Finance',
+      'administration' => 'Administration',
+      'notifications' => 'Notifications',
+      'profile' => 'Profile',
+    ),
+    'collections_tab' => 'Collections',
+    'administration' =>
+    array (
+      'systems' => 'Systems',
+      'team' => 'Team & Roles',
+      'import' => 'Import clients',
+      'settings' => 'Settings',
+    ),
+    'sections' =>
+    array (
+      'work' => 'Work',
+      'account' => 'Account',
+    ),
+    'main_navigation' => 'Main navigation',
+    'mobile_navigation' => 'Bottom navigation',
+    'more' => 'More',
+    'close' => 'Close',
+    'account_menu' => 'Account menu',
+    'change_password' => 'Change password',
+    'logout' => 'Log out',
+    'pending_badge' => ':count awaiting confirmation',
+    'unread_badge' => ':count unread',
+    'skip_to_content' => 'Skip to content',
   ),
   'credentials' =>
   array (

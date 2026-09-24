@@ -22,7 +22,7 @@
         </div>
         <div class="notify-page-actions">
             @can('create', \App\Models\Client::class)
-                <x-notify.button :href="route('clients.create')" variant="primary" icon="plus">
+                <x-notify.button :href="route('clients.create')" variant="primary" icon="plus" data-page-action="add-client">
                     {{ __('notify.actions.add_client') }}
                 </x-notify.button>
             @endcan
