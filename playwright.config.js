@@ -30,7 +30,7 @@ export default defineConfig({
         { name: 'desktop-1440', use: { viewport: { width: 1440, height: 900 } } },
     ],
     webServer: {
-        command: 'php artisan migrate:fresh --seed --force && php artisan db:seed --class=BrowserSmokeSeeder --force && cd public && php -S 127.0.0.1:8124 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php',
+        command: 'php artisan migrate:fresh --seed --force && php artisan db:seed --class=BrowserSmokeSeeder --force && cd public && php -q -S 127.0.0.1:8124 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php',
         url: `http://127.0.0.1:${port}/health`,
         reuseExistingServer: false,
         stdout: 'ignore',

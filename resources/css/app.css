@@ -5721,3 +5721,131 @@ a.notify-fin-kpi:hover { border-color:var(--notify-primary); }
 @media (min-width: 1280px) {
   .notify-fin-form--grid { grid-template-columns:repeat(3, minmax(0, 1fr)); }
 }
+
+/* ==========================================================================
+   P9.1 Installable PWA: standalone safe areas, connection feedback, offline page.
+   ========================================================================== */
+
+/* Standalone iPhone/iPad (viewport-fit=cover): keep content clear of notches in landscape. */
+.notify-topbar,
+.notify-content {
+  padding-left: max(var(--notify-gutter), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--notify-gutter), env(safe-area-inset-right, 0px));
+}
+
+.notify-connection-status {
+  position: fixed;
+  inset-inline: 0;
+  top: calc(var(--notify-topbar-height) + env(safe-area-inset-top, 0px) + 8px);
+  z-index: 35;
+  display: flex;
+  justify-content: center;
+  padding-inline: 16px;
+  pointer-events: none;
+}
+
+.notify-connection-status__pill {
+  max-width: 480px;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  box-shadow: var(--notify-shadow-popover);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.notify-connection-status__pill--offline {
+  background: var(--notify-text);
+  color: #FFFFFF;
+}
+
+.notify-connection-status__pill--online {
+  background: var(--notify-success-soft);
+  color: var(--notify-success);
+}
+
+.notify-offline-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.notify-offline {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  width: min(100%, 480px);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin-inline: auto;
+  align-content: center;
+  padding: max(24px, env(safe-area-inset-top, 0px)) 24px max(24px, env(safe-area-inset-bottom, 0px));
+  text-align: center;
+}
+
+.notify-offline__mark {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--notify-shadow-sm);
+}
+
+.notify-offline__message p {
+  margin: 6px 0 0;
+  color: var(--notify-muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.notify-offline__title {
+  margin: 0;
+  color: var(--notify-text);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.notify-offline__subtitle {
+  margin: 0;
+  color: var(--notify-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.notify-offline__message--secondary {
+  padding-block-start: 12px;
+  border-top: 1px solid var(--notify-border);
+}
+
+.notify-offline__retry {
+  min-width: 200px;
+  min-height: 48px;
+}
+
+.notify-offline__hint {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  color: var(--notify-muted);
+  font-size: 13px;
+}
+
+@media (min-width: 1024px) {
+  .notify-sidebar {
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .notify-content {
+    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .notify-connection-status {
+    inset-inline-start: var(--notify-sidebar-compact-width);
+  }
+}
+
+@media (min-width: 1280px) {
+  .notify-connection-status {
+    inset-inline-start: var(--notify-sidebar-width);
+  }
+}

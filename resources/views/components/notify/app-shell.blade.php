@@ -47,6 +47,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="light">
     <title>{{ $title }}</title>
+    @include('partials.pwa-head')
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -159,6 +160,20 @@
                     </div>
                 </header>
             @endif
+
+            {{-- Connection feedback (P9.1): transient, never implies data was saved locally. --}}
+            <div
+                class="notify-connection-status"
+                role="status"
+                aria-live="polite"
+                x-data="{ offline: ! navigator.onLine, restored: false, timer: null }"
+                @offline.window="offline = true; restored = false; clearTimeout(timer)"
+                @online.window="offline = false; restored = true; clearTimeout(timer); timer = setTimeout(() => restored = false, 3000)"
+                data-connection-status
+            >
+                <p class="notify-connection-status__pill notify-connection-status__pill--offline" x-show="offline" x-cloak>{{ __('notify.pwa.connection.offline') }}</p>
+                <p class="notify-connection-status__pill notify-connection-status__pill--online" x-show="restored" x-cloak>{{ __('notify.pwa.connection.online') }}</p>
+            </div>
 
             <main id="notify-main-content" class="notify-content notify-content--{{ $contentWidth }}" tabindex="-1">
                 @if(session('success'))

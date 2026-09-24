@@ -1513,6 +1513,23 @@ return array (
     'unread_badge' => ':count unread',
     'skip_to_content' => 'Skip to content',
   ),
+  'pwa' =>
+  array (
+    'description' => 'Notify operations, clients and finance workspace.',
+    'offline' =>
+    array (
+      'page_title' => 'Offline · Notify Desk',
+      'title' => 'No internet connection',
+      'message' => 'Notify Desk needs an internet connection to show your latest business data.',
+      'hint' => 'This page reloads automatically when the connection returns.',
+      'retry' => 'Retry',
+    ),
+    'connection' =>
+    array (
+      'offline' => 'You are offline. Data can’t be loaded or saved until the connection returns.',
+      'online' => 'Back online',
+    ),
+  ),
   'credentials' =>
   array (
     'title' => 'System login details',

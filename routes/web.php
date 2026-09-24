@@ -35,6 +35,7 @@ use App\Http\Controllers\MeetingOutcomeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperatingExpenseController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PwaController;
 use App\Http\Controllers\OfferController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SubscriptionBillingController;
@@ -44,6 +45,11 @@ use Illuminate\Support\Facades\Route;
 
 // Health Check (Public, Rate Limited)
 Route::get('/health', HealthCheckController::class)->middleware('throttle:60,1')->name('health');
+
+// Installable PWA (P9.1): public, non-personal, static-only endpoints.
+Route::get('/manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');
+Route::get('/sw.js', [PwaController::class, 'serviceWorker'])->name('pwa.service-worker');
+Route::get('/offline', [PwaController::class, 'offline'])->name('pwa.offline');
 
 // Authentication
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
