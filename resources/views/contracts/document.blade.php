@@ -21,13 +21,24 @@
     $count = (int) $d['installments_count'];
     $installmentsWord = match (true) { $count === 2 => 'دفعتين', $count <= 10 => $count.' دفعات', default => $count.' دفعة' };
     // §8.4.1 payment wording; the agreed value is printed once, here.
-    $value = '<strong><span class="ltr">'.e($d['agreed_value']).'</span> '.$currency.'</strong>';
+    $value = '<strong><span class="ltr" dir="ltr">'.e($d['agreed_value']).'</span> '.$currency.'</strong>';
     $paymentSentence = match (true) {
         ! $d['is_annual'] => 'اشتراك شهري بقيمة '.$value.' يُستحق شهرياً في اليوم '.e($d['monthly_due_day']).' من كل شهر.',
         $d['is_installments'] => 'اشتراك سنوي بقيمة '.$value.' مقسّط على '.$installmentsWord.' وفق الجدول التالي:',
-        default => 'اشتراك سنوي بقيمة '.$value.' يُدفع دفعة واحدة بتاريخ <span class="ltr">'.e($d['full_payment_date']).'</span>.',
+        default => 'اشتراك سنوي بقيمة '.$value.' يُدفع دفعة واحدة بتاريخ <span class="ltr" dir="ltr">'.e($d['full_payment_date']).'</span>.',
     };
     $scheduleColumns = count($d['schedules']) > 6 ? array_chunk($d['schedules'], (int) ceil(count($d['schedules']) / 2)) : [$d['schedules']];
+    // One renewal sentence, printed identically on Page 1 and in Page 2 clause 6 (owner hardening).
+    $renewal = $d['is_annual']
+        ? 'يتجدد الاشتراك السنوي لمدة مماثلة ما لم يُخطر أحد الطرفين الآخر خطياً بعدم الرغبة في التجديد قبل 30 يوماً من نهاية مدة الاشتراك.'
+        : 'يتجدد الاشتراك الشهري تلقائياً لدورة شهرية جديدة ما لم يطلب الطرف الثاني إيقاف التجديد قبل موعد استحقاق الدورة التالية.';
+    // Elastic Page-1 spacing: simple agreements breathe more; the 12-installment layout keeps its dense rhythm.
+    $density = $d['is_installments'] ? (count($d['schedules']) > 6 ? 'dense' : 'medium') : 'roomy';
+    $space = [
+        'dense' => ['title' => '2mm', 'section' => '3.2mm', 'points' => '3.2mm', 'party' => '2mm', 'kv' => '1.1mm', 'svc' => '0.9mm', 'point' => '0.8mm'],
+        'medium' => ['title' => '2.8mm', 'section' => '4.6mm', 'points' => '5mm', 'party' => '2.8mm', 'kv' => '1.5mm', 'svc' => '1.1mm', 'point' => '1.2mm'],
+        'roomy' => ['title' => '4.5mm', 'section' => '8.5mm', 'points' => '11mm', 'party' => '4.5mm', 'kv' => '2.7mm', 'svc' => '1.3mm', 'point' => '2.4mm'],
+    ][$density];
 @endphp
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -48,16 +59,17 @@
         .doc-title { font-size: 12pt; font-weight: bold; text-align: left; }
         .doc-meta { font-size: 9pt; text-align: left; color: #5b6673; }
         .status { display: inline; font-size: 9pt; font-weight: bold; color: #9a3412; border: 0.8pt solid #9a3412; padding: 0.4mm 2mm; }
-        .page-title { font-size: 11.5pt; font-weight: bold; color: #0b4f8a; margin: 1mm 0 2mm; }
-        .section { font-size: 10.5pt; font-weight: bold; color: #0b4f8a; margin: 3.2mm 0 1.4mm; }
+        .page-title { font-size: 11.5pt; font-weight: bold; color: #0b4f8a; margin: 1mm 0 {{ $space['title'] }}; }
+        .section { font-size: 10.5pt; font-weight: bold; color: #0b4f8a; margin: {{ $space['section'] }} 0 1.6mm; }
+        .section-points { margin-top: {{ $space['points'] }}; }
         .parties { width: 100%; border-collapse: separate; border-spacing: 2mm 0; margin: 0 -2mm; }
-        .parties td { width: 50%; vertical-align: top; border: 0.6pt solid #cbd2d9; padding: 2mm 3mm; }
+        .parties td { width: 50%; vertical-align: top; border: 0.6pt solid #cbd2d9; padding: {{ $space['party'] }} 3mm; }
         .party-label { font-size: 9pt; font-weight: bold; color: #0b4f8a; margin-bottom: 0.8mm; }
         .party-name { font-size: 10.5pt; font-weight: bold; }
         .kv { width: 100%; border-collapse: collapse; }
-        .kv td { padding: 1.1mm 2mm; border-bottom: 0.5pt solid #e4e7eb; vertical-align: top; }
+        .kv td { padding: {{ $space['kv'] }} 2mm; border-bottom: 0.5pt solid #e4e7eb; vertical-align: top; }
         .kv td.k { width: 30%; color: #5b6673; }
-        .services td { padding: 0.9mm 0; vertical-align: top; }
+        .svc-row { padding: {{ $space['svc'] }} 0; }
         .svc-name { font-weight: bold; direction: ltr; }
         .grid { width: 100%; border-collapse: collapse; }
         .grid th { background: #eef3f8; color: #0b4f8a; font-size: 9pt; padding: 1.1mm 2mm; border: 0.5pt solid #cbd2d9; text-align: right; }
@@ -65,15 +77,15 @@
         .schedule-wrap { width: 100%; border-collapse: collapse; }
         .schedule-wrap > tbody > tr > td { vertical-align: top; padding: 0 0 0 2mm; }
         .key-points { margin: 0; padding: 0 5mm 0 0; }
-        .key-points li { margin-bottom: 0.8mm; }
-        .clause { margin-bottom: 1.9mm; text-align: justify; }
-        .clause-title { font-weight: bold; color: #0b4f8a; }
+        .key-points li { margin-bottom: {{ $space['point'] }}; }
+        .clause { margin-bottom: 2.7mm; text-align: justify; }
+        .clause-title { font-size: 10.4pt; font-weight: bold; color: #0b4f8a; }
         .custom-terms { white-space: pre-line; text-align: justify; }
         .signatures { width: 100%; border-collapse: collapse; margin-top: 6mm; border-top: 1pt solid #0b4f8a; page-break-inside: avoid; }
         .signatures td { vertical-align: bottom; padding: 0 0 1.2mm; height: 11mm; }
         .signatures td.sig-head { height: auto; padding: 2.5mm 0 1mm; vertical-align: top; font-weight: bold; color: #0b4f8a; }
-        .signatures td.sig-k { width: 22mm; color: #5b6673; }
-        .signatures td.sig-v { width: 60mm; border-bottom: 0.6pt dotted #7b8794; }
+        .signatures td.sig-k { width: 30mm; color: #5b6673; }
+        .signatures td.sig-v { width: 52mm; border-bottom: 0.6pt dotted #7b8794; }
         .signatures td.sig-tall { height: 20mm; }
         .signatures td.sig-gap { width: 8mm; }
         @if(! $isPdf)
@@ -91,7 +103,7 @@
 <body>
 @unless($isPdf)
     <div class="preview-bar">
-        <strong>{{ $d['number'] ?: 'مسودة / DRAFT' }}</strong>
+        <strong>@if($d['number'])<span dir="ltr">{{ $d['number'] }}</span>@else مسودة / DRAFT @endif</strong>
         @isset($backUrl)<a href="{{ $backUrl }}">{{ __('notify.contracts.back_to_client') }}</a>@endisset
     </div>
 @endunless
@@ -103,7 +115,7 @@
         <td>
             @if($showLogo)<img src="{{ $logoPath }}" style="height:13mm;margin-bottom:1.5mm" alt=""><br>@endif
             <span class="brand">{{ $companyName }}</span>
-            @if(filled($company['name_en'] ?? null) && ($company['name_en'] !== $companyName))<br><span class="brand-en ltr">{{ $company['name_en'] }}</span>@endif
+            @if(filled($company['name_en'] ?? null) && ($company['name_en'] !== $companyName))<br><span class="brand-en ltr" dir="ltr">{{ $company['name_en'] }}</span>@endif
         </td>
         <td style="text-align:left">
             <div class="doc-title">عقد تقديم خدمات وحلول برمجية</div>
@@ -111,7 +123,7 @@
                 @if($d['is_draft'])
                     <span class="status" data-contract-status="draft">مسودة / DRAFT</span>
                 @else
-                    رقم العقد: <span class="ltr" data-contract-number>{{ $d['number'] }}</span> · تاريخ الإصدار: <span class="ltr">{{ $d['date'] }}</span>
+                    رقم العقد: <span class="ltr" dir="ltr" data-contract-number>{{ $d['number'] }}</span> · تاريخ الإصدار: <span class="ltr" dir="ltr">{{ $d['date'] }}</span>
                 @endif
             </div>
         </td>
@@ -126,17 +138,17 @@
             <div class="party-label">الطرف الأول — مزوّد الخدمة</div>
             <div class="party-name">{{ $companyName }}</div>
             @if(filled($company['address'] ?? null))<div>{{ $company['address'] }}</div>@endif
-            @if(filled($company['phone'] ?? null))<div>الهاتف: <span class="ltr">{{ $company['phone'] }}</span></div>@endif
-            @if(filled($company['email'] ?? null))<div>البريد الإلكتروني: <span class="ltr">{{ $company['email'] }}</span></div>@endif
+            @if(filled($company['phone'] ?? null))<div>الهاتف: <span class="ltr" dir="ltr">{{ $company['phone'] }}</span></div>@endif
+            @if(filled($company['email'] ?? null))<div>البريد الإلكتروني: <span class="ltr" dir="ltr">{{ $company['email'] }}</span></div>@endif
             @foreach($companyLegal as $key => $label)
-                <div data-company-legal="{{ $key }}">{{ $label }}: <span class="ltr">{{ $company[$key] }}</span></div>
+                <div data-company-legal="{{ $key }}">{{ $label }}: <span class="ltr" dir="ltr">{{ $company[$key] }}</span></div>
             @endforeach
         </td>
         <td>
             <div class="party-label">الطرف الثاني — العميل</div>
             <div class="party-name">{{ $client['business_name'] ?? '' }}</div>
-            @if(filled($client['contact_name'] ?? null))<div>المسؤول: {{ $client['contact_name'] }}@if(filled($client['contact_phone'] ?? null)) · <span class="ltr">{{ $client['contact_phone'] }}</span>@endif</div>@endif
-            @if(filled($client['phone'] ?? null))<div>الهاتف: <span class="ltr">{{ $client['phone'] }}</span></div>@endif
+            @if(filled($client['contact_name'] ?? null))<div>المسؤول: {{ $client['contact_name'] }}@if(filled($client['contact_phone'] ?? null)) · <span class="ltr" dir="ltr">{{ $client['contact_phone'] }}</span>@endif</div>@endif
+            @if(filled($client['phone'] ?? null))<div>الهاتف: <span class="ltr" dir="ltr">{{ $client['phone'] }}</span></div>@endif
             @if(filled($client['city_area'] ?? null))<div>المدينة / المنطقة: {{ $client['city_area'] }}</div>@endif
             @if(filled($client['address'] ?? null))<div>العنوان: {{ $client['address'] }}</div>@endif
         </td>
@@ -144,24 +156,21 @@
 </table>
 
 <h2 class="section">الخدمات المشمولة</h2>
-<table class="services" data-contract-services>
+<div class="services" data-contract-services>
     @foreach($d['services'] as $service)
-        <tr data-contract-service="{{ $service['code'] ?? '' }}">
-            <td style="width:4mm">•</td>
-            <td>
-                <span class="svc-name">{{ $service['name'] }}</span>@if(filled($service['custom_title'] ?? null)) — {{ $service['custom_title'] }}@endif
-                @php($description = filled($service['custom_title'] ?? null) ? ($service['custom_description'] ?? null) : ($service['description_ar'] ?? null))
-                @if(filled($description))<span class="muted"> — {{ $description }}</span>@endif
-            </td>
-        </tr>
+        @php($description = filled($service['custom_title'] ?? null) ? ($service['custom_description'] ?? null) : ($service['description_ar'] ?? null))
+        {{-- Block rows, one line of markup each: mPDF mis-sizes auto-width table cells holding long shaped Arabic. --}}
+        <div class="svc-row" data-contract-service="{{ $service['code'] ?? '' }}">• <span class="svc-name" dir="ltr">{{ $service['name'] }}</span>@if(filled($service['custom_title'] ?? null)) — {{ $service['custom_title'] }}@endif @if(filled($description))<span class="muted">— {{ $description }}</span>@endif</div>
     @endforeach
-</table>
+</div>
 
 <h2 class="section">الاشتراك والقيمة المتفق عليها</h2>
 <table class="kv">
     <tr><td class="k">نوع الاشتراك</td><td>{{ $d['is_annual'] ? 'سنوي' : 'شهري' }}</td></tr>
-    @if(filled($d['start_date']))<tr><td class="k">تاريخ البدء</td><td><span class="ltr">{{ $d['start_date'] }}</span></td></tr>@endif
-    @if($d['is_annual'] && filled($d['end_date']))<tr><td class="k">تاريخ الانتهاء</td><td><span class="ltr">{{ $d['end_date'] }}</span></td></tr>@endif
+    @if(filled($d['start_date']))<tr><td class="k">تاريخ البدء</td><td><span class="ltr" dir="ltr">{{ $d['start_date'] }}</span></td></tr>@endif
+    @if($d['is_annual'] && filled($d['end_date']))<tr><td class="k">تاريخ الانتهاء</td><td><span class="ltr" dir="ltr">{{ $d['end_date'] }}</span></td></tr>@endif
+    {{-- A recurring monthly agreement has no final end date; it states its renewal cycle instead. --}}
+    @unless($d['is_annual'])<tr><td class="k">دورة التجديد</td><td data-renewal-cycle>شهرية</td></tr>@endunless
     <tr><td class="k">القيمة وترتيب الدفع</td><td data-payment-terms>{!! $paymentSentence !!}</td></tr>
 </table>
 
@@ -173,7 +182,7 @@
                     <table class="grid">
                         <tr><th>الدفعة</th><th>المبلغ</th><th>تاريخ الاستحقاق</th></tr>
                         @foreach($column as $row)
-                            <tr><td>{{ $row['sequence'] }}</td><td><span class="ltr">{{ $row['amount'] }}</span> {{ $currency }}</td><td><span class="ltr">{{ $row['due_date'] }}</span></td></tr>
+                            <tr><td>{{ $row['sequence'] }}</td><td><span class="ltr" dir="ltr">{{ $row['amount'] }}</span> {{ $currency }}</td><td><span class="ltr" dir="ltr">{{ $row['due_date'] }}</span></td></tr>
                         @endforeach
                     </table>
                 </td>
@@ -182,15 +191,15 @@
     </table>
 @endif
 
-<h2 class="section">أبرز بنود الاتفاق</h2>
-<ul class="key-points">
-    <li>يمنح الطرف الأول الطرف الثاني حق استخدام غير حصري وغير قابل للتنازل للخدمات المشمولة أعلاه طوال مدة الاشتراك.</li>
+{{-- Commercial summary only; Page 2 holds the authoritative terms. --}}
+<h2 class="section section-points">أبرز بنود الاتفاق</h2>
+<ul class="key-points" data-key-points>
+    <li>تُقدَّم الخدمات المشمولة أعلاه طوال مدة الاشتراك المتفق عليها.</li>
     <li>يبدأ التفعيل بعد استلام الدفعة الأولى وتوفر بيانات العميل الأساسية.</li>
-    <li>تتجدد الاتفاقية تلقائياً لمدد {{ $d['is_annual'] ? 'سنوية' : 'شهرية' }} مماثلة ما لم يُخطر أحد الطرفين الآخر خطياً قبل 30 يوماً من نهاية المدة.</li>
-    <li>المبالغ المدفوعة غير قابلة للاسترداد بعد تفعيل الخدمة.</li>
-    <li>تشكّل هذه الصفحة وصفحة الشروط والأحكام والتوقيعات معاً كامل الاتفاق بين الطرفين.</li>
+    <li data-renewal>{{ $renewal }}</li>
+    <li>لا تُسترد المبالغ المسددة عن فترات أو خدمات تم تفعيلها، وفق البند 7 من الشروط والأحكام.</li>
 </ul>
-@unless($isPdf)<div class="sheet-footer">{{ $d['number'] ? 'رقم العقد '.$d['number'] : 'مسودة' }} — صفحة 1 من 2</div></div>@endunless
+@unless($isPdf)<div class="sheet-footer">@if($d['number'])رقم العقد <span dir="ltr">{{ $d['number'] }}</span>@else مسودة @endif — صفحة 1 من 2</div></div>@endunless
 
 {{-- ============ PAGE 2 — TERMS & SIGNATURES ============ --}}
 @if($isPdf)<pagebreak />@else<div class="sheet" data-contract-page="2">@if($d['is_draft'])<div class="watermark">DRAFT</div>@endif @endif
@@ -199,7 +208,7 @@
 @if($d['terms'])
     <div class="custom-terms" data-custom-terms>{{ $d['terms'] }}</div>
 @else
-    @include('contracts.clauses.v1', ['document' => $d])
+    @include('contracts.clauses.v1', ['document' => $d, 'renewal' => $renewal])
 @endif
 
 @php($parties = [
@@ -211,7 +220,7 @@
     <tr>
         <td colspan="2" class="sig-head">{{ $parties[0]['head'] }}</td><td class="sig-gap"></td><td colspan="2" class="sig-head">{{ $parties[1]['head'] }}</td>
     </tr>
-    @foreach(['name' => 'الاسم', 'signature' => 'التوقيع والختم', 'date' => 'التاريخ'] as $row => $label)
+    @foreach(['name' => 'الاسم', 'signature' => 'التوقيع والختم إن وجد', 'date' => 'التاريخ'] as $row => $label)
         <tr>
             @foreach($parties as $index => $party)
                 @if($index === 1)<td class="sig-gap"></td>@endif
@@ -221,6 +230,6 @@
         </tr>
     @endforeach
 </table>
-@unless($isPdf)<div class="sheet-footer">{{ $d['number'] ? 'رقم العقد '.$d['number'] : 'مسودة' }} — صفحة 2 من 2</div></div>@endunless
+@unless($isPdf)<div class="sheet-footer">@if($d['number'])رقم العقد <span dir="ltr">{{ $d['number'] }}</span>@else مسودة @endif — صفحة 2 من 2</div></div>@endunless
 </body>
 </html>

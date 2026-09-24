@@ -286,6 +286,100 @@ class V1P8ContractsTest extends TestCase
         $this->assertSame('issued', $installments->fresh()->status);
     }
 
+    // ── Owner contract hardening ───────────────────────────────────────
+
+    public function test_hardened_terms_have_no_sla_no_originals_count_and_clear_termination(): void
+    {
+        [$contract] = $this->annualContract('P8 Hardened');
+        $html = $this->documentHtml($contract);
+
+        foreach (['99%', '99 %', 'معدل إتاحة', 'نسختين أصليتين', 'نسختين', 'شاهد', 'توقيع إلكتروني',
+            'تبقى المبالغ المستحقة عن المدة الجارية واجبة السداد', 'جميع الدفعات', 'تستحق فوراً', 'فوراً', 'غرامة'] as $removed) {
+            $this->assertStringNotContainsString($removed, $html);
+        }
+        foreach ([
+            'ببذل العناية المعقولة لتشغيل الخدمات المشمولة بصورة مستقرة',
+            'وعدم إفشائها لأي جهة إلا بأمر قضائي رسمي',
+            'لا تُسترد المبالغ التي تم سدادها مقابل فترة اشتراك أو خدمة تم تفعيلها، ما لم يتفق الطرفان خطياً على خلاف ذلك',
+            'تتم تسوية المبالغ المستحقة وفق مدة الاشتراك وترتيب الدفع المتفق عليه والمبيّن في الصفحة الأولى',
+            'دون اعتبار التعليق إنهاءً للاتفاقية',
+            'قد تعتمد بعض الخدمات على مزودين خارجيين، مثل شركات الاتصالات أو بوابات الدفع أو خدمات الاستضافة',
+            'ولا يضمن تحقيق حجم مبيعات أو أرباح محددة',
+            'تخضع الاتفاقية لقوانين المملكة الأردنية الهاشمية، وتختص محاكم عمّان',
+        ] as $present) {
+            $this->assertStringContainsString($present, $html);
+        }
+        $this->assertSame(2, substr_count($html, 'التوقيع والختم إن وجد'), 'Stamp is optional for both parties.');
+        $this->assertLessThanOrEqual(4, substr_count($html, '<li'), 'Page-1 key points stay short.');
+    }
+
+    public function test_monthly_and_annual_renewal_rules_are_split_and_match_on_both_pages(): void
+    {
+        $monthlyRule = 'يتجدد الاشتراك الشهري تلقائياً لدورة شهرية جديدة ما لم يطلب الطرف الثاني إيقاف التجديد قبل موعد استحقاق الدورة التالية.';
+        $annualRule = 'يتجدد الاشتراك السنوي لمدة مماثلة ما لم يُخطر أحد الطرفين الآخر خطياً بعدم الرغبة في التجديد قبل 30 يوماً من نهاية مدة الاشتراك.';
+
+        [$monthly] = $this->contractFor('P8 Monthly Renewal', ['smart_link'], ['billing_interval' => 'monthly', 'agreed_value_minor' => 25000]);
+        $html = $this->documentHtml($monthly);
+        $this->assertSame(2, substr_count($html, $monthlyRule), 'Page 1 summary and Page 2 clause 6.');
+        $this->assertStringNotContainsString('30 يوماً', $html, 'No 30-day notice for monthly subscriptions.');
+        $this->assertStringNotContainsString($annualRule, $html);
+        $this->assertStringContainsString('دورة التجديد', $html);
+        $this->assertStringNotContainsString('تاريخ الانتهاء', $html, 'No artificial end date for a recurring monthly subscription.');
+
+        foreach ([
+            $this->annualContract('P8 Annual Renewal')[0],
+            $this->contractFor('P8 Installment Renewal', ['e_menu'], ['billing_interval' => 'annual', 'agreed_value_minor' => 400000, 'payment_terms' => 'installments', 'installments_count' => 4, 'installment_due_day' => 1])[0],
+        ] as $annual) {
+            $html = $this->documentHtml($annual);
+            $this->assertSame(2, substr_count($html, $annualRule));
+            $this->assertStringNotContainsString($monthlyRule, $html);
+            $this->assertStringNotContainsString('دورة التجديد', $html);
+        }
+    }
+
+    public function test_identifiers_are_isolated_left_to_right_in_the_rtl_document(): void
+    {
+        [$contract] = $this->annualContract('P8 LTR');
+        app(ContractService::class)->issueContract($contract, $this->founder);
+        $document = ContractDocument::for($contract->fresh());
+        $html = $this->documentHtml($contract->fresh());
+
+        $this->assertStringContainsString('dir="ltr" data-contract-number>ND-2026-0001</span>', $html);
+        $this->assertStringContainsString('<span class="ltr" dir="ltr">2026-10-01</span>', $html);
+        $this->assertStringContainsString('<span class="ltr" dir="ltr">360.000</span>', $html);
+        $this->assertStringContainsString('<span class="ltr" dir="ltr">0790000001</span>', $html);
+        $this->assertStringContainsString('<span class="svc-name" dir="ltr">Smart-Link Premium</span>', $html);
+        $this->assertStringContainsString('<span dir="ltr">ND-2026-0001</span>', view('contracts.partials.pdf-footer', ['document' => $document])->render());
+        $this->assertSame('ND-2026-0001', $contract->fresh()->contract_number);
+    }
+
+    public function test_representative_contracts_all_stay_exactly_two_pages(): void
+    {
+        $pdf = app(ContractPdfService::class);
+        Setting::set('registration_number', 'REG-1');
+        Setting::set('company_national_number', 'NAT-1');
+        Setting::set('tax_number', 'TAX-1');
+        Setting::set('company_address', 'Amman');
+        Setting::set('company_phone', '0790000000');
+        Setting::set('company_email', 'contracts@example.test');
+
+        [$monthly] = $this->contractFor('P8 Two Monthly', ['smart_link', 'e_menu'], ['billing_interval' => 'monthly', 'agreed_value_minor' => 25000]);
+        [$annual] = $this->annualContract('P8 Two Annual');
+        [$medium] = $this->contractFor('P8 Two Four', ['e_store', 'digital_store_system'], ['billing_interval' => 'annual', 'agreed_value_minor' => 400000, 'payment_terms' => 'installments', 'installments_count' => 4, 'installment_due_day' => 1]);
+        [$dense] = $this->contractFor('P8 Two Twelve', ['e_store', 'digital_store_system', 'crm_ai_tool', 'restaurant_system', 'auto_sms_system', 'smart_link', 'e_menu'], [
+            'billing_interval' => 'annual', 'agreed_value_minor' => 1200000, 'payment_terms' => 'installments', 'installments_count' => 12, 'installment_due_day' => 5,
+        ]);
+
+        $this->assertSame(2, ContractPdfService::pageCount($pdf->generatePdfOutput($monthly)), 'Monthly draft');
+        $this->assertSame(2, ContractPdfService::pageCount($pdf->generatePdfOutput($annual)), 'Annual draft');
+        $this->assertSame(2, ContractPdfService::pageCount($pdf->generatePdfOutput($medium)), 'Annual 4 installments');
+        $this->assertSame(2, ContractPdfService::pageCount($pdf->generatePdfOutput($dense)), 'Annual 12 installments, 7 services, all legal fields');
+        foreach ([$annual, $dense] as $contract) {
+            app(ContractService::class)->issueContract($contract, $this->founder);
+            $this->assertSame(2, ContractPdfService::pageCount($pdf->generatePdfOutput($contract->fresh())), 'Issued');
+        }
+    }
+
     public function test_installment_sum_mismatch_blocks_issue_server_side(): void
     {
         [$contract] = $this->contractFor('P8 Mismatch', ['e_menu'], [
