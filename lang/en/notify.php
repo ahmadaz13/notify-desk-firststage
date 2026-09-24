@@ -340,6 +340,7 @@ return array (
     'wrong_notice_desc' => 'A review item will be created to correct client contact data. The client file will remain active.',
     'close_notice_title' => 'Close Client Warning',
     'close_notice_desc' => 'All client history, subscriptions, and financial records will be preserved without deleting past data.',
+    'reopen_notes_placeholder' => 'Why is this file being reopened?',
     'outcomes' =>
     array (
       'no_answer' => 'No Answer / Busy',
@@ -378,6 +379,7 @@ return array (
       'notes' => 'Notes',
       'notes_placeholder' => 'Any important operational details...',
       'select_reason' => 'Select Closing Reason',
+      'target_stage' => 'Stage after reopening',
       'close_reason_code' => 'Closing Reason',
       'close_notes_placeholder' => 'Additional details about closing reason...',
     ),
@@ -1473,6 +1475,33 @@ return array (
     'open' => 'Write a note',
     'has_content' => 'You have notes for today',
   ),
+  'ui' =>
+  array (
+    'close' => 'Close',
+    'cancel' => 'Cancel',
+    'confirm' => 'Confirm',
+    'confirm_title' => 'Are you sure?',
+    'fix_errors' => 'Not saved. Check the highlighted fields.',
+    'required' => 'required',
+    'optional' => 'optional',
+    'more_actions' => 'More',
+    'working' => 'Saving…',
+    'search' => 'Search',
+    'clear_search' => 'Clear search',
+    'filters' => 'Filters',
+    'apply_filters' => 'Show results',
+    'clear_filters' => 'Clear filters',
+    'active_filters' => 'Active filters',
+    'remove_filter' => 'Remove :filter',
+    'pagination' => 'Pages',
+    'previous' => 'Previous',
+    'next' => 'Next',
+    'page_of' => 'Page :current of :last',
+    'go_to_page' => 'Page :page',
+    'reenter_secret' => 'For security the password is never shown again. Please re-enter it.',
+    'reason' => 'Reason',
+    'reason_hint' => 'Saved to the history.',
+  ),
   'today_board' =>
   array (
     'title' => 'Today',
@@ -2074,6 +2103,17 @@ return array (
     'collections' =>
     array (
       'subtitle' => 'Confirm staff receipts, follow up what customers owe, and review payments.',
+      'columns' =>
+      array (
+        'client' => 'Client',
+        'amount' => 'Amount',
+        'details' => 'Details',
+        'status' => 'Status',
+        'due' => 'Due',
+        'actions' => 'Actions',
+      ),
+      'reject_title' => 'Reject receipt',
+      'reject_hint' => 'Nothing is posted to the books; the staff member sees the reason.',
       'tabs' =>
       array (
         'pending' => 'Pending confirmations',
@@ -2114,6 +2154,13 @@ return array (
       'movements_title' => 'Movements · :account',
       'opening_balance' => 'Balance at the start of the period',
       'running' => 'Balance',
+      'columns' =>
+      array (
+        'movement' => 'Movement',
+        'date' => 'Date',
+        'amount' => 'Amount',
+        'balance' => 'Balance after',
+      ),
       'empty_movements' => 'No movements in this period.',
       'transfer_title' => 'Move money between accounts',
       'transfer_hint' => 'An internal transfer is neither revenue nor an expense.',

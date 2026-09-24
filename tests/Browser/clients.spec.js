@@ -107,7 +107,7 @@ test.describe('owner client experience', () => {
         await primary.click();
         const sheet = page.locator('#modal-record-payment');
         await expect(sheet).toBeVisible();
-        const card = await sheet.locator('.notify-modal-card').boundingBox();
+        const card = await sheet.locator('.notify-sheet__panel').boundingBox();
         expect(card.x).toBeGreaterThanOrEqual(0);
         expect(card.x + card.width).toBeLessThanOrEqual(page.viewportSize().width + 1);
         await expect(sheet.locator('form')).toHaveAttribute('action', /payments\/normal/);

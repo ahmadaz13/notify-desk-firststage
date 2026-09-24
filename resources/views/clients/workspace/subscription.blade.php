@@ -40,26 +40,20 @@
         </article>
 
         @if($item['can_cancel'])
-            <div class="notify-modal-backdrop" id="modal-cancel-subscription-{{ $item['id'] }}" hidden>
-                <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-cancel-subscription-{{ $item['id'] }}-title">
-                    <div class="notify-modal-header">
-                        <h3 id="modal-cancel-subscription-{{ $item['id'] }}-title">{{ __('notify.client_hub.subscription.cancel_title') }} · {{ $item['systems'] }}</h3>
-                        <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.client_hub.actions.cancel') }}"><x-notify.icon name="x" /></button>
-                    </div>
-                    <form method="POST" action="{{ route('subscriptions.cancel', $item['id']) }}" class="notify-action-form">
-                        @csrf
-                        <p class="notify-sheet-hint">{{ __('notify.client_hub.subscription.cancel_hint') }}</p>
-                        <label class="notify-field">
-                            <span>{{ __('notify.client_hub.subscription.cancel_reason') }}</span>
-                            <textarea name="cancellation_reason" rows="2" maxlength="1000"></textarea>
-                        </label>
-                        <div class="notify-modal-footer">
-                            <button type="button" class="notify-button notify-button--ghost" data-close-action-modal>{{ __('notify.client_hub.actions.cancel') }}</button>
-                            <button type="submit" class="notify-button notify-button--danger">{{ __('notify.client_hub.subscription.confirm_cancel') }}</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            @php($cancelSheet = 'modal-cancel-subscription-'.$item['id'])
+            @formscope($cancelSheet)
+            <x-notify.sheet :id="$cancelSheet" size="sm" :title="__('notify.client_hub.subscription.cancel_title')" :subtitle="$item['systems']"
+                :action="route('subscriptions.cancel', $item['id'])">
+                <p class="notify-form-note notify-form-note--danger">{{ __('notify.client_hub.subscription.cancel_hint') }}</p>
+                <x-notify.form-field :label="__('notify.client_hub.subscription.cancel_reason')" :for="$cancelSheet.'-reason'" name="cancellation_reason" :optional="true">
+                    <textarea id="{{ $cancelSheet }}-reason" class="notify-input" name="cancellation_reason" rows="2" maxlength="1000" @invalid('cancellation_reason', $cancelSheet.'-reason')>{{ \App\Support\FormState::oldFor($cancelSheet)('cancellation_reason') }}</textarea>
+                </x-notify.form-field>
+                <x-slot:footer>
+                    <button type="button" class="notify-button notify-button--ghost" data-sheet-close>{{ __('notify.client_hub.actions.cancel') }}</button>
+                    <button type="submit" class="notify-button notify-button--danger">{{ __('notify.client_hub.subscription.confirm_cancel') }}</button>
+                </x-slot:footer>
+            </x-notify.sheet>
+            @endformscope
         @endif
     @empty
         <p class="notify-ws-card__empty">{{ __('notify.client_hub.subscription.none') }}</p>

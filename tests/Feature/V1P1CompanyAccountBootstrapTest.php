@@ -158,10 +158,11 @@ class V1P1CompanyAccountBootstrapTest extends TestCase
         ]);
 
         $html = $this->actingAs($admin)->get(route('clients.show', $client))->assertOk()->getContent();
-        preg_match('/<select id="normal-payment-method".*?<\/select>/s', $html, $matches);
+        // P12: the method is a segmented Cash / CliQ choice inside the payment sheet (was a <select>).
+        preg_match('/<div class="notify-choices notify-choices--segmented" data-payment-methods>.*?<\/div>/s', $html, $matches);
 
         $this->assertNotEmpty($matches, 'Payment method selector must render.');
-        preg_match_all('/<option value="([^"]*)"/', $matches[0], $values);
+        preg_match_all('/name="payment_method" value="([^"]*)"/', $matches[0], $values);
         $this->assertSame(['cash', 'cliq'], $values[1]);
     }
 }

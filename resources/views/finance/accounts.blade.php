@@ -43,24 +43,25 @@
             @include('finance.partials.period-bar', ['action' => route('finance.accounts'), 'keep' => array_filter(['account' => $selected?->code])])
 
             <p class="notify-fin-opening">{{ __('notify.finance_hub.accounts.opening_balance') }} <x-notify.money :minor="$openingMinor" /></p>
-            <div class="notify-fin-list notify-fin-list--compact" data-account-movements>
-                @forelse($movements as $row)
-                    @php($movement = $row['movement'])
-                    <article class="notify-fin-movement">
-                        <div class="notify-fin-movement__main">
-                            <strong>{{ $eventLabel($movement->event_type) }}</strong>
-                            <small dir="ltr">{{ $movement->occurred_at?->format('Y-m-d H:i') }}</small>
-                        </div>
-                        <x-notify.money class="notify-fin-movement__amount {{ $row['signed_minor'] >= 0 ? 'is-in' : 'is-out' }}" :minor="$row['signed_minor']" :signed="true" />
-                        <span class="notify-fin-movement__running">{{ __('notify.finance_hub.accounts.running') }} <x-notify.money :minor="$row['running_minor']" /></span>
-                    </article>
-                @empty
-                    <p class="notify-fin-empty">{{ __('notify.finance_hub.accounts.empty_movements') }}</p>
-                @endforelse
-            </div>
-            @if($movements->hasPages())
-                <div class="notify-fin-pagination">{{ $movements->links() }}</div>
-            @endif
+            <x-notify.list data-account-movements :label="__('notify.finance_hub.accounts.movements_title', ['account' => $selected ? $accountName($selected) : ''])" :empty="$movements->isEmpty()"
+                :columns="[__('notify.finance_hub.accounts.columns.movement'), ['label' => __('notify.finance_hub.accounts.columns.amount'), 'class' => 'is-num'], __('notify.finance_hub.accounts.columns.date'), ['label' => __('notify.finance_hub.accounts.columns.balance'), 'class' => 'is-num']]">
+                @foreach($movements as $row)
+                    <tr>
+                        <td class="notify-list__primary"><span class="notify-list__title">{{ $eventLabel($row['movement']->event_type) }}</span></td>
+                        <td class="notify-list__end notify-list__amount">
+                            <x-notify.money class="notify-fin-movement__amount {{ $row['signed_minor'] >= 0 ? 'is-in' : 'is-out' }}" :minor="$row['signed_minor']" :signed="true" />
+                        </td>
+                        <td data-label="{{ __('notify.finance_hub.accounts.columns.date') }}"><span dir="ltr">{{ $row['movement']->occurred_at?->format('Y-m-d H:i') }}</span></td>
+                        <td class="notify-list__amount" data-label="{{ __('notify.finance_hub.accounts.running') }}"><x-notify.money :minor="$row['running_minor']" /></td>
+                    </tr>
+                @endforeach
+                <x-slot:emptyState>
+                    <x-notify.empty-state :compact="true" icon="landmark" :title="__('notify.finance_hub.accounts.empty_movements')" />
+                </x-slot:emptyState>
+                @if($movements->hasPages())
+                    <x-slot:footer>{{ $movements->links() }}</x-slot:footer>
+                @endif
+            </x-notify.list>
         </section>
 
         <div class="notify-fin-stack">
@@ -71,32 +72,36 @@
                         <h2 id="fin-transfer-title" class="notify-fin-card__title">{{ __('notify.finance_hub.accounts.transfer_title') }}</h2>
                     </div>
                     <p class="notify-fin-hint">{{ __('notify.finance_hub.accounts.transfer_hint') }}</p>
-                    <form method="POST" action="{{ route('financial-transfers.store') }}" class="notify-fin-form" data-transfer-form>
+                    @php $old = \App\Support\FormState::oldFor('account-transfer'); @endphp
+                    @formscope('account-transfer')
+                    <form method="POST" action="{{ route('financial-transfers.store') }}" class="notify-form-row" data-transfer-form>
                         @csrf
+                        <input type="hidden" name="_form" value="account-transfer">
                         <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-                        <fieldset class="notify-fin-choice">
-                            <legend>{{ __('notify.finance_hub.accounts.direction') }}</legend>
-                            @foreach(['cash_to_cliq', 'cliq_to_cash'] as $direction)
-                                <label class="notify-fin-choice__option">
-                                    <input type="radio" name="direction" value="{{ $direction }}" required @checked(old('direction', 'cash_to_cliq') === $direction)>
-                                    <span>{{ __('notify.finance_hub.accounts.'.$direction) }}</span>
-                                </label>
-                            @endforeach
-                        </fieldset>
-                        <div class="notify-fin-field">
-                            <label for="transfer-amount">{{ __('notify.finance_hub.accounts.amount') }}</label>
-                            <input id="transfer-amount" name="amount" inputmode="decimal" dir="ltr" required value="{{ old('amount') }}" placeholder="0.000">
+                        <x-notify.form-field :label="__('notify.finance_hub.accounts.direction')" name="direction" :required="true" :group="true" class="notify-form-row__full">
+                            <div class="notify-choices notify-choices--segmented">
+                                @foreach(['cash_to_cliq', 'cliq_to_cash'] as $direction)
+                                    <label class="notify-choice-chip">
+                                        <input type="radio" name="direction" value="{{ $direction }}" required @checked($old('direction', 'cash_to_cliq') === $direction)>
+                                        <span>{{ __('notify.finance_hub.accounts.'.$direction) }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.finance_hub.accounts.amount')" for="transfer-amount" name="amount" :required="true" class="notify-form-row__full">
+                            <x-notify.money-input id="transfer-amount" :required="true" :value="$old('amount')" />
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.finance_hub.accounts.date')" for="transfer-date" name="transferred_at" :required="true" class="notify-form-row__full">
+                            <input id="transfer-date" class="notify-input" type="date" name="transferred_at" required value="{{ $old('transferred_at', now()->toDateString()) }}" @invalid('transferred_at', 'transfer-date')>
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.finance_hub.accounts.note')" for="transfer-note" name="notes" :optional="true" class="notify-form-row__full">
+                            <input id="transfer-note" class="notify-input" name="notes" maxlength="1000" value="{{ $old('notes') }}" @invalid('notes', 'transfer-note')>
+                        </x-notify.form-field>
+                        <div class="notify-form-row__full notify-form-actions">
+                            <button type="submit" class="notify-button notify-button--primary">{{ __('notify.finance_hub.accounts.transfer_submit') }}</button>
                         </div>
-                        <div class="notify-fin-field">
-                            <label for="transfer-date">{{ __('notify.finance_hub.accounts.date') }}</label>
-                            <input id="transfer-date" type="date" name="transferred_at" required value="{{ old('transferred_at', now()->toDateString()) }}">
-                        </div>
-                        <div class="notify-fin-field">
-                            <label for="transfer-note">{{ __('notify.finance_hub.accounts.note') }} <span class="notify-label-note">({{ __('notify.common.optional') }})</span></label>
-                            <input id="transfer-note" name="notes" maxlength="1000" value="{{ old('notes') }}">
-                        </div>
-                        <button type="submit" class="notify-button notify-button--primary">{{ __('notify.finance_hub.accounts.transfer_submit') }}</button>
                     </form>
+                    @endformscope
                 </section>
             @endif
 
@@ -115,22 +120,33 @@
                                 </div>
                                 <x-notify.money class="notify-fin-movement__amount" :minor="$transfer->amount_minor" />
                                 @if($transfer->reversal)
-                                    <span class="notify-fin-chip notify-fin-chip--danger">{{ __('notify.finance_hub.accounts.reversed') }}</span>
+                                    <span class="notify-status notify-status--danger">{{ __('notify.finance_hub.accounts.reversed') }}</span>
                                 @elseif($canTransfer)
-                                    <details class="notify-fin-more">
-                                        <summary>{{ __('notify.finance_hub.accounts.reverse') }}</summary>
-                                        <form method="POST" action="{{ route('financial-transfers.reverse', $transfer) }}" class="notify-fin-inline-form">
-                                            @csrf
-                                            <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-                                            <label for="reverse-transfer-{{ $transfer->id }}">{{ __('notify.finance_hub.accounts.reverse_reason') }}</label>
-                                            <input id="reverse-transfer-{{ $transfer->id }}" name="reason" required maxlength="1000">
-                                            <button type="submit" class="notify-button notify-button--ghost">{{ __('notify.finance_hub.accounts.reverse') }}</button>
-                                        </form>
-                                    </details>
+                                    <x-notify.menu>
+                                        <x-slot:danger>
+                                            <button type="button" class="notify-menu__item notify-menu__item--danger" role="menuitem" data-open-sheet="reverse-transfer-{{ $transfer->id }}" aria-haspopup="dialog">
+                                                <x-notify.icon name="x" :size="18" /><span>{{ __('notify.finance_hub.accounts.reverse') }}</span>
+                                            </button>
+                                        </x-slot:danger>
+                                    </x-notify.menu>
                                 @endif
                             </article>
                         @endforeach
                     </div>
+
+                    @if($canTransfer)
+                        @foreach($transfers as $transfer)
+                            @continue($transfer->reversal)
+                            @include('finance.partials.reverse-sheet', [
+                                'sheetId' => 'reverse-transfer-'.$transfer->id,
+                                'title' => __('notify.finance_hub.accounts.reverse'),
+                                'subtitle' => ($transfer->fromAccount ? $accountName($transfer->fromAccount) : '').' → '.($transfer->toAccount ? $accountName($transfer->toAccount) : ''),
+                                'action' => route('financial-transfers.reverse', $transfer),
+                                'label' => __('notify.finance_hub.accounts.reverse_reason'),
+                                'minlength' => null,
+                            ])
+                        @endforeach
+                    @endif
                 </section>
             @endif
         </div>

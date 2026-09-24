@@ -36,138 +36,161 @@
         @endforeach
     </nav>
 
+    @php
+        $col = fn (string $key) => __('notify.finance_hub.collections.columns.'.$key);
+        $actionsColumn = ['label' => $col('actions'), 'hidden' => true, 'class' => 'is-actions'];
+        $amountColumn = ['label' => $col('amount'), 'class' => 'is-num'];
+        $columns = [
+            'pending' => [$col('client'), $amountColumn, $col('details'), $col('status'), $actionsColumn],
+            'due' => [$col('client'), $amountColumn, $col('due'), $col('details'), $actionsColumn],
+            'credits' => [$col('client'), $amountColumn, $col('details'), $actionsColumn],
+            'payments' => [$col('client'), $amountColumn, $col('details'), $col('status'), $actionsColumn],
+        ];
+        $dueRows = $tab === 'partial' ? $partialItems : $dueItems;
+    @endphp
+
     <section class="notify-fin-list" data-collections-panel="{{ $tab }}">
         @if($tab === 'pending')
-            @forelse($pendingReceipts as $receipt)
-                <article class="notify-fin-item" data-pending-receipt="{{ $receipt->id }}">
-                    <div class="notify-fin-item__main">
-                        <div class="notify-fin-item__title">
-                            <a href="{{ route('clients.show', $receipt->client_id) }}">{{ $receipt->client?->business_name }}</a>
-                            <span class="notify-fin-chip notify-fin-chip--warning">{{ __('notify.finance_hub.collections.waiting', ['age' => $receipt->created_at?->diffForHumans()]) }}</span>
-                        </div>
-                        <x-notify.money class="notify-fin-item__amount" :minor="$receipt->amount_minor" />
-                        <p class="notify-fin-item__meta">
+            <x-notify.list :columns="$columns['pending']" :label="__('notify.finance_hub.collections.tabs.pending')" :empty="$pendingReceipts->isEmpty()">
+                @foreach($pendingReceipts as $receipt)
+                    <tr data-pending-receipt="{{ $receipt->id }}">
+                        <td class="notify-list__primary">
+                            <a class="notify-list__title" href="{{ route('clients.show', $receipt->client_id) }}">{{ $receipt->client?->business_name }}</a>
+                            @if($receipt->note)<span class="notify-list__sub">{{ $receipt->note }}</span>@endif
+                        </td>
+                        <td class="notify-list__end notify-list__amount"><x-notify.money :minor="$receipt->amount_minor" /></td>
+                        <td>
                             {{ $receipt->methodLabel() }} · <span dir="ltr">{{ $receipt->received_at?->format('Y-m-d H:i') }}</span>
-                            · {{ __('notify.payment_receipts.submitted_by') }}: {{ $receipt->submitter?->name }}
-                            @if($receipt->reference) · <span dir="ltr">#{{ $receipt->reference }}</span>@endif
-                        </p>
-                        @if($receipt->note)<p class="notify-fin-item__meta">{{ $receipt->note }}</p>@endif
-                    </div>
-                    @if($canApproveReceipts)
-                        <div class="notify-fin-item__actions">
-                            <form method="POST" action="{{ route('payment-receipts.approve', $receipt) }}">
-                                @csrf
-                                <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-                                <button type="submit" class="notify-button notify-button--primary">{{ __('notify.payment_receipts.action_approve') }}</button>
-                            </form>
-                            <details class="notify-fin-more">
-                                <summary>{{ __('notify.payment_receipts.action_reject') }}</summary>
-                                <form method="POST" action="{{ route('payment-receipts.reject', $receipt) }}" class="notify-fin-inline-form">
-                                    @csrf
-                                    <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-                                    <label for="reject-{{ $receipt->id }}">{{ __('notify.payment_receipts.rejection_reason') }}</label>
-                                    <input id="reject-{{ $receipt->id }}" name="rejection_reason" required maxlength="1000" placeholder="{{ __('notify.payment_receipts.rejection_reason_placeholder') }}">
-                                    <button type="submit" class="notify-button notify-button--ghost">{{ __('notify.payment_receipts.action_reject') }}</button>
-                                </form>
-                            </details>
-                        </div>
-                    @endif
-                </article>
-            @empty
-                <p class="notify-fin-empty">{{ __('notify.payment_receipts.pending_empty') }}</p>
-            @endforelse
+                            <span class="notify-list__sub">{{ __('notify.payment_receipts.submitted_by') }}: {{ $receipt->submitter?->name }}@if($receipt->reference) · <span dir="ltr">#{{ $receipt->reference }}</span>@endif</span>
+                        </td>
+                        <td><span class="notify-status notify-status--warning">{{ __('notify.finance_hub.collections.waiting', ['age' => $receipt->created_at?->diffForHumans()]) }}</span></td>
+                        <td class="notify-list__actions">
+                            @if($canApproveReceipts)
+                                <span class="notify-list__actions-inner">
+                                    <form method="POST" action="{{ route('payment-receipts.approve', $receipt) }}">
+                                        @csrf
+                                        <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+                                        <button type="submit" class="notify-button notify-button--primary notify-button--sm">{{ __('notify.payment_receipts.action_approve') }}</button>
+                                    </form>
+                                    <x-notify.menu>
+                                        <x-slot:danger>
+                                            <button type="button" class="notify-menu__item notify-menu__item--danger" role="menuitem" data-open-sheet="reject-receipt-{{ $receipt->id }}" aria-haspopup="dialog">
+                                                <x-notify.icon name="x" :size="18" /><span>{{ __('notify.payment_receipts.action_reject') }}</span>
+                                            </button>
+                                        </x-slot:danger>
+                                    </x-notify.menu>
+                                </span>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+                <x-slot:emptyState>
+                    <x-notify.empty-state :compact="true" icon="check-circle" :title="__('notify.payment_receipts.pending_empty')" />
+                </x-slot:emptyState>
+            </x-notify.list>
+
+            @if($canApproveReceipts)
+                @foreach($pendingReceipts as $receipt)
+                    @include('finance.partials.reject-receipt-sheet', ['receipt' => $receipt])
+                @endforeach
+            @endif
 
         @elseif($tab === 'due' || $tab === 'partial')
-            @forelse($tab === 'due' ? $dueItems : $partialItems as $item)
-                @php($invoice = $item['invoice'])
-                @php($projection = $item['projection'])
-                <article class="notify-fin-item @if($projection['is_overdue']) is-overdue @endif" data-due-invoice="{{ $invoice->id }}">
-                    <div class="notify-fin-item__main">
-                        <div class="notify-fin-item__title">
-                            <a href="{{ route('clients.show', $invoice->client_id) }}">{{ $invoice->client?->business_name }}</a>
-                            @if($projection['is_overdue'])
-                                <span class="notify-fin-chip notify-fin-chip--danger">{{ __('notify.finance_hub.collections.overdue_days', ['days' => (int) $invoice->due_date?->diffInDays(today())]) }}</span>
-                            @elseif($projection['settlement_status'] === 'partially_paid')
-                                <span class="notify-fin-chip notify-fin-chip--warning">{{ __('notify.statuses.partially_paid') }}</span>
+            <x-notify.list :columns="$columns['due']" :label="__('notify.finance_hub.collections.tabs.'.$tab)" :empty="$dueRows->isEmpty()">
+                @foreach($dueRows as $item)
+                    <tr @class(['is-overdue' => $item['projection']['is_overdue']]) data-due-invoice="{{ $item['invoice']->id }}">
+                        <td class="notify-list__primary">
+                            <a class="notify-list__title" href="{{ route('clients.show', $item['invoice']->client_id) }}">{{ $item['invoice']->client?->business_name }}</a>
+                        </td>
+                        <td class="notify-list__end notify-list__amount"><x-notify.money :minor="$item['projection']['outstanding_minor']" /></td>
+                        <td>
+                            @if($item['projection']['is_overdue'])
+                                <span class="notify-status notify-status--danger"><x-notify.icon name="alert-circle" :size="14" />{{ __('notify.finance_hub.collections.overdue_days', ['days' => (int) $item['invoice']->due_date?->diffInDays(today())]) }}</span>
+                            @elseif($item['projection']['settlement_status'] === 'partially_paid')
+                                <span class="notify-status notify-status--warning">{{ __('notify.statuses.partially_paid') }}</span>
                             @else
-                                <span class="notify-fin-chip">{{ __('notify.finance_hub.collections.not_due_yet') }}</span>
+                                <span class="notify-status notify-status--neutral">{{ __('notify.finance_hub.collections.not_due_yet') }}</span>
                             @endif
-                        </div>
-                        <x-notify.money class="notify-fin-item__amount" :minor="$projection['outstanding_minor']" />
-                        <p class="notify-fin-item__meta">
-                            {{ __('notify.finance_hub.collections.due_on') }} <span dir="ltr">{{ $invoice->due_date?->format('Y-m-d') }}</span>
-                            · <span dir="ltr">{{ $invoice->invoice_number }}</span>
-                            @if($projection['settled_minor'] > 0)
-                                · {{ __('notify.finance_hub.collections.paid_of') }} <x-notify.money :minor="$projection['settled_minor']" /> / <x-notify.money :minor="$invoice->total_minor" />
+                            <span class="notify-list__sub">{{ __('notify.finance_hub.collections.due_on') }} <span dir="ltr">{{ $item['invoice']->due_date?->format('Y-m-d') }}</span></span>
+                        </td>
+                        <td data-label="{{ $col('details') }}">
+                            <span dir="ltr">{{ $item['invoice']->invoice_number }}</span>
+                            @if($item['projection']['settled_minor'] > 0)
+                                <span class="notify-list__sub">{{ __('notify.finance_hub.collections.paid_of') }} <x-notify.money :minor="$item['projection']['settled_minor']" /> / <x-notify.money :minor="$item['invoice']->total_minor" /></span>
                             @endif
-                        </p>
-                    </div>
-                    <div class="notify-fin-item__actions">
-                        @if($canRecordPayment)
-                            <a class="notify-button notify-button--primary" href="{{ $recordPaymentUrl($invoice->client_id) }}">{{ __('notify.client_workspace.action_record_payment') }}</a>
-                        @endif
-                        <a class="notify-button notify-button--ghost" href="{{ route('clients.show', $invoice->client_id) }}#collapsible-management">{{ __('notify.finance_hub.collections.corrections') }}</a>
-                    </div>
-                </article>
-            @empty
-                <p class="notify-fin-empty">{{ __('notify.finance_hub.collections.empty_due') }}</p>
-            @endforelse
+                        </td>
+                        <td class="notify-list__actions">
+                            <span class="notify-list__actions-inner">
+                                @if($canRecordPayment)
+                                    <a class="notify-button notify-button--primary notify-button--sm" href="{{ $recordPaymentUrl($item['invoice']->client_id) }}">{{ __('notify.client_workspace.action_record_payment') }}</a>
+                                @endif
+                                <x-notify.menu>
+                                    <a class="notify-menu__item" role="menuitem" href="{{ route('clients.show', $item['invoice']->client_id) }}#collapsible-management">
+                                        <x-notify.icon name="settings" :size="18" /><span>{{ __('notify.finance_hub.collections.corrections') }}</span>
+                                    </a>
+                                </x-notify.menu>
+                            </span>
+                        </td>
+                    </tr>
+                @endforeach
+                <x-slot:emptyState>
+                    <x-notify.empty-state :compact="true" icon="check-circle" :title="__('notify.finance_hub.collections.empty_due')" />
+                </x-slot:emptyState>
+            </x-notify.list>
 
         @elseif($tab === 'credits')
-            @forelse($credits as $item)
-                @php($source = $item['source'])
-                <article class="notify-fin-item" data-customer-credit>
-                    <div class="notify-fin-item__main">
-                        <div class="notify-fin-item__title">
-                            <a href="{{ route('clients.show', $source->client_id) }}">{{ $source->client?->business_name }}</a>
-                            <span class="notify-fin-chip notify-fin-chip--success">{{ $item['source_type'] === 'payment' ? __('notify.client_workspace.payment_credit') : __('notify.client_workspace.credit_note_balance') }}</span>
-                        </div>
-                        <x-notify.money class="notify-fin-item__amount" :minor="$item['available_minor']" />
-                        <p class="notify-fin-item__meta" dir="auto">
-                            @if($item['source_type'] === 'payment')
-                                <span dir="ltr">{{ $source->received_at?->format('Y-m-d') }}</span>
-                            @else
-                                <span dir="ltr">{{ $source->credit_note_number }} · {{ $source->issue_date?->format('Y-m-d') }}</span>
-                            @endif
-                        </p>
-                    </div>
-                    <div class="notify-fin-item__actions">
-                        <a class="notify-button notify-button--ghost" href="{{ route('clients.show', $source->client_id) }}#collapsible-management">{{ __('notify.finance_hub.collections.corrections') }}</a>
-                    </div>
-                </article>
-            @empty
-                <p class="notify-fin-empty">{{ __('notify.finance_hub.collections.empty_credits') }}</p>
-            @endforelse
+            <x-notify.list :columns="$columns['credits']" :label="__('notify.finance_hub.collections.tabs.credits')" :empty="$credits->isEmpty()">
+                @foreach($credits as $item)
+                    <tr data-customer-credit>
+                        <td class="notify-list__primary">
+                            <a class="notify-list__title" href="{{ route('clients.show', $item['source']->client_id) }}">{{ $item['source']->client?->business_name }}</a>
+                        </td>
+                        <td class="notify-list__end notify-list__amount"><x-notify.money :minor="$item['available_minor']" /></td>
+                        <td>
+                            <span class="notify-status notify-status--success">{{ $item['source_type'] === 'payment' ? __('notify.client_workspace.payment_credit') : __('notify.client_workspace.credit_note_balance') }}</span>
+                            <span class="notify-list__sub" dir="ltr">{{ $item['source_type'] === 'payment' ? $item['source']->received_at?->format('Y-m-d') : $item['source']->credit_note_number.' · '.$item['source']->issue_date?->format('Y-m-d') }}</span>
+                        </td>
+                        <td class="notify-list__actions">
+                            <a class="notify-button notify-button--ghost notify-button--sm" href="{{ route('clients.show', $item['source']->client_id) }}#collapsible-management">{{ __('notify.finance_hub.collections.corrections') }}</a>
+                        </td>
+                    </tr>
+                @endforeach
+                <x-slot:emptyState>
+                    <x-notify.empty-state :compact="true" icon="wallet" :title="__('notify.finance_hub.collections.empty_credits')" />
+                </x-slot:emptyState>
+            </x-notify.list>
 
         @else
-            @forelse($payments as $payment)
-                @php($projection = $paymentProjections[$payment->id] ?? null)
-                <article class="notify-fin-item @if($projection['is_reversed'] ?? false) is-muted @endif" data-recent-payment>
-                    <div class="notify-fin-item__main">
-                        <div class="notify-fin-item__title">
-                            <a href="{{ route('clients.show', $payment->client_id) }}">{{ $payment->client?->business_name }}</a>
-                            @if($projection['is_reversed'] ?? false)
-                                <span class="notify-fin-chip notify-fin-chip--danger">{{ __('notify.finance_hub.collections.reversed') }}</span>
-                            @elseif(($projection['unallocated_minor'] ?? 0) > 0)
-                                <span class="notify-fin-chip notify-fin-chip--success">{{ __('notify.finance_hub.collections.has_credit') }}</span>
-                            @endif
-                        </div>
-                        <x-notify.money class="notify-fin-item__amount" :minor="$projection['total_minor'] ?? (int) $payment->amount_minor" />
-                        <p class="notify-fin-item__meta">
+            <x-notify.list :columns="$columns['payments']" :label="__('notify.finance_hub.collections.tabs.payments')" :empty="! $payments || $payments->isEmpty()">
+                @foreach($payments ?? [] as $payment)
+                    <tr @class(['is-muted' => $paymentProjections[$payment->id]['is_reversed'] ?? false]) data-recent-payment>
+                        <td class="notify-list__primary">
+                            <a class="notify-list__title" href="{{ route('clients.show', $payment->client_id) }}">{{ $payment->client?->business_name }}</a>
+                        </td>
+                        <td class="notify-list__end notify-list__amount"><x-notify.money :minor="$paymentProjections[$payment->id]['total_minor'] ?? (int) $payment->amount_minor" /></td>
+                        <td>
                             {{ \App\Support\PaymentMethods::label($payment->payment_method) }} · <span dir="ltr">{{ $payment->received_at?->format('Y-m-d H:i') }}</span>
-                            @if($payment->reference) · <span dir="ltr">#{{ $payment->reference }}</span>@endif
-                        </p>
-                    </div>
-                    <div class="notify-fin-item__actions">
-                        <a class="notify-button notify-button--ghost" href="{{ route('clients.show', $payment->client_id) }}#collapsible-management">{{ __('notify.finance_hub.collections.corrections') }}</a>
-                    </div>
-                </article>
-            @empty
-                <p class="notify-fin-empty">{{ __('notify.finance_hub.collections.empty_payments') }}</p>
-            @endforelse
-            @if($payments && $payments->hasPages())
-                <div class="notify-fin-pagination">{{ $payments->links() }}</div>
-            @endif
+                            @if($payment->reference)<span class="notify-list__sub" dir="ltr">#{{ $payment->reference }}</span>@endif
+                        </td>
+                        <td>
+                            @if($paymentProjections[$payment->id]['is_reversed'] ?? false)
+                                <span class="notify-status notify-status--danger">{{ __('notify.finance_hub.collections.reversed') }}</span>
+                            @elseif(($paymentProjections[$payment->id]['unallocated_minor'] ?? 0) > 0)
+                                <span class="notify-status notify-status--success">{{ __('notify.finance_hub.collections.has_credit') }}</span>
+                            @endif
+                        </td>
+                        <td class="notify-list__actions">
+                            <a class="notify-button notify-button--ghost notify-button--sm" href="{{ route('clients.show', $payment->client_id) }}#collapsible-management">{{ __('notify.finance_hub.collections.corrections') }}</a>
+                        </td>
+                    </tr>
+                @endforeach
+                <x-slot:emptyState>
+                    <x-notify.empty-state :compact="true" icon="receipt" :title="__('notify.finance_hub.collections.empty_payments')" />
+                </x-slot:emptyState>
+                @if($payments && $payments->hasPages())
+                    <x-slot:footer>{{ $payments->links() }}</x-slot:footer>
+                @endif
+            </x-notify.list>
         @endif
     </section>
 </div>

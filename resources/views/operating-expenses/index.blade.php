@@ -2,6 +2,7 @@
 
 @php
     use App\Services\PaymentFinancialAccountResolver;
+    use App\Support\FormState;
     use App\Support\PaymentMethods;
     use App\Support\Permissions;
 
@@ -15,6 +16,7 @@
         : __('notify.expenses.method_other');
     $money = fn (int $minor) => \App\Support\Money::fromMinorUnits($minor)->format();
     $tabs = ['expenses' => null, 'recurring' => $dueCount, 'categories' => null];
+    $actionsColumn = ['label' => __('notify.expenses.more'), 'hidden' => true, 'class' => 'is-actions'];
 @endphp
 
 @section('content')
@@ -44,44 +46,46 @@
                 </div>
                 <p class="notify-fin-hint">{{ __('notify.expenses.one_time_hint') }}</p>
                 @if($activeCategories->isEmpty())
-                    <p class="notify-fin-empty">{{ __('notify.expenses.no_categories') }} <a href="{{ route('finance.expenses', ['tab' => 'categories']) }}">{{ __('notify.expenses.tabs.categories') }}</a></p>
+                    <x-notify.empty-state :compact="true" icon="settings" :title="__('notify.expenses.no_categories')"
+                        :action-href="route('finance.expenses', ['tab' => 'categories'])" :action-label="__('notify.expenses.tabs.categories')" action-icon="settings" action-variant="secondary" />
                 @else
-                    <form method="POST" action="{{ route('operating-expenses.store') }}" class="notify-fin-form notify-fin-form--grid" data-expense-form="one-time">
+                    @php $old = FormState::oldFor('expense-one-time'); @endphp
+                    @formscope('expense-one-time')
+                    <form method="POST" action="{{ route('operating-expenses.store') }}" class="notify-form-row" data-expense-form="one-time">
                         @csrf
+                        <input type="hidden" name="_form" value="expense-one-time">
                         <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-                        <div class="notify-fin-field">
-                            <label for="expense-amount">{{ __('notify.expenses.amount') }}</label>
-                            <input id="expense-amount" name="amount" inputmode="decimal" dir="ltr" required value="{{ old('amount') }}" placeholder="0.000">
-                        </div>
-                        <fieldset class="notify-fin-choice">
-                            <legend>{{ __('notify.expenses.method') }}</legend>
-                            @foreach($methods as $method => $label)
-                                <label class="notify-fin-choice__option">
-                                    <input type="radio" name="payment_method" value="{{ $method }}" required @checked(old('payment_method', 'cash') === $method)>
-                                    <span>{{ $label }}</span>
-                                </label>
-                            @endforeach
-                        </fieldset>
-                        <div class="notify-fin-field">
-                            <label for="expense-category">{{ __('notify.expenses.category') }}</label>
-                            <select id="expense-category" name="category_id" required>
+                        <x-notify.form-field :label="__('notify.expenses.amount')" for="expense-amount" name="amount" :required="true">
+                            <x-notify.money-input id="expense-amount" :required="true" :value="$old('amount')" />
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.expenses.method')" name="payment_method" :required="true" :group="true">
+                            <div class="notify-choices notify-choices--segmented">
+                                @foreach($methods as $method => $label)
+                                    <label class="notify-choice-chip">
+                                        <input type="radio" name="payment_method" value="{{ $method }}" required @checked($old('payment_method', 'cash') === $method)>
+                                        <span>{{ $label }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.expenses.category')" for="expense-category" name="category_id" :required="true">
+                            <select id="expense-category" class="notify-input" name="category_id" required @invalid('category_id', 'expense-category')>
                                 @foreach($activeCategories as $category)
-                                    <option value="{{ $category->id }}" @selected((string) old('category_id') === (string) $category->id)>{{ $categoryName($category) }}</option>
+                                    <option value="{{ $category->id }}" @selected((string) $old('category_id') === (string) $category->id)>{{ $categoryName($category) }}</option>
                                 @endforeach
                             </select>
-                        </div>
-                        <div class="notify-fin-field">
-                            <label for="expense-date">{{ __('notify.expenses.expense_date') }}</label>
-                            <input id="expense-date" type="date" name="expense_date" required max="{{ today()->toDateString() }}" value="{{ old('expense_date', today()->toDateString()) }}">
-                        </div>
-                        <div class="notify-fin-field notify-fin-field--wide">
-                            <label for="expense-description">{{ __('notify.expenses.description') }} <span class="notify-label-note">({{ __('notify.common.optional') }})</span></label>
-                            <input id="expense-description" name="description" maxlength="255" value="{{ old('description') }}">
-                        </div>
-                        <div class="notify-fin-form__submit">
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.expenses.expense_date')" for="expense-date" name="expense_date" :required="true">
+                            <input id="expense-date" class="notify-input" type="date" name="expense_date" required max="{{ today()->toDateString() }}" value="{{ $old('expense_date', today()->toDateString()) }}" @invalid('expense_date', 'expense-date')>
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.expenses.description')" for="expense-description" name="description" :optional="true" class="notify-form-row__full">
+                            <input id="expense-description" class="notify-input" name="description" maxlength="255" value="{{ $old('description') }}" @invalid('description', 'expense-description')>
+                        </x-notify.form-field>
+                        <div class="notify-form-row__full notify-form-actions">
                             <button type="submit" class="notify-button notify-button--primary">{{ __('notify.expenses.save') }}</button>
                         </div>
                     </form>
+                    @endformscope
                 @endif
             </section>
         @endif
@@ -90,53 +94,57 @@
             <div class="notify-fin-card__head">
                 <h2 id="expense-list-title" class="notify-fin-card__title">{{ __('notify.expenses.recent_expenses') }}</h2>
             </div>
-            <div class="notify-fin-rows" data-expense-list>
-                @if($recentExpenses->isNotEmpty())
-                    <div class="notify-fin-rows__head" aria-hidden="true">
-                        <span>{{ __('notify.expenses.col_date') }}</span>
-                        <span>{{ __('notify.expenses.col_category') }}</span>
-                        <span>{{ __('notify.expenses.col_description') }}</span>
-                        <span>{{ __('notify.expenses.col_method') }}</span>
-                        <span>{{ __('notify.expenses.col_amount') }}</span>
-                        <span>{{ __('notify.expenses.col_status') }}</span>
-                        <span></span>
-                    </div>
-                @endif
-                @forelse($recentExpenses as $expense)
-                    @php($isMonthly = $expense->recurring_expense_obligation_id !== null)
-                    <article class="notify-fin-row @if($expense->reversal) is-muted @endif" data-expense-row data-expense-type="{{ $isMonthly ? 'monthly' : 'one-time' }}">
-                        <span class="notify-fin-row__date"><span dir="ltr">{{ $expense->paid_at?->format('Y-m-d') }}</span></span>
-                        <span class="notify-fin-row__title">{{ $expense->categoryModel ? $categoryName($expense->categoryModel) : $expense->category_name_snapshot }}</span>
-                        <span class="notify-fin-row__desc @unless($expense->description) is-empty @endunless">{{ $expense->description ?: '—' }}</span>
-                        <span class="notify-fin-row__method">{{ $methodLabel($expense->financialAccount) }}</span>
-                        <x-notify.money class="notify-fin-row__amount" :minor="(int) $expense->amount_minor" />
-                        <span class="notify-fin-row__status">
-                            <span class="notify-fin-chip @if($isMonthly) notify-fin-chip--info @endif">{{ $isMonthly ? __('notify.expenses.type_monthly') : __('notify.expenses.type_one_time') }}</span>
+            <x-notify.list data-expense-list :label="__('notify.expenses.recent_expenses')" :empty="$recentExpenses->isEmpty()"
+                :columns="[__('notify.expenses.col_category'), ['label' => __('notify.expenses.col_amount'), 'class' => 'is-num'], __('notify.expenses.col_date'), __('notify.expenses.col_method'), __('notify.expenses.col_status'), $actionsColumn]">
+                @foreach($recentExpenses as $expense)
+                    @php $isMonthly = $expense->recurring_expense_obligation_id !== null; @endphp
+                    <tr @class(['is-muted' => $expense->reversal]) data-expense-row data-expense-type="{{ $isMonthly ? 'monthly' : 'one-time' }}">
+                        <td class="notify-list__primary">
+                            <span class="notify-list__title">{{ $expense->categoryModel ? $categoryName($expense->categoryModel) : $expense->category_name_snapshot }}</span>
+                            @if($expense->description)<span class="notify-list__sub">{{ $expense->description }}</span>@endif
+                        </td>
+                        <td class="notify-list__end notify-list__amount"><x-notify.money :minor="(int) $expense->amount_minor" /></td>
+                        <td data-label="{{ __('notify.expenses.col_date') }}"><span dir="ltr">{{ $expense->paid_at?->format('Y-m-d') }}</span></td>
+                        <td data-label="{{ __('notify.expenses.col_method') }}">{{ $methodLabel($expense->financialAccount) }}</td>
+                        <td>
+                            <span class="notify-status {{ $isMonthly ? 'notify-status--info' : 'notify-status--neutral' }}">{{ $isMonthly ? __('notify.expenses.type_monthly') : __('notify.expenses.type_one_time') }}</span>
                             @if($expense->reversal)
-                                <span class="notify-fin-chip notify-fin-chip--danger">{{ __('notify.expenses.status_reversed') }}</span>
+                                <span class="notify-status notify-status--danger">{{ __('notify.expenses.status_reversed') }}</span>
                             @endif
-                        </span>
-                        <span class="notify-fin-row__actions">
+                        </td>
+                        <td class="notify-list__actions">
                             @if($canRecord && ! $expense->reversal)
-                                <details class="notify-fin-menu">
-                                    <summary aria-label="{{ __('notify.expenses.more') }}">…</summary>
-                                    <form method="POST" action="{{ route('operating-expenses.reverse', $expense) }}" class="notify-fin-menu__panel notify-fin-inline-form">
-                                        @csrf
-                                        <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-                                        <label for="reverse-expense-{{ $expense->id }}">{{ __('notify.expenses.reverse_reason') }}</label>
-                                        <input id="reverse-expense-{{ $expense->id }}" name="reason" required minlength="3" maxlength="1000">
-                                        <button type="submit" class="notify-button notify-button--ghost">{{ __('notify.expenses.reverse') }}</button>
-                                    </form>
-                                </details>
+                                <x-notify.menu>
+                                    <x-slot:danger>
+                                        <button type="button" class="notify-menu__item notify-menu__item--danger" role="menuitem" data-open-sheet="reverse-expense-{{ $expense->id }}" aria-haspopup="dialog">
+                                            <x-notify.icon name="x" :size="18" /><span>{{ __('notify.expenses.reverse') }}</span>
+                                        </button>
+                                    </x-slot:danger>
+                                </x-notify.menu>
                             @endif
-                        </span>
-                    </article>
-                @empty
-                    <p class="notify-fin-empty">{{ __('notify.expenses.empty_expenses') }}</p>
-                @endforelse
-            </div>
-            @if($recentExpenses->hasPages())
-                <div class="notify-fin-pagination">{{ $recentExpenses->links() }}</div>
+                        </td>
+                    </tr>
+                @endforeach
+                <x-slot:emptyState>
+                    <x-notify.empty-state :compact="true" icon="receipt" :title="__('notify.expenses.empty_expenses')" />
+                </x-slot:emptyState>
+                @if($recentExpenses->hasPages())
+                    <x-slot:footer>{{ $recentExpenses->links() }}</x-slot:footer>
+                @endif
+            </x-notify.list>
+
+            @if($canRecord)
+                @foreach($recentExpenses as $expense)
+                    @continue($expense->reversal)
+                    @include('finance.partials.reverse-sheet', [
+                        'sheetId' => 'reverse-expense-'.$expense->id,
+                        'title' => __('notify.expenses.reverse'),
+                        'subtitle' => ($expense->categoryModel ? $categoryName($expense->categoryModel) : $expense->category_name_snapshot).' · '.$money((int) $expense->amount_minor).' '.__('notify.common.currency_jod'),
+                        'action' => route('operating-expenses.reverse', $expense),
+                        'label' => __('notify.expenses.reverse_reason'),
+                        'minlength' => 3,
+                    ])
+                @endforeach
             @endif
         </section>
 
@@ -147,63 +155,78 @@
                 <div class="notify-fin-card__head">
                     <h2 id="due-title" class="notify-fin-card__title">{{ __('notify.expenses.due_title') }}</h2>
                 </div>
-                <div class="notify-fin-list">
+                <x-notify.list :label="__('notify.expenses.due_title')"
+                    :columns="[__('notify.expenses.col_description'), ['label' => __('notify.expenses.col_amount'), 'class' => 'is-num'], __('notify.expenses.col_date'), __('notify.expenses.col_status'), $actionsColumn]">
                     @foreach($dueObligations as $obligation)
-                        @php($isOverdue = $obligation->due_date->lt(today()))
-                        @php($defaultMethod = PaymentFinancialAccountResolver::methodForAccount($obligation->defaultFinancialAccount) ?? 'cash')
-                        <article class="notify-fin-item @if($isOverdue) is-overdue @endif" data-obligation>
-                            <div class="notify-fin-item__main">
-                                <div class="notify-fin-item__title">
-                                    <span>{{ $obligation->template?->name ?? $obligation->category_name_snapshot }}</span>
-                                    <span class="notify-fin-chip {{ $isOverdue ? 'notify-fin-chip--danger' : 'notify-fin-chip--warning' }}">{{ $isOverdue ? __('notify.expenses.overdue') : __('notify.expenses.due') }}</span>
-                                </div>
-                                <x-notify.money class="notify-fin-item__amount" :minor="(int) $obligation->expected_amount_minor" />
-                                <p class="notify-fin-item__meta">
-                                    {{ __('notify.expenses.due_on') }} <span dir="ltr">{{ $obligation->due_date->format('Y-m-d') }}</span>
-                                    · {{ $obligation->category_name_snapshot }}
-                                </p>
-                            </div>
-                            @if($canRecord)
-                                <div class="notify-fin-item__actions">
-                                    <details class="notify-fin-pay">
-                                        <summary class="notify-button notify-button--primary">{{ __('notify.expenses.mark_paid') }}</summary>
-                                        <form method="POST" action="{{ route('recurring-expense-obligations.pay', $obligation) }}" class="notify-fin-form" data-pay-obligation>
-                                            @csrf
-                                            <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-                                            <div class="notify-fin-field">
-                                                <label for="pay-amount-{{ $obligation->id }}">{{ __('notify.expenses.amount') }}</label>
-                                                <input id="pay-amount-{{ $obligation->id }}" name="amount" inputmode="decimal" dir="ltr" required value="{{ $money((int) $obligation->expected_amount_minor) }}">
-                                            </div>
-                                            <fieldset class="notify-fin-choice">
-                                                <legend>{{ __('notify.expenses.method') }}</legend>
-                                                @foreach($methods as $method => $label)
-                                                    <label class="notify-fin-choice__option">
-                                                        <input type="radio" name="payment_method" value="{{ $method }}" required @checked($defaultMethod === $method)>
-                                                        <span>{{ $label }}</span>
-                                                    </label>
-                                                @endforeach
-                                            </fieldset>
-                                            <div class="notify-fin-field">
-                                                <label for="pay-date-{{ $obligation->id }}">{{ __('notify.expenses.paid_on') }}</label>
-                                                <input id="pay-date-{{ $obligation->id }}" type="date" name="paid_on" required max="{{ today()->toDateString() }}" value="{{ today()->toDateString() }}">
-                                            </div>
-                                            <button type="submit" class="notify-button notify-button--primary">{{ __('notify.expenses.confirm_paid') }}</button>
-                                        </form>
-                                    </details>
-                                    @if($canRecurring)
-                                        <details class="notify-fin-menu">
-                                            <summary aria-label="{{ __('notify.expenses.more') }}">…</summary>
-                                            <form method="POST" action="{{ route('recurring-expense-obligations.skip', $obligation) }}" class="notify-fin-menu__panel notify-fin-inline-form">
-                                                @csrf
-                                                <button type="submit" class="notify-button notify-button--ghost">{{ __('notify.expenses.skip') }}</button>
-                                            </form>
-                                        </details>
-                                    @endif
-                                </div>
-                            @endif
-                        </article>
+                        @php $isOverdue = $obligation->due_date->lt(today()); @endphp
+                        <tr @class(['is-overdue' => $isOverdue]) data-obligation>
+                            <td class="notify-list__primary">
+                                <span class="notify-list__title">{{ $obligation->template?->name ?? $obligation->category_name_snapshot }}</span>
+                                <span class="notify-list__sub">{{ $obligation->category_name_snapshot }}</span>
+                            </td>
+                            <td class="notify-list__end notify-list__amount"><x-notify.money :minor="(int) $obligation->expected_amount_minor" /></td>
+                            <td data-label="{{ __('notify.expenses.due_on') }}"><span dir="ltr">{{ $obligation->due_date->format('Y-m-d') }}</span></td>
+                            <td>
+                                <span class="notify-status {{ $isOverdue ? 'notify-status--danger' : 'notify-status--warning' }}">
+                                    @if($isOverdue)<x-notify.icon name="alert-circle" :size="14" />@endif
+                                    {{ $isOverdue ? __('notify.expenses.overdue') : __('notify.expenses.due') }}
+                                </span>
+                            </td>
+                            <td class="notify-list__actions">
+                                @if($canRecord)
+                                    <span class="notify-list__actions-inner">
+                                        <button type="button" class="notify-button notify-button--primary notify-button--sm" data-open-sheet="pay-obligation-{{ $obligation->id }}" aria-haspopup="dialog">{{ __('notify.expenses.mark_paid') }}</button>
+                                        @if($canRecurring)
+                                            <x-notify.menu>
+                                                <form method="POST" action="{{ route('recurring-expense-obligations.skip', $obligation) }}"
+                                                      data-confirm="{{ __('notify.expenses.skip') }}: {{ $obligation->template?->name ?? $obligation->category_name_snapshot }}" data-confirm-tone="primary" data-confirm-label="{{ __('notify.expenses.skip') }}">
+                                                    @csrf
+                                                    <button type="submit" class="notify-menu__item" role="menuitem"><x-notify.icon name="chevron-left" :size="18" class="notify-icon--directional" /><span>{{ __('notify.expenses.skip') }}</span></button>
+                                                </form>
+                                            </x-notify.menu>
+                                        @endif
+                                    </span>
+                                @endif
+                            </td>
+                        </tr>
                     @endforeach
-                </div>
+                </x-notify.list>
+
+                @if($canRecord)
+                    @foreach($dueObligations as $obligation)
+                        @php
+                            $sheetId = 'pay-obligation-'.$obligation->id;
+                            $payOld = FormState::oldFor($sheetId);
+                            $defaultMethod = PaymentFinancialAccountResolver::methodForAccount($obligation->defaultFinancialAccount) ?? 'cash';
+                        @endphp
+                        @formscope($sheetId)
+                        <x-notify.sheet :id="$sheetId" :title="__('notify.expenses.mark_paid')" :subtitle="$obligation->template?->name ?? $obligation->category_name_snapshot"
+                            :action="route('recurring-expense-obligations.pay', $obligation)" :form-attributes="['data-pay-obligation' => true]">
+                            <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+                            <x-notify.form-field :label="__('notify.expenses.amount')" :for="$sheetId.'-amount'" name="amount" :required="true">
+                                <x-notify.money-input :id="$sheetId.'-amount'" :required="true" :value="$payOld('amount', $money((int) $obligation->expected_amount_minor))" />
+                            </x-notify.form-field>
+                            <x-notify.form-field :label="__('notify.expenses.method')" name="payment_method" :required="true" :group="true">
+                                <div class="notify-choices notify-choices--segmented">
+                                    @foreach($methods as $method => $label)
+                                        <label class="notify-choice-chip">
+                                            <input type="radio" name="payment_method" value="{{ $method }}" required @checked($payOld('payment_method', $defaultMethod) === $method)>
+                                            <span>{{ $label }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </x-notify.form-field>
+                            <x-notify.form-field :label="__('notify.expenses.paid_on')" :for="$sheetId.'-date'" name="paid_on" :required="true">
+                                <input id="{{ $sheetId }}-date" class="notify-input" type="date" name="paid_on" required max="{{ today()->toDateString() }}" value="{{ $payOld('paid_on', today()->toDateString()) }}" @invalid('paid_on', $sheetId.'-date')>
+                            </x-notify.form-field>
+                            <x-slot:footer>
+                                <button type="button" class="notify-button notify-button--ghost" data-sheet-close>{{ __('notify.ui.cancel') }}</button>
+                                <button type="submit" class="notify-button notify-button--primary">{{ __('notify.expenses.confirm_paid') }}</button>
+                            </x-slot:footer>
+                        </x-notify.sheet>
+                        @endformscope
+                    @endforeach
+                @endif
             </section>
         @endif
 
@@ -214,48 +237,48 @@
                 </div>
                 <p class="notify-fin-hint">{{ __('notify.expenses.recurring_hint') }}</p>
                 @if($activeCategories->isEmpty())
-                    <p class="notify-fin-empty">{{ __('notify.expenses.no_categories') }} <a href="{{ route('finance.expenses', ['tab' => 'categories']) }}">{{ __('notify.expenses.tabs.categories') }}</a></p>
+                    <x-notify.empty-state :compact="true" icon="settings" :title="__('notify.expenses.no_categories')"
+                        :action-href="route('finance.expenses', ['tab' => 'categories'])" :action-label="__('notify.expenses.tabs.categories')" action-icon="settings" action-variant="secondary" />
                 @else
-                    <form method="POST" action="{{ route('recurring-expense-templates.store') }}" class="notify-fin-form notify-fin-form--grid" data-expense-form="monthly">
+                    @php $old = FormState::oldFor('expense-monthly'); @endphp
+                    @formscope('expense-monthly')
+                    <form method="POST" action="{{ route('recurring-expense-templates.store') }}" class="notify-form-row" data-expense-form="monthly">
                         @csrf
-                        <div class="notify-fin-field">
-                            <label for="recurring-amount">{{ __('notify.expenses.amount') }}</label>
-                            <input id="recurring-amount" name="amount" inputmode="decimal" dir="ltr" required value="{{ old('amount') }}" placeholder="0.000">
-                        </div>
-                        <fieldset class="notify-fin-choice">
-                            <legend>{{ __('notify.expenses.method') }}</legend>
-                            @foreach($methods as $method => $label)
-                                <label class="notify-fin-choice__option">
-                                    <input type="radio" name="payment_method" value="{{ $method }}" required @checked(old('payment_method', 'cash') === $method)>
-                                    <span>{{ $label }}</span>
-                                </label>
-                            @endforeach
-                        </fieldset>
-                        <div class="notify-fin-field">
-                            <label for="recurring-category">{{ __('notify.expenses.category') }}</label>
-                            <select id="recurring-category" name="category_id" required>
+                        <input type="hidden" name="_form" value="expense-monthly">
+                        <x-notify.form-field :label="__('notify.expenses.amount')" for="recurring-amount" name="amount" :required="true">
+                            <x-notify.money-input id="recurring-amount" :required="true" :value="$old('amount')" />
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.expenses.method')" name="payment_method" :required="true" :group="true">
+                            <div class="notify-choices notify-choices--segmented">
+                                @foreach($methods as $method => $label)
+                                    <label class="notify-choice-chip">
+                                        <input type="radio" name="payment_method" value="{{ $method }}" required @checked($old('payment_method', 'cash') === $method)>
+                                        <span>{{ $label }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.expenses.category')" for="recurring-category" name="category_id" :required="true">
+                            <select id="recurring-category" class="notify-input" name="category_id" required @invalid('category_id', 'recurring-category')>
                                 @foreach($activeCategories as $category)
-                                    <option value="{{ $category->id }}" @selected((string) old('category_id') === (string) $category->id)>{{ $categoryName($category) }}</option>
+                                    <option value="{{ $category->id }}" @selected((string) $old('category_id') === (string) $category->id)>{{ $categoryName($category) }}</option>
                                 @endforeach
                             </select>
-                        </div>
-                        <div class="notify-fin-field">
-                            <label for="recurring-start">{{ __('notify.expenses.start_date') }}</label>
-                            <input id="recurring-start" type="date" name="start_date" required value="{{ old('start_date', today()->toDateString()) }}">
-                        </div>
-                        <div class="notify-fin-field">
-                            <label for="recurring-day">{{ __('notify.expenses.due_day') }}</label>
-                            <input id="recurring-day" type="number" name="due_day" inputmode="numeric" dir="ltr" required min="1" max="28" step="1" value="{{ old('due_day', min(28, today()->day)) }}">
-                            <small class="notify-fin-hint">{{ __('notify.expenses.due_day_hint') }}</small>
-                        </div>
-                        <div class="notify-fin-field notify-fin-field--wide">
-                            <label for="recurring-description">{{ __('notify.expenses.description') }} <span class="notify-label-note">({{ __('notify.common.optional') }})</span></label>
-                            <input id="recurring-description" name="description" maxlength="255" value="{{ old('description') }}" placeholder="{{ __('notify.expenses.recurring_description_placeholder') }}">
-                        </div>
-                        <div class="notify-fin-form__submit">
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.expenses.start_date')" for="recurring-start" name="start_date" :required="true">
+                            <input id="recurring-start" class="notify-input" type="date" name="start_date" required value="{{ $old('start_date', today()->toDateString()) }}" @invalid('start_date', 'recurring-start')>
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.expenses.due_day')" for="recurring-day" name="due_day" :required="true" :hint="__('notify.expenses.due_day_hint')">
+                            <input id="recurring-day" class="notify-input" type="number" name="due_day" inputmode="numeric" dir="ltr" required min="1" max="28" step="1" value="{{ $old('due_day', min(28, today()->day)) }}" @invalid('due_day', 'recurring-day', 'default', true)>
+                        </x-notify.form-field>
+                        <x-notify.form-field :label="__('notify.expenses.description')" for="recurring-description" name="description" :optional="true">
+                            <input id="recurring-description" class="notify-input" name="description" maxlength="255" value="{{ $old('description') }}" placeholder="{{ __('notify.expenses.recurring_description_placeholder') }}" @invalid('description', 'recurring-description')>
+                        </x-notify.form-field>
+                        <div class="notify-form-row__full notify-form-actions">
                             <button type="submit" class="notify-button notify-button--primary">{{ __('notify.expenses.recurring_save') }}</button>
                         </div>
                     </form>
+                    @endformscope
                 @endif
             </section>
         @endif
@@ -264,56 +287,63 @@
             <div class="notify-fin-card__head">
                 <h2 id="templates-title" class="notify-fin-card__title">{{ __('notify.expenses.templates_title') }}</h2>
             </div>
-            <div class="notify-fin-rows notify-fin-rows--recurring" data-recurring-list>
-                @if($templates->isNotEmpty())
-                    <div class="notify-fin-rows__head" aria-hidden="true">
-                        <span>{{ __('notify.expenses.next_due') }}</span>
-                        <span>{{ __('notify.expenses.col_description') }}</span>
-                        <span>{{ __('notify.expenses.due_day_short') }}</span>
-                        <span>{{ __('notify.expenses.col_method') }}</span>
-                        <span>{{ __('notify.expenses.col_amount') }}</span>
-                        <span>{{ __('notify.expenses.col_status') }}</span>
-                        <span></span>
-                    </div>
-                @endif
-                @forelse($templates as $template)
-                    <article class="notify-fin-row @unless($template->is_active) is-muted @endunless" data-recurring-template>
-                        <span class="notify-fin-row__date"><span dir="ltr">{{ $template->is_active ? $template->next_due_date?->format('Y-m-d') : '—' }}</span></span>
-                        <span class="notify-fin-row__title">{{ $template->name }} <small>{{ $template->category ? $categoryName($template->category) : '' }}</small></span>
-                        <span class="notify-fin-row__desc">{{ __('notify.expenses.day_of_month', ['day' => $template->next_due_date?->day ?? $template->start_date?->day]) }}</span>
-                        <span class="notify-fin-row__method">{{ $methodLabel($template->defaultFinancialAccount) }}</span>
-                        <x-notify.money class="notify-fin-row__amount" :minor="(int) $template->amount_minor" />
-                        <span class="notify-fin-row__status">
-                            <span class="notify-fin-chip @if($template->is_active) notify-fin-chip--success @endif">{{ $template->is_active ? __('notify.expenses.status_repeating') : __('notify.expenses.status_stopped') }}</span>
-                        </span>
-                        <span class="notify-fin-row__actions">
+            <x-notify.list data-recurring-list :label="__('notify.expenses.templates_title')" :empty="$templates->isEmpty()"
+                :columns="[__('notify.expenses.col_description'), ['label' => __('notify.expenses.col_amount'), 'class' => 'is-num'], __('notify.expenses.next_due'), __('notify.expenses.col_method'), __('notify.expenses.col_status'), $actionsColumn]">
+                @foreach($templates as $template)
+                    <tr @class(['is-muted' => ! $template->is_active]) data-recurring-template>
+                        <td class="notify-list__primary">
+                            <span class="notify-list__title">{{ $template->name }}</span>
+                            <span class="notify-list__sub">{{ $template->category ? $categoryName($template->category) : '' }} · {{ __('notify.expenses.day_of_month', ['day' => $template->next_due_date?->day ?? $template->start_date?->day]) }}</span>
+                        </td>
+                        <td class="notify-list__end notify-list__amount"><x-notify.money :minor="(int) $template->amount_minor" /></td>
+                        <td data-label="{{ __('notify.expenses.next_due') }}"><span dir="ltr">{{ $template->is_active ? $template->next_due_date?->format('Y-m-d') : '—' }}</span></td>
+                        <td data-label="{{ __('notify.expenses.col_method') }}">{{ $methodLabel($template->defaultFinancialAccount) }}</td>
+                        <td>
+                            <span class="notify-status {{ $template->is_active ? 'notify-status--success' : 'notify-status--neutral' }}">{{ $template->is_active ? __('notify.expenses.status_repeating') : __('notify.expenses.status_stopped') }}</span>
+                        </td>
+                        <td class="notify-list__actions">
                             @if($canRecurring && $template->is_active)
-                                <details class="notify-fin-menu">
-                                    <summary aria-label="{{ __('notify.expenses.more') }}">…</summary>
-                                    <div class="notify-fin-menu__panel">
-                                        <form method="POST" action="{{ route('recurring-expense-templates.update', $template) }}" class="notify-fin-inline-form">
-                                            @csrf
-                                            @method('PATCH')
-                                            <label for="template-amount-{{ $template->id }}">{{ __('notify.expenses.change_amount') }}</label>
-                                            <input id="template-amount-{{ $template->id }}" name="amount" inputmode="decimal" dir="ltr" required value="{{ $template->amountJod() }}">
-                                            <button type="submit" class="notify-button notify-button--soft">{{ __('notify.expenses.update_amount') }}</button>
-                                        </form>
-                                        <form method="POST" action="{{ route('recurring-expense-templates.update', $template) }}" class="notify-fin-inline-form" data-stop-recurring>
+                                <x-notify.menu>
+                                    <button type="button" class="notify-menu__item" role="menuitem" data-open-sheet="template-amount-{{ $template->id }}" aria-haspopup="dialog">
+                                        <x-notify.icon name="wallet" :size="18" /><span>{{ __('notify.expenses.change_amount') }}</span>
+                                    </button>
+                                    <x-slot:danger>
+                                        <form method="POST" action="{{ route('recurring-expense-templates.update', $template) }}" data-stop-recurring
+                                              data-confirm="{{ __('notify.expenses.stop_hint') }}" data-confirm-title="{{ __('notify.expenses.stop') }} · {{ $template->name }}" data-confirm-label="{{ __('notify.expenses.stop') }}">
                                             @csrf
                                             @method('PATCH')
                                             <input type="hidden" name="is_active" value="0">
-                                            <small class="notify-fin-hint">{{ __('notify.expenses.stop_hint') }}</small>
-                                            <button type="submit" class="notify-button notify-button--ghost">{{ __('notify.expenses.stop') }}</button>
+                                            <button type="submit" class="notify-menu__item notify-menu__item--danger" role="menuitem"><x-notify.icon name="x" :size="18" /><span>{{ __('notify.expenses.stop') }}</span></button>
                                         </form>
-                                    </div>
-                                </details>
+                                    </x-slot:danger>
+                                </x-notify.menu>
                             @endif
-                        </span>
-                    </article>
-                @empty
-                    <p class="notify-fin-empty">{{ __('notify.expenses.templates_empty') }}</p>
-                @endforelse
-            </div>
+                        </td>
+                    </tr>
+                @endforeach
+                <x-slot:emptyState>
+                    <x-notify.empty-state :compact="true" icon="calendar" :title="__('notify.expenses.templates_empty')" />
+                </x-slot:emptyState>
+            </x-notify.list>
+
+            @if($canRecurring)
+                @foreach($templates as $template)
+                    @continue(! $template->is_active)
+                    @php $sheetId = 'template-amount-'.$template->id; @endphp
+                    @formscope($sheetId)
+                    <x-notify.sheet :id="$sheetId" size="sm" :title="__('notify.expenses.change_amount')" :subtitle="$template->name"
+                        :action="route('recurring-expense-templates.update', $template)" method="PATCH">
+                        <x-notify.form-field :label="__('notify.expenses.amount')" :for="$sheetId.'-amount'" name="amount" :required="true">
+                            <x-notify.money-input :id="$sheetId.'-amount'" :required="true" :value="FormState::oldFor($sheetId)('amount', $template->amountJod())" />
+                        </x-notify.form-field>
+                        <x-slot:footer>
+                            <button type="button" class="notify-button notify-button--ghost" data-sheet-close>{{ __('notify.ui.cancel') }}</button>
+                            <button type="submit" class="notify-button notify-button--primary">{{ __('notify.expenses.update_amount') }}</button>
+                        </x-slot:footer>
+                    </x-notify.sheet>
+                    @endformscope
+                @endforeach
+            @endif
         </section>
 
     @else
@@ -323,20 +353,22 @@
                 <div class="notify-fin-card__head">
                     <h2 id="category-form-title" class="notify-fin-card__title">{{ __('notify.expenses.add_category') }}</h2>
                 </div>
-                <form method="POST" action="{{ route('expense-categories.store') }}" class="notify-fin-form notify-fin-form--grid" data-category-form>
+                @php $old = FormState::oldFor('expense-category'); @endphp
+                @formscope('expense-category')
+                <form method="POST" action="{{ route('expense-categories.store') }}" class="notify-form-row" data-category-form>
                     @csrf
-                    <div class="notify-fin-field">
-                        <label for="category-name-ar">{{ __('notify.expenses.category_name_ar') }}</label>
-                        <input id="category-name-ar" name="name_ar" required maxlength="255" dir="rtl" value="{{ old('name_ar') }}">
-                    </div>
-                    <div class="notify-fin-field">
-                        <label for="category-name-en">{{ __('notify.expenses.category_name_en') }} <span class="notify-label-note">({{ __('notify.common.optional') }})</span></label>
-                        <input id="category-name-en" name="name_en" maxlength="255" dir="ltr" value="{{ old('name_en') }}">
-                    </div>
-                    <div class="notify-fin-form__submit">
+                    <input type="hidden" name="_form" value="expense-category">
+                    <x-notify.form-field :label="__('notify.expenses.category_name_ar')" for="category-name-ar" name="name_ar" :required="true">
+                        <input id="category-name-ar" class="notify-input" name="name_ar" required maxlength="255" dir="rtl" value="{{ $old('name_ar') }}" @invalid('name_ar', 'category-name-ar')>
+                    </x-notify.form-field>
+                    <x-notify.form-field :label="__('notify.expenses.category_name_en')" for="category-name-en" name="name_en" :optional="true">
+                        <input id="category-name-en" class="notify-input" name="name_en" maxlength="255" dir="ltr" value="{{ $old('name_en') }}" @invalid('name_en', 'category-name-en')>
+                    </x-notify.form-field>
+                    <div class="notify-form-row__full notify-form-actions">
                         <button type="submit" class="notify-button notify-button--primary">{{ __('notify.expenses.add_category') }}</button>
                     </div>
                 </form>
+                @endformscope
             </section>
         @endif
 
@@ -353,14 +385,15 @@
                             @if(app()->getLocale() !== 'en' && $category->name_en)<small dir="ltr">{{ $category->name_en }}</small>@endif
                         </div>
                         @if($canCategories)
-                            <form method="POST" action="{{ route('expense-categories.archive', $category) }}">
+                            <form method="POST" action="{{ route('expense-categories.archive', $category) }}"
+                                  data-confirm="{{ __('notify.expenses.archive') }}: {{ $categoryName($category) }}" data-confirm-label="{{ __('notify.expenses.archive') }}">
                                 @csrf
-                                <button type="submit" class="notify-button notify-button--ghost">{{ __('notify.expenses.archive') }}</button>
+                                <button type="submit" class="notify-button notify-button--ghost notify-button--sm">{{ __('notify.expenses.archive') }}</button>
                             </form>
                         @endif
                     </article>
                 @empty
-                    <p class="notify-fin-empty">{{ __('notify.expenses.categories_empty') }}</p>
+                    <x-notify.empty-state :compact="true" icon="settings" :title="__('notify.expenses.categories_empty')" />
                 @endforelse
             </div>
         </section>

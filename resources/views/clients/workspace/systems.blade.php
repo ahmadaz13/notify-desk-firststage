@@ -20,16 +20,11 @@
         @endif
     </header>
 
-    @if($errors->credentials->any())
-        <div class="notify-credentials__errors" role="alert">
-            @foreach($errors->credentials->all() as $message)
-                <p>{{ $message }}</p>
-            @endforeach
-        </div>
-    @endif
-
     @forelse($sys['rows'] as $row)
-        @php($credential = $row['credential'])
+        @php
+            $credential = $row['credential'];
+            $credentialSheet = $credential ? 'credential-edit-'.$credential->id : 'credential-add-'.$row['system']->id;
+        @endphp
         <article class="notify-system" data-system-row="{{ $row['system']->id }}" @if($row['show_credential']) data-credential-card @endif>
             <div class="notify-system__top">
                 <h3 class="notify-system__name @if($row['show_credential']) notify-credential__system @endif">{{ $row['name'] }}</h3>
@@ -42,7 +37,9 @@
                         <span class="notify-status notify-status--neutral">{{ __('notify.client_hub.systems.credential_only') }}</span>
                     @endif
                     @if($row['can_revoke'])
-                        <form method="POST" action="{{ route('clients.system-access.destroy', [$client, $row['system']]) }}" data-confirm="{{ __('notify.client_hub.systems.revoke_confirm', ['system' => $row['name']]) }}" data-revoke-access>
+                        <form method="POST" action="{{ route('clients.system-access.destroy', [$client, $row['system']]) }}"
+                              data-confirm="{{ __('notify.client_hub.systems.revoke_confirm', ['system' => $row['name']]) }}"
+                              data-confirm-label="{{ __('notify.client_hub.actions.revoke_access') }}" data-revoke-access>
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="notify-button notify-button--ghost notify-button--sm">{{ __('notify.client_hub.actions.revoke_access') }}</button>
@@ -81,114 +78,95 @@
                                 </div>
                             @endif
                         </dl>
-
-                        @if($panel['can_reveal'])
-                            <div class="notify-credential__actions"
-                                 data-credential-actions
-                                 data-reveal-url="{{ route('clients.credentials.reveal', [$client, $credential]) }}"
-                                 data-copied-url="{{ route('clients.credentials.copied', [$client, $credential]) }}">
-                                <button type="button" class="notify-button notify-button--soft notify-button--sm" data-credential-reveal
-                                        data-label-reveal="{{ __('notify.credentials.reveal') }}" data-label-hide="{{ __('notify.credentials.hide') }}">{{ __('notify.credentials.reveal') }}</button>
-                                <button type="button" class="notify-button notify-button--soft notify-button--sm" data-credential-copy
-                                        data-label-copied="{{ __('notify.credentials.copied') }}">{{ __('notify.credentials.copy') }}</button>
-                                <button type="button" class="notify-button notify-button--primary notify-button--sm" data-credential-send="modal-credential-send-{{ $credential->id }}">{{ __('notify.credentials.send') }}</button>
-                                <p class="notify-credential__status" data-credential-status role="status" hidden></p>
-                            </div>
-                        @endif
                     @else
                         <p class="notify-system__meta"><x-notify.icon name="key-round" :size="14" /> {{ __('notify.credentials.not_set') }}</p>
                     @endif
 
-                    @if($panel['can_manage'])
-                        <details class="notify-credential__edit" @if(! $credential && $errors->credentials->any() && (int) old('product_id') === $row['system']->id) open @endif>
-                            <summary>{{ $credential ? __('notify.credentials.edit') : __('notify.credentials.add') }}</summary>
-                            @include('clients.workspace.credential-form', ['credential' => $credential, 'system' => $row['system']])
-
-                            @if($credential)
-                                <form method="POST" action="{{ route('clients.credentials.destroy', [$client, $credential]) }}" class="notify-credential__delete"
-                                      data-confirm="{{ __('notify.credentials.delete_confirm', ['system' => $row['name']]) }}">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="notify-button notify-button--ghost notify-button--sm">{{ __('notify.credentials.delete') }}</button>
-                                </form>
+                    @if(($credential && $panel['can_reveal']) || $panel['can_manage'])
+                        <div class="notify-credential__actions"
+                             @if($credential && $panel['can_reveal'])
+                                 data-credential-actions
+                                 data-reveal-url="{{ route('clients.credentials.reveal', [$client, $credential]) }}"
+                                 data-copied-url="{{ route('clients.credentials.copied', [$client, $credential]) }}"
+                             @endif>
+                            @if($credential && $panel['can_reveal'])
+                                <button type="button" class="notify-button notify-button--soft notify-button--sm" data-credential-reveal
+                                        data-label-reveal="{{ __('notify.credentials.reveal') }}" data-label-hide="{{ __('notify.credentials.hide') }}">{{ __('notify.credentials.reveal') }}</button>
+                                <button type="button" class="notify-button notify-button--soft notify-button--sm" data-credential-copy
+                                        data-label-copied="{{ __('notify.credentials.copied') }}">{{ __('notify.credentials.copy') }}</button>
+                                <button type="button" class="notify-button notify-button--primary notify-button--sm" data-credential-send="modal-credential-send-{{ $credential->id }}" aria-haspopup="dialog">{{ __('notify.credentials.send') }}</button>
                             @endif
-                        </details>
+                            @if($panel['can_manage'])
+                                <button type="button" class="notify-button notify-button--ghost notify-button--sm" data-open-sheet="{{ $credentialSheet }}" aria-haspopup="dialog" data-credential-edit>
+                                    {{ $credential ? __('notify.credentials.edit') : __('notify.credentials.add') }}
+                                </button>
+                            @endif
+                            <p class="notify-credential__status" data-credential-status role="status" hidden></p>
+                        </div>
                     @endif
                 </div>
             @endif
         </article>
 
+        @if($row['show_credential'] && $panel['can_manage'])
+            @include('clients.workspace.credential-form', ['credential' => $credential, 'system' => $row['system']])
+        @endif
+
         @if($credential && $row['show_credential'] && $panel['can_reveal'])
-            <div class="notify-modal-backdrop" id="modal-credential-send-{{ $credential->id }}" hidden>
-                <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-credential-send-{{ $credential->id }}-title">
-                    <div class="notify-modal-header">
-                        <h3 id="modal-credential-send-{{ $credential->id }}-title">{{ __('notify.credentials.send_title') }} · {{ $row['name'] }}</h3>
-                        <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.credentials.cancel') }}"><x-notify.icon name="x" /></button>
+            <x-notify.sheet :id="'modal-credential-send-'.$credential->id" size="sm" :title="__('notify.credentials.send_title')" :subtitle="$row['name']">
+                <form id="credential-send-form-{{ $credential->id }}" class="notify-sheet__section notify-credential__send" data-credential-send-form
+                      data-send-url="{{ route('clients.credentials.send', [$client, $credential]) }}" data-no-busy>
+                    <x-notify.form-field :label="__('notify.credentials.recipient')" :for="'credential-recipient-'.$credential->id">
+                        <input id="credential-recipient-{{ $credential->id }}" class="notify-input" type="tel" name="recipient" inputmode="tel" dir="ltr" maxlength="50" required value="{{ $panel['recipient'] }}">
+                    </x-notify.form-field>
+                    <div class="notify-form-field">
+                        <span class="notify-form-field__label">{{ __('notify.credentials.preview') }}</span>
+                        <pre class="notify-credential__preview" dir="auto">{{ $credentialService->previewMessage($credential) }}</pre>
+                        <p class="notify-form-field__hint">{{ __('notify.credentials.preview_hint') }}</p>
                     </div>
-                    <form class="notify-action-form notify-credential__send" data-credential-send-form
-                          data-send-url="{{ route('clients.credentials.send', [$client, $credential]) }}">
-                        <div class="field">
-                            <label for="credential-recipient-{{ $credential->id }}">{{ __('notify.credentials.recipient') }}</label>
-                            <input id="credential-recipient-{{ $credential->id }}" class="touch-input" type="tel" name="recipient" inputmode="tel" dir="ltr" maxlength="50" required value="{{ $panel['recipient'] }}">
-                        </div>
-                        <div class="field">
-                            <span class="notify-field-label">{{ __('notify.credentials.preview') }}</span>
-                            <pre class="notify-credential__preview" dir="auto">{{ $credentialService->previewMessage($credential) }}</pre>
-                            <small class="notify-muted">{{ __('notify.credentials.preview_hint') }}</small>
-                        </div>
-                        <p class="notify-credential__status" data-credential-status role="alert" hidden></p>
-                        <div class="notify-form-footer">
-                            <button type="button" class="notify-button notify-button--ghost" data-close-action-modal>{{ __('notify.credentials.cancel') }}</button>
-                            <button type="submit" class="notify-button notify-button--primary">{{ __('notify.credentials.confirm_send') }}</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+                    <p class="notify-form-alert" data-credential-status role="alert" hidden></p>
+                </form>
+                <x-slot:footer>
+                    <button type="button" class="notify-button notify-button--ghost" data-sheet-close>{{ __('notify.credentials.cancel') }}</button>
+                    <button type="submit" form="credential-send-form-{{ $credential->id }}" class="notify-button notify-button--primary">{{ __('notify.credentials.confirm_send') }}</button>
+                </x-slot:footer>
+            </x-notify.sheet>
         @endif
     @empty
         <p class="notify-ws-card__empty">{{ __('notify.client_hub.systems.empty') }}</p>
     @endforelse
 
     @if($sys['can_add_credentials'] && $panel['addable']->isNotEmpty())
-        <details class="notify-credential__edit notify-credential__add" @if($errors->credentials->any() && $panel['addable']->pluck('id')->contains((int) old('product_id'))) open @endif>
-            <summary>{{ __('notify.credentials.add_for_system') }}</summary>
-            @include('clients.workspace.credential-form', ['credential' => null, 'system' => null, 'addable' => $panel['addable']])
-        </details>
+        <button type="button" class="notify-button notify-button--ghost notify-button--sm notify-credential__add-trigger" data-open-sheet="credential-add-other" aria-haspopup="dialog">
+            <x-notify.icon name="plus" :size="16" /><span>{{ __('notify.credentials.add_for_system') }}</span>
+        </button>
+        @include('clients.workspace.credential-form', ['credential' => null, 'system' => null, 'addable' => $panel['addable']])
     @endif
 </section>
 
 @if($sys['can_grant'] && $sys['grantable']->isNotEmpty())
-    <div class="notify-modal-backdrop" id="modal-grant-access" hidden>
-        <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-grant-access-title">
-            <div class="notify-modal-header">
-                <div>
-                    <h3 id="modal-grant-access-title">{{ __('notify.client_hub.systems.grant_title') }}</h3>
-                    <p class="notify-sheet-hint">{{ __('notify.client_hub.systems.grant_hint') }}</p>
-                </div>
-                <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.client_hub.actions.cancel') }}"><x-notify.icon name="x" /></button>
+    @formscope('modal-grant-access')
+    <x-notify.sheet id="modal-grant-access" :title="__('notify.client_hub.systems.grant_title')" :subtitle="__('notify.client_hub.systems.grant_hint')"
+        :action="route('clients.system-access.store', $client)" :form-attributes="['data-grant-access-form' => true]">
+        <x-notify.form-field :label="__('notify.client_hub.systems.title')" name="system_ids" :required="true" :group="true">
+            <div class="notify-choices notify-choices--stack">
+                @foreach($sys['grantable'] as $system)
+                    <label class="notify-choice-chip">
+                        <input type="checkbox" name="system_ids[]" value="{{ $system->id }}" @checked(in_array($system->id, array_map('intval', (array) \App\Support\FormState::oldFor('modal-grant-access')('system_ids', [])), true))>
+                        <span>{{ \App\ViewModels\ClientPresenter::systemName($system) }}</span>
+                    </label>
+                @endforeach
             </div>
-            <form method="POST" action="{{ route('clients.system-access.store', $client) }}" class="notify-action-form" data-grant-access-form>
-                @csrf
-                <fieldset class="notify-choice-list">
-                    <legend class="notify-visually-hidden">{{ __('notify.client_hub.systems.title') }}</legend>
-                    @foreach($sys['grantable'] as $system)
-                        <label class="notify-choice">
-                            <input type="checkbox" name="system_ids[]" value="{{ $system->id }}">
-                            <span>{{ \App\ViewModels\ClientPresenter::systemName($system) }}</span>
-                        </label>
-                    @endforeach
-                </fieldset>
-                <label class="notify-field">
-                    <span>{{ __('notify.client_hub.systems.note') }}</span>
-                    <input type="text" name="note" maxlength="1000">
-                </label>
-                <div class="notify-modal-footer">
-                    <button type="button" class="notify-button notify-button--ghost" data-close-action-modal>{{ __('notify.client_hub.actions.cancel') }}</button>
-                    <button type="submit" class="notify-button notify-button--primary">{{ __('notify.client_hub.systems.grant_submit') }}</button>
-                </div>
-            </form>
-        </div>
-    </div>
+        </x-notify.form-field>
+        <x-notify.form-field :label="__('notify.client_hub.systems.note')" for="grant-access-note" name="note" :optional="true">
+            <input id="grant-access-note" class="notify-input" type="text" name="note" maxlength="1000" value="{{ \App\Support\FormState::oldFor('modal-grant-access')('note') }}" @invalid('note', 'grant-access-note')>
+        </x-notify.form-field>
+        <x-slot:footer>
+            <button type="button" class="notify-button notify-button--ghost" data-sheet-close>{{ __('notify.client_hub.actions.cancel') }}</button>
+            <button type="submit" class="notify-button notify-button--primary">{{ __('notify.client_hub.systems.grant_submit') }}</button>
+        </x-slot:footer>
+    </x-notify.sheet>
+    @endformscope
 @endif
 @endif
 

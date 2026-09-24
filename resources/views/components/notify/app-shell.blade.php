@@ -176,14 +176,21 @@
             </div>
 
             <main id="notify-main-content" class="notify-content notify-content--{{ $contentWidth }}" tabindex="-1">
+                {{-- One feedback system (P12): success · warning · validation. Never echoes request values. --}}
                 @if(session('success'))
-                    <div class="notify-flash" role="status">{{ session('success') }}</div>
+                    <div class="notify-flash notify-flash--success" role="status" data-flash="success">
+                        <x-notify.icon name="check-circle" :size="18" /><span>{{ session('success') }}</span>
+                    </div>
                 @endif
                 @if(session('warning'))
-                    <div class="notify-flash notify-flash--error" role="alert">{{ session('warning') }}</div>
+                    <div class="notify-flash notify-flash--warning" role="alert" data-flash="warning">
+                        <x-notify.icon name="alert-circle" :size="18" /><span>{{ session('warning') }}</span>
+                    </div>
                 @endif
                 @if($errors->any())
-                    <div class="notify-flash notify-flash--error" role="alert">{{ $errors->first() ?? __('notify.common.review_errors') }}</div>
+                    <div class="notify-flash notify-flash--error" role="alert" data-flash="error">
+                        <x-notify.icon name="alert-circle" :size="18" /><span>{{ $errors->first() ?? __('notify.common.review_errors') }}</span>
+                    </div>
                 @endif
                 {{ $slot }}
             </main>
@@ -200,5 +207,14 @@
         />
     @endif
 </div>
+
+{{-- The one confirmation dialog (P12) for `form[data-confirm]` / `button[data-confirm]`; never the native browser dialog. --}}
+<x-notify.sheet id="notify-confirm" :title="__('notify.ui.confirm_title')" size="sm" role="alertdialog" class="notify-sheet--confirm" data-confirm-dialog>
+    <p class="notify-confirm__text" id="notify-confirm-text" data-confirm-text></p>
+    <x-slot:footer>
+        <button type="button" class="notify-button notify-button--ghost" data-sheet-close>{{ __('notify.ui.cancel') }}</button>
+        <button type="button" class="notify-button notify-button--danger" data-confirm-accept>{{ __('notify.ui.confirm') }}</button>
+    </x-slot:footer>
+</x-notify.sheet>
 </body>
 </html>

@@ -28,17 +28,17 @@
                 <x-notify.workspace-action :action="$action" variant="secondary" data-secondary-action />
             @endforeach
             @if($workspace->moreActions)
-                <details class="notify-menu" data-client-more>
-                    <summary class="notify-button notify-button--ghost notify-menu__trigger" aria-label="{{ __('notify.client_hub.actions.more') }}" title="{{ __('notify.client_hub.actions.more') }}">
-                        <x-notify.icon name="ellipsis" :size="20" />
-                        <span class="notify-button__label">{{ __('notify.client_hub.actions.more') }}</span>
-                    </summary>
-                    <div class="notify-menu__panel" role="menu">
-                        @foreach($workspace->moreActions as $action)
+                @php([$dangerActions, $routineActions] = collect($workspace->moreActions)->partition(fn ($action) => ($action['tone'] ?? null) === 'danger'))
+                <x-notify.menu :label="__('notify.client_hub.actions.more')" :show-label="true" data-client-more>
+                    @foreach($routineActions as $action)
+                        <x-notify.workspace-action :action="$action" :menu="true" role="menuitem" />
+                    @endforeach
+                    <x-slot:danger>
+                        @foreach($dangerActions as $action)
                             <x-notify.workspace-action :action="$action" :menu="true" role="menuitem" />
                         @endforeach
-                    </div>
-                </details>
+                    </x-slot:danger>
+                </x-notify.menu>
             @endif
         </div>
     @endif

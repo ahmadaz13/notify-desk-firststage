@@ -1,4 +1,5 @@
 import './bootstrap';
+import './interactions';
 import Alpine from 'alpinejs';
 import {
     Activity,

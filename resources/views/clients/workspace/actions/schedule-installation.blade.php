@@ -3,59 +3,49 @@
     'teamUsers' => collect(),
 ])
 
-<div class="notify-modal-backdrop" id="modal-schedule-installation" hidden>
-    <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-schedule-installation-title">
-        <div class="notify-modal-header">
-            <div>
-                <h3 id="modal-schedule-installation-title">{{ __('notify.client_workspace.action_schedule_installation') }}</h3>
-                <small style="color:var(--nd-muted)">{{ $client->business_name }} · {{ $client->city_area }}</small>
-            </div>
-            <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.client_workspace.cancel') }}">×</button>
-        </div>
+@php
+    $sheetId = 'modal-schedule-installation';
+    $old = \App\Support\FormState::oldFor($sheetId);
+    $attendee = (int) (((array) $old('attendees', [auth()->id()]))[0] ?? 0);
+@endphp
 
-        <form method="POST" action="{{ route('clients.installations.schedule', $client->id) }}" class="notify-action-form" data-schedule-installation-form>
-            @csrf
+@formscope($sheetId)
+<x-notify.sheet :id="$sheetId" :title="__('notify.client_workspace.action_schedule_installation')" :subtitle="collect([$client->business_name, $client->city_area])->filter()->join(' · ')"
+    :action="route('clients.installations.schedule', $client->id)" :form-attributes="['data-schedule-installation-form' => true]">
 
-            <div class="notify-form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                <div class="notify-form-group">
-                    <label class="notify-field-label"><strong>{{ __('notify.client_workspace.fields.date') }} *</strong></label>
-                    <input type="date" name="appointment_date" class="notify-form-input" required value="{{ date('Y-m-d') }}">
-                </div>
-                <div class="notify-form-group">
-                    <label class="notify-field-label"><strong>{{ __('notify.client_workspace.fields.time') }} *</strong></label>
-                    <input type="time" name="appointment_time" class="notify-form-input" required value="10:00">
-                </div>
-            </div>
-
-            <div class="notify-form-group notify-form-group--full" style="margin-top:10px">
-                <label class="notify-field-label">{{ __('notify.client_workspace.fields.assigned_staff') }}</label>
-                <select name="attendees[]" class="notify-form-select">
-                    <option value="">-- {{ __('notify.client_workspace.fields.assigned_staff') }} --</option>
-                    @foreach($teamUsers as $user)
-                        <option value="{{ $user->id }}" @if($user->id === auth()->id()) selected @endif>{{ $user->name }} ({{ $user->role ?: 'staff' }})</option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div class="notify-form-group notify-form-group--full" style="margin-top:10px">
-                <label class="notify-field-label">{{ __('notify.client_workspace.fields.location') }}</label>
-                <input type="text" name="location" class="notify-form-input" value="{{ $client->city_area ?: $client->city }}" placeholder="{{ __('notify.client_workspace.fields.location') }}">
-            </div>
-
-            <div class="notify-form-group notify-form-group--full" style="margin-top:10px">
-                <label class="notify-field-label">{{ __('notify.client_workspace.fields.branch') }}</label>
-                <input type="text" name="branch_name" class="notify-form-input" placeholder="{{ __('notify.client_workspace.fields.branch_placeholder') }}">
-            </div>
-
-            <div class="notify-form-group notify-form-group--full" style="margin-top:10px">
-                <label class="notify-field-label">{{ __('notify.client_workspace.fields.notes') }}</label>
-                <textarea name="notes" class="notify-form-textarea" rows="2" placeholder="{{ __('notify.client_workspace.fields.notes_placeholder') }}"></textarea>
-            </div>
-
-            <div class="notify-modal-footer">
-                <button type="button" class="notify-button notify-button--soft" data-close-action-modal>{{ __('notify.client_workspace.cancel') }}</button>
-                <button type="submit" class="notify-button notify-button--primary">{{ __('notify.client_workspace.action_schedule_installation') }}</button>
-            </div>
-        </form>
+    <div class="notify-form-row">
+        <x-notify.form-field :label="__('notify.client_workspace.fields.date')" for="installation-schedule-date" name="appointment_date" :required="true">
+            <input id="installation-schedule-date" class="notify-input" type="date" name="appointment_date" required value="{{ $old('appointment_date', now()->toDateString()) }}" @invalid('appointment_date', 'installation-schedule-date')>
+        </x-notify.form-field>
+        <x-notify.form-field :label="__('notify.client_workspace.fields.time')" for="installation-schedule-time" name="appointment_time" :required="true">
+            <input id="installation-schedule-time" class="notify-input" type="time" name="appointment_time" required value="{{ $old('appointment_time', '10:00') }}" @invalid('appointment_time', 'installation-schedule-time')>
+        </x-notify.form-field>
     </div>
-</div>
+
+    <x-notify.form-field :label="__('notify.client_workspace.fields.assigned_staff')" for="installation-schedule-staff" name="attendees">
+        <select id="installation-schedule-staff" class="notify-input" name="attendees[]" @invalid('attendees', 'installation-schedule-staff')>
+            <option value="">{{ __('notify.client_workspace.fields.assigned_staff') }}</option>
+            @foreach($teamUsers as $user)
+                <option value="{{ $user->id }}" @selected($user->id === $attendee)>{{ $user->name }}</option>
+            @endforeach
+        </select>
+    </x-notify.form-field>
+
+    <x-notify.form-field :label="__('notify.client_workspace.fields.location')" for="installation-schedule-location" name="location" :optional="true">
+        <input id="installation-schedule-location" class="notify-input" type="text" name="location" value="{{ $old('location', $client->city_area ?: $client->city) }}" @invalid('location', 'installation-schedule-location')>
+    </x-notify.form-field>
+
+    <x-notify.form-field :label="__('notify.client_workspace.fields.branch')" for="installation-schedule-branch" name="branch_name" :optional="true">
+        <input id="installation-schedule-branch" class="notify-input" type="text" name="branch_name" value="{{ $old('branch_name') }}" placeholder="{{ __('notify.client_workspace.fields.branch_placeholder') }}" @invalid('branch_name', 'installation-schedule-branch')>
+    </x-notify.form-field>
+
+    <x-notify.form-field :label="__('notify.client_workspace.fields.notes')" for="installation-schedule-notes" name="notes" :optional="true">
+        <textarea id="installation-schedule-notes" class="notify-input" name="notes" rows="2" placeholder="{{ __('notify.client_workspace.fields.notes_placeholder') }}" @invalid('notes', 'installation-schedule-notes')>{{ $old('notes') }}</textarea>
+    </x-notify.form-field>
+
+    <x-slot:footer>
+        <button type="button" class="notify-button notify-button--ghost" data-sheet-close>{{ __('notify.client_workspace.cancel') }}</button>
+        <button type="submit" class="notify-button notify-button--primary">{{ __('notify.client_workspace.action_schedule_installation') }}</button>
+    </x-slot:footer>
+</x-notify.sheet>
+@endformscope

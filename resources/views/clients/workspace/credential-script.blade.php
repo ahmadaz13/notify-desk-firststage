@@ -104,7 +104,7 @@
         var target = window.open('about:blank', '_blank');
         post(form.dataset.sendUrl, { recipient: form.elements.recipient.value }).then(function (data) {
             if (target) { target.opener = null; target.location.href = data.url; } else { window.location.href = data.url; }
-            if (typeof closeModal === 'function') { closeModal(form.closest('.notify-modal-backdrop')); }
+            if (typeof closeModal === 'function') { closeModal(form); }
         }).catch(function (error) {
             if (target) { target.close(); }
             var message = error && error.data && error.data.errors && error.data.errors.recipient ? error.data.errors.recipient[0] : errorText;

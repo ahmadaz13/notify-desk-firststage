@@ -75,11 +75,5 @@
     @endforelse
 </div>
 
-@if($notifications->hasPages())
-<div class="pagination">
-    @foreach($notifications->links()->elements[0] ?? [] as $page => $url)
-        <a class="{{ $page == $notifications->currentPage() ? 'active' : '' }}" href="{{ $url }}">{{ $page }}</a>
-    @endforeach
-</div>
-@endif
+{{ $notifications->links() }}
 @endsection

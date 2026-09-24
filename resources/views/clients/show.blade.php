@@ -55,16 +55,6 @@
 @include('clients.workspace.actions.record-payment', ['client' => $client, 'amountDue' => $amountDue, 'paymentMethodOptions' => $paymentMethodOptions])
 @include('clients.workspace.actions.start-subscription', ['client' => $client, 'sellableProducts' => $sellableProducts])
 
-{{-- Shared confirmation for destructive inline actions (replaces browser confirm()). --}}
-<div class="notify-modal-backdrop" id="modal-confirm" hidden>
-    <div class="notify-modal-card notify-action-sheet notify-action-sheet--compact" role="alertdialog" aria-modal="true" aria-labelledby="modal-confirm-text">
-        <p class="notify-confirm__text" id="modal-confirm-text" data-confirm-text></p>
-        <div class="notify-modal-footer">
-            <button type="button" class="notify-button notify-button--ghost" data-close-action-modal>{{ __('notify.client_hub.actions.cancel') }}</button>
-            <button type="button" class="notify-button notify-button--danger" data-confirm-accept>{{ __('notify.actions.confirm') }}</button>
-        </div>
-    </div>
-</div>
-
+{{-- Destructive inline actions use the shared confirmation dialog in the shell (P12). --}}
 @include('clients.workspace.workspace-scripts', ['openSheet' => $openSheet])
 @endsection

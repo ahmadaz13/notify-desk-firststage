@@ -26,65 +26,67 @@
         @endforeach
     </nav>
 
-    <form method="GET" action="{{ route('clients.index') }}" class="notify-client-search" role="search" x-data="{ filtersOpen: false }" @keydown.escape="filtersOpen = false">
+    @php
+        // Active filters as removable chips (P12); search keeps its own clear control.
+        $baseQuery = array_filter(['view' => $list->segment, 'q' => $filters['q'] ?: null, 'stage' => $filters['stage'] ?? null, 'category' => $filters['category'] ?? null, 'area' => $filters['area'] ?? null]);
+        $activeChips = [];
+        if (filled($filters['stage'] ?? null)) {
+            $activeChips[] = ['label' => __('notify.client_hub.list.stage').': '.($list->filterOptions['stages'][$filters['stage']] ?? $filters['stage']), 'remove' => route('clients.index', \Illuminate\Support\Arr::except($baseQuery, 'stage'))];
+        }
+        foreach (['category', 'area'] as $filterKey) {
+            if (filled($filters[$filterKey] ?? null)) {
+                $activeChips[] = ['label' => __('notify.client_hub.list.'.$filterKey).': '.$filters[$filterKey], 'remove' => route('clients.index', \Illuminate\Support\Arr::except($baseQuery, $filterKey))];
+            }
+        }
+    @endphp
+
+    <form method="GET" action="{{ route('clients.index') }}" class="notify-client-search" role="search" data-client-search>
         <input type="hidden" name="view" value="{{ $list->segment }}">
-        <label class="notify-visually-hidden" for="client-search">{{ __('notify.client_hub.list.search_label') }}</label>
-        <div class="notify-client-search__field">
-            <x-notify.icon name="search" :size="18" class="notify-client-search__icon" />
-            <input id="client-search" type="search" name="q" value="{{ $filters['q'] }}" placeholder="{{ __('notify.client_hub.list.search_placeholder') }}" autocomplete="off" enterkeyhint="search">
-        </div>
-        <button type="submit" class="notify-button notify-button--secondary notify-client-search__submit">{{ __('notify.client_hub.list.search_submit') }}</button>
-        <button type="button" class="notify-button notify-button--ghost notify-client-search__filters {{ $list->hasActiveFilters ? 'is-active' : '' }}" @click="filtersOpen = true" aria-haspopup="dialog" :aria-expanded="filtersOpen.toString()" aria-expanded="false" data-client-filters-open>
+        <x-notify.search id="client-search" :value="$filters['q']" :label="__('notify.client_hub.list.search_label')"
+            :placeholder="__('notify.client_hub.list.search_placeholder')"
+            :clear-href="route('clients.index', \Illuminate\Support\Arr::except($baseQuery, 'q'))" />
+        <button type="submit" class="notify-visually-hidden">{{ __('notify.client_hub.list.search_submit') }}</button>
+        <button type="button" class="notify-button notify-button--ghost notify-client-search__filters {{ $list->hasActiveFilters ? 'is-active' : '' }}" data-open-sheet="client-filters" aria-haspopup="dialog" data-client-filters-open>
             <x-notify.icon name="settings" :size="18" />
             <span>{{ __('notify.client_hub.list.filters') }}</span>
-            @if($list->hasActiveFilters)<span class="notify-count-badge" aria-hidden="true">•</span>@endif
+            @if($activeChips !== [])<span class="notify-count-badge" dir="ltr">{{ count($activeChips) }}</span>@endif
         </button>
 
-        <div class="notify-sheet" x-show="filtersOpen" x-cloak x-transition.opacity.duration.120ms role="dialog" aria-modal="true" aria-labelledby="client-filters-title" data-client-filters>
-            <button type="button" class="notify-sheet__backdrop" @click="filtersOpen = false" tabindex="-1" aria-label="{{ __('notify.client_hub.actions.cancel') }}"></button>
-            <div class="notify-sheet__panel">
-                <header class="notify-sheet__header">
-                    <h2 id="client-filters-title">{{ __('notify.client_hub.list.filters_title') }}</h2>
-                    <button type="button" class="notify-icon-button" @click="filtersOpen = false" aria-label="{{ __('notify.client_hub.actions.cancel') }}"><x-notify.icon name="x" /></button>
-                </header>
-                <div class="notify-sheet__body">
-                    @if($list->filterOptions['stages'] !== [])
-                        <label class="notify-field">
-                            <span>{{ __('notify.client_hub.list.stage') }}</span>
-                            <select name="stage">
-                                <option value="">{{ __('notify.client_hub.list.any') }}</option>
-                                @foreach($list->filterOptions['stages'] as $value => $label)
-                                    <option value="{{ $value }}" @selected($filters['stage'] === $value)>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </label>
-                    @endif
-                    <label class="notify-field">
-                        <span>{{ __('notify.client_hub.list.category') }}</span>
-                        <select name="category">
-                            <option value="">{{ __('notify.client_hub.list.any') }}</option>
-                            @foreach($list->filterOptions['categories'] as $category)
-                                <option value="{{ $category }}" @selected($filters['category'] === $category)>{{ $category }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                    <label class="notify-field">
-                        <span>{{ __('notify.client_hub.list.area') }}</span>
-                        <select name="area">
-                            <option value="">{{ __('notify.client_hub.list.any') }}</option>
-                            @foreach($list->filterOptions['areas'] as $area)
-                                <option value="{{ $area }}" @selected($filters['area'] === $area)>{{ $area }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                </div>
-                <footer class="notify-sheet__footer">
-                    <a class="notify-button notify-button--ghost" href="{{ route('clients.index', ['view' => $list->segment]) }}">{{ __('notify.client_hub.list.clear') }}</a>
-                    <button type="submit" class="notify-button notify-button--primary">{{ __('notify.client_hub.list.apply') }}</button>
-                </footer>
-            </div>
-        </div>
+        <x-notify.sheet id="client-filters" size="sm" :title="__('notify.client_hub.list.filters_title')" data-client-filters>
+            @if($list->filterOptions['stages'] !== [])
+                <x-notify.form-field :label="__('notify.client_hub.list.stage')" for="client-filter-stage">
+                    <select id="client-filter-stage" class="notify-input" name="stage">
+                        <option value="">{{ __('notify.client_hub.list.any') }}</option>
+                        @foreach($list->filterOptions['stages'] as $value => $label)
+                            <option value="{{ $value }}" @selected($filters['stage'] === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </x-notify.form-field>
+            @endif
+            <x-notify.form-field :label="__('notify.client_hub.list.category')" for="client-filter-category">
+                <select id="client-filter-category" class="notify-input" name="category">
+                    <option value="">{{ __('notify.client_hub.list.any') }}</option>
+                    @foreach($list->filterOptions['categories'] as $category)
+                        <option value="{{ $category }}" @selected($filters['category'] === $category)>{{ $category }}</option>
+                    @endforeach
+                </select>
+            </x-notify.form-field>
+            <x-notify.form-field :label="__('notify.client_hub.list.area')" for="client-filter-area">
+                <select id="client-filter-area" class="notify-input" name="area">
+                    <option value="">{{ __('notify.client_hub.list.any') }}</option>
+                    @foreach($list->filterOptions['areas'] as $area)
+                        <option value="{{ $area }}" @selected($filters['area'] === $area)>{{ $area }}</option>
+                    @endforeach
+                </select>
+            </x-notify.form-field>
+            <x-slot:footer>
+                <a class="notify-button notify-button--ghost" href="{{ route('clients.index', ['view' => $list->segment]) }}" data-filters-reset>{{ __('notify.client_hub.list.clear') }}</a>
+                <button type="submit" class="notify-button notify-button--primary">{{ __('notify.client_hub.list.apply') }}</button>
+            </x-slot:footer>
+        </x-notify.sheet>
     </form>
+
+    <x-notify.filter-chips :filters="$activeChips" :reset-href="route('clients.index', ['view' => $list->segment])" />
 
     @if($isFiltered)
         <p class="notify-client-results" role="status">
@@ -151,17 +153,7 @@
             @endforeach
         </div>
 
-        @if($list->clients->hasPages())
-            <nav class="notify-client-pagination" aria-label="{{ __('notify.client_hub.list.results', ['count' => $list->clients->total()]) }}">
-                @if($list->clients->previousPageUrl())
-                    <a class="notify-button notify-button--ghost" href="{{ $list->clients->previousPageUrl() }}" rel="prev"><x-notify.icon name="chevron-left" class="notify-icon--directional" /><span>{{ __('notify.client_hub.list.previous') }}</span></a>
-                @endif
-                <span class="notify-client-pagination__status" dir="ltr">{{ $list->clients->currentPage() }} / {{ $list->clients->lastPage() }}</span>
-                @if($list->clients->nextPageUrl())
-                    <a class="notify-button notify-button--ghost" href="{{ $list->clients->nextPageUrl() }}" rel="next"><span>{{ __('notify.client_hub.list.next_page') }}</span><x-notify.icon name="chevron-right" class="notify-icon--directional" /></a>
-                @endif
-            </nav>
-        @endif
+        {{ $list->clients->links() }}
     @endif
 </div>
 @endsection

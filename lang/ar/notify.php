@@ -340,6 +340,7 @@ return array (
     'wrong_notice_desc' => 'سيتم فتح مراجعة لتصحيح بيانات العميل وسيبقى ملف العميل نشطاً.',
     'close_notice_title' => 'تحذير إغلاق الملف',
     'close_notice_desc' => 'سيتم حفظ كافة بيانات العميل والاشتراكات والسجلات المالية دون حذف أي تاريخ سابق.',
+    'reopen_notes_placeholder' => 'سبب إعادة فتح الملف…',
     'outcomes' =>
     array (
       'no_answer' => 'تعذر الرد / مشغول',
@@ -378,6 +379,7 @@ return array (
       'notes' => 'ملاحظات',
       'notes_placeholder' => 'أي تفاصيل تشغيلية مهمة...',
       'select_reason' => 'اختر سبب الإغلاق',
+      'target_stage' => 'المرحلة بعد إعادة الفتح',
       'close_reason_code' => 'سبب الإغلاق',
       'close_notes_placeholder' => 'تفاصيل إضافية حول سبب إغلاق الحساب...',
     ),
@@ -1473,6 +1475,33 @@ return array (
     'open' => 'كتابة ملاحظة',
     'has_content' => 'لديك ملاحظات لليوم',
   ),
+  'ui' =>
+  array (
+    'close' => 'إغلاق',
+    'cancel' => 'إلغاء',
+    'confirm' => 'تأكيد',
+    'confirm_title' => 'هل أنت متأكد؟',
+    'fix_errors' => 'تعذّر الحفظ. راجع الحقول المشار إليها.',
+    'required' => 'مطلوب',
+    'optional' => 'اختياري',
+    'more_actions' => 'المزيد',
+    'working' => 'جارٍ الحفظ…',
+    'search' => 'بحث',
+    'clear_search' => 'مسح البحث',
+    'filters' => 'التصفية',
+    'apply_filters' => 'عرض النتائج',
+    'clear_filters' => 'مسح التصفية',
+    'active_filters' => 'التصفية الحالية',
+    'remove_filter' => 'إزالة :filter',
+    'pagination' => 'الصفحات',
+    'previous' => 'السابق',
+    'next' => 'التالي',
+    'page_of' => 'صفحة :current من :last',
+    'go_to_page' => 'الصفحة :page',
+    'reenter_secret' => 'لأسباب أمنية لا نعيد عرض كلمة المرور. أدخلها مرة أخرى.',
+    'reason' => 'السبب',
+    'reason_hint' => 'يُحفظ في السجل.',
+  ),
   'today_board' =>
   array (
     'title' => 'اليوم',
@@ -2074,6 +2103,17 @@ return array (
     'collections' =>
     array (
       'subtitle' => 'أكّد استلامات الموظفين، وتابع المستحق على العملاء، وراجع الدفعات.',
+      'columns' =>
+      array (
+        'client' => 'العميل',
+        'amount' => 'المبلغ',
+        'details' => 'التفاصيل',
+        'status' => 'الحالة',
+        'due' => 'الاستحقاق',
+        'actions' => 'الإجراءات',
+      ),
+      'reject_title' => 'رفض الاستلام',
+      'reject_hint' => 'لن يُسجَّل أي أثر مالي، وسيظهر السبب للموظف.',
       'tabs' =>
       array (
         'pending' => 'بانتظار التأكيد',
@@ -2114,6 +2154,13 @@ return array (
       'movements_title' => 'الحركات · :account',
       'opening_balance' => 'الرصيد في بداية الفترة',
       'running' => 'الرصيد',
+      'columns' =>
+      array (
+        'movement' => 'الحركة',
+        'date' => 'التاريخ',
+        'amount' => 'المبلغ',
+        'balance' => 'الرصيد بعدها',
+      ),
       'empty_movements' => 'لا توجد حركات في هذه الفترة.',
       'transfer_title' => 'تحويل داخلي بين الحسابات',
       'transfer_hint' => 'التحويل الداخلي ليس إيراداً ولا مصروفاً.',

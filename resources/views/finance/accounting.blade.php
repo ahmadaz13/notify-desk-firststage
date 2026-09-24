@@ -191,7 +191,7 @@
                             <details class="notify-fin-more">
                                 <summary>{{ $accountingPeriod->status === 'open' ? __('notify.finance_hub.accounting.close_period') : __('notify.finance_hub.accounting.reopen_period') }}</summary>
                                 @if($accountingPeriod->status === 'open')
-                                    <form method="POST" action="{{ route('accounting.periods.close', $accountingPeriod) }}" class="notify-fin-inline-form" onsubmit="return confirm(@js(__('notify.finance_hub.accounting.close_confirm')))">
+                                    <form method="POST" action="{{ route('accounting.periods.close', $accountingPeriod) }}" class="notify-fin-inline-form" data-confirm="{{ __('notify.finance_hub.accounting.close_confirm') }}" data-confirm-label="{{ __('notify.finance_hub.accounting.close_period') }}">
                                         @csrf
                                         <label for="period-notes-{{ $accountingPeriod->id }}">{{ __('notify.common.notes') }}</label>
                                         <input id="period-notes-{{ $accountingPeriod->id }}" name="notes" maxlength="1000">
@@ -266,7 +266,7 @@
                         </div>
                         <div class="notify-fin-tool__actions">
                             <button type="submit" name="dry_run" value="1" class="notify-button notify-button--soft">{{ __('notify.finance_hub.accounting.preview') }}</button>
-                            <button type="submit" name="dry_run" value="0" class="notify-button notify-button--ghost" onclick="return confirm(@js(__('notify.finance_hub.accounting.run_confirm')))">{{ __('notify.finance_hub.accounting.run') }}</button>
+                            <button type="submit" name="dry_run" value="0" class="notify-button notify-button--ghost" data-confirm="{{ __('notify.finance_hub.accounting.run_confirm') }}" data-confirm-tone="primary" data-confirm-label="{{ __('notify.finance_hub.accounting.run') }}">{{ __('notify.finance_hub.accounting.run') }}</button>
                         </div>
                     </form>
                 @endforeach

@@ -125,6 +125,13 @@ class BrowserSmokeSeeder extends Seeder
             'reason' => 'متابعة عرض الأسعار',
         ]);
 
+        // A second overdue follow-up: the P12 interaction review completes one, the Today review needs one left.
+        $press = $this->client('مطبعة الأمل', 'مطبعة', 'ماركا', '0795550606');
+        $workflow->scheduleFollowUp($press, $staff, [
+            'follow_up_date_time' => $now->copy()->subDay()->setTime(15, 0)->toDateTimeString(),
+            'reason' => 'متابعة طلب الطباعة',
+        ]);
+
         $sweets = $this->client('حلويات الشام', 'حلويات', 'الصويفية', '0795550303');
         $next = $sameDay($now->copy()->addMinutes(40));
         $soon = Appointment::create([

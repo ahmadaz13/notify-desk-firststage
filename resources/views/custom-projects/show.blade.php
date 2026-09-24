@@ -74,7 +74,7 @@
             @endforeach
         </div>
         @if(!$project->archived_at && $project->isCancelled())
-            <form method="POST" action="{{ route('custom-projects.archive', $project) }}" onsubmit="return confirm(@js(__('custom_projects.archive_confirm')))" style="margin-block:12px">
+            <form method="POST" action="{{ route('custom-projects.archive', $project) }}" class="notify-form-actions" data-confirm="{{ __('custom_projects.archive_confirm') }}" data-confirm-label="{{ __('custom_projects.archive') }}">
                 @csrf
                 <button type="submit" class="p5-btn p5-btn-ghost">{{ __('custom_projects.archive') }}</button>
             </form>

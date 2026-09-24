@@ -91,16 +91,21 @@
                             @if($transaction->reversal)
                                 <span class="notify-fin-chip notify-fin-chip--danger">{{ __('notify.finance_hub.accounts.reversed') }}</span>
                             @else
-                                <details class="notify-fin-more">
-                                    <summary>{{ __('notify.finance_hub.accounts.reverse') }}</summary>
-                                    <form method="POST" action="{{ route('capital-funding-transactions.reverse', $transaction) }}" class="notify-fin-inline-form">
-                                        @csrf
-                                        <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-                                        <label for="capital-reverse-{{ $transaction->id }}">{{ __('notify.finance_hub.accounts.reverse_reason') }}</label>
-                                        <input id="capital-reverse-{{ $transaction->id }}" name="reason" required minlength="3" maxlength="1000">
-                                        <button type="submit" class="notify-button notify-button--ghost">{{ __('notify.finance_hub.accounts.reverse') }}</button>
-                                    </form>
-                                </details>
+                                <x-notify.menu>
+                                    <x-slot:danger>
+                                        <button type="button" class="notify-menu__item notify-menu__item--danger" role="menuitem" data-open-sheet="reverse-capital-{{ $transaction->id }}" aria-haspopup="dialog">
+                                            <x-notify.icon name="x" :size="18" /><span>{{ __('notify.finance_hub.accounts.reverse') }}</span>
+                                        </button>
+                                    </x-slot:danger>
+                                </x-notify.menu>
+                                @include('finance.partials.reverse-sheet', [
+                                    'sheetId' => 'reverse-capital-'.$transaction->id,
+                                    'title' => __('notify.finance_hub.accounts.reverse'),
+                                    'subtitle' => $transaction->source_name_snapshot,
+                                    'action' => route('capital-funding-transactions.reverse', $transaction),
+                                    'label' => __('notify.finance_hub.accounts.reverse_reason'),
+                                    'minlength' => 3,
+                                ])
                             @endif
                         </article>
                     @empty
