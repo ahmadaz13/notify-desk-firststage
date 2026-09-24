@@ -6,7 +6,6 @@
     <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-close-client-title">
         <div class="notify-modal-header">
             <div>
-                <span class="notify-eyebrow">DAILY_CLOSE_01</span>
                 <h3 id="modal-close-client-title">{{ __('notify.client_workspace.close_client') }}</h3>
             </div>
             <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.client_workspace.cancel') }}">×</button>

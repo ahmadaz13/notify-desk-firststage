@@ -53,9 +53,13 @@ class Phase7CustomProjectsTest extends TestCase
         $this->actingAs($admin)->get(route('custom-projects.index'))->assertOk()->assertSee('Custom Projects');
         $this->actingAs($admin)->get(route('custom-projects.create', ['client_id' => $client->id]))->assertOk()->assertSee('New project');
         $this->actingAs($admin)->get(route('custom-projects.edit', $project))->assertOk()->assertSee('Edit project');
-        $this->actingAs($admin)->get(route('clients.show', $client))->assertOk()->assertSee('Website');
-        $this->actingAs($admin)->get(route('clients.show', ['client' => $client->id, 'finance_advanced' => 1]))
-            ->assertOk()->assertSee('sec-record-payment');
+        // P10 (D-14, §19): no embedded projects card; the client header links to the client's projects.
+        $this->actingAs($admin)->get(route('clients.show', $client))->assertOk()
+            ->assertSee('data-client-custom-projects', false)
+            ->assertSee(route('clients.custom-projects.index', $client), false)
+            ->assertDontSee(route('custom-projects.create', ['client_id' => $client->id]), false);
+        $this->actingAs($admin)->get(route('clients.custom-projects.index', $client))->assertOk()->assertSee('Website');
+        $this->actingAs($admin)->get(route('clients.show', $client))->assertOk()->assertSee('id="modal-record-payment"', false);
         $this->actingAs($admin)->put(route('custom-projects.update', $project), [
             'name' => 'Website',
             'agreed_value_jod' => $project->agreedValueFormatted(),

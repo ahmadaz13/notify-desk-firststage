@@ -15,11 +15,15 @@ class EmptyStatesTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin']);
 
+        // P10 (§33): each segment has its own empty state; Owners land on Subscribers.
         $response = $this->actingAs($admin)->get(route('clients.index'));
 
         $response->assertOk();
-        $response->assertSee('لا يوجد عملاء بعد');
-        $response->assertSee('+ إضافة عميل');
+        $response->assertSee('لا يوجد مشتركون فعّالون');
+
+        $prospects = $this->actingAs($admin)->get(route('clients.index', ['view' => 'prospects']));
+        $prospects->assertSee('لا يوجد عملاء محتملون بعد');
+        $prospects->assertSee(route('clients.create'), false);
     }
 
     public function test_empty_dashboard_appointments_shows_helpful_message(): void

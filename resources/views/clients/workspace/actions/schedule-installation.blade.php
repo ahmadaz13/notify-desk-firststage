@@ -7,7 +7,6 @@
     <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-schedule-installation-title">
         <div class="notify-modal-header">
             <div>
-                <span class="notify-eyebrow">DAILY_SCHEDULE_INSTALL_01</span>
                 <h3 id="modal-schedule-installation-title">{{ __('notify.client_workspace.action_schedule_installation') }}</h3>
                 <small style="color:var(--nd-muted)">{{ $client->business_name }} · {{ $client->city_area }}</small>
             </div>

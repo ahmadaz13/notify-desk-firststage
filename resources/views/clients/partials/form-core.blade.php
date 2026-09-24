@@ -127,7 +127,7 @@
     </section>
 
     @php $contactFields = ['contact_name', 'contact_role', 'contact_phone', 'contact_whatsapp', 'contact_email']; @endphp
-    <details class="notify-details notify-client-form__section" data-client-contact-section @if($errors->hasAny($contactFields) || $primary || filled($client?->contact_person)) open @endif>
+    <details id="contact" class="notify-details notify-client-form__section" data-client-contact-section x-data x-init="if (window.location.hash === '#contact') { $el.open = true; }" @if($errors->hasAny($contactFields) || $primary || filled($client?->contact_person)) open @endif>
         <summary>
             <span>{{ __('notify.clients.contact_model.contact_section') }} <span class="notify-label-note">({{ __('notify.common.optional') }})</span></span>
             <small>{{ __('notify.clients.contact_model.contact_section_meta') }}</small>

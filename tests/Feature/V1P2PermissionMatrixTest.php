@@ -165,7 +165,8 @@ class V1P2PermissionMatrixTest extends TestCase
         $this->actingAs($this->staff)
             ->get(route('clients.show', $client))
             ->assertOk()
-            ->assertSee('data-trigger-start-subscription', false)
+            // P10: workspace actions open their sheet via data-open-sheet.
+            ->assertSee('data-open-sheet="modal-start-subscription"', false)
             ->assertSee(route('clients.guided-subscription.store', $client), false);
     }
 

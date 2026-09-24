@@ -4,27 +4,30 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\Client;
+use App\Models\ClientReviewItem;
+use App\Models\ContactAttempt;
+use App\Models\Contract;
 use App\Models\CustomProject;
-use App\Models\Installation;
 use App\Models\Invoice;
-use App\Models\JournalEntry;
+use App\Models\Payment;
+use App\Models\PaymentReceiptConfirmation;
 use App\Models\Product;
+use App\Models\Service;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\ClientCredentialService;
+use App\Services\ClientOperationalWorkflowService;
 use App\Services\ClientPrimaryContactService;
 use App\Services\ReceivableService;
 use App\Services\ReferenceDataService;
-use App\Services\ClientOperationalWorkflowService;
-use App\Services\OperationalQueueService;
-use App\Services\PaymentScheduleService;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
-use App\Support\Permissions;
+use App\Support\ClientSegments;
+use App\Support\Money;
 use App\Support\PaymentMethods;
+use App\Support\Permissions;
 use App\ViewModels\ClientListViewModel;
 use App\ViewModels\ClientWorkspaceViewModel;
-use App\ViewModels\ContactOutcomeViewModel;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -37,13 +40,32 @@ class ClientController extends Controller
     /** Category select value for "Other" -> free text stored as typed (§15.1). */
     public const OTHER_CATEGORY = '__other__';
 
-    public function index(Request $request, ?OperationalQueueService $operationalQueues = null): View
+    public function index(Request $request, ReceivableService $receivables): View
     {
         Gate::authorize('viewAny', Client::class);
-        $operationalQueues ??= app(OperationalQueueService::class);
+        $user = $request->user();
 
-        $queryBuilder = Client::query()
-            ->with(['contacts', 'primaryContact', 'primaryOwner'])
+        // Segment (§5): explicit ?view= wins and is remembered for the session; otherwise the role default (D-03).
+        $requested = $request->query('view');
+        if (ClientSegments::isValid($requested)) {
+            $request->session()->put('clients.view', $requested);
+            $segment = $requested;
+        } else {
+            $remembered = $request->session()->get('clients.view');
+            $segment = ClientSegments::isValid($remembered) ? $remembered : ClientSegments::defaultFor($user);
+        }
+
+        $filters = [
+            'view' => $segment,
+            'q' => trim((string) $request->query('q', '')),
+            'category' => trim((string) $request->query('category', '')),
+            'area' => trim((string) $request->query('area', '')),
+            'stage' => $segment === ClientSegments::PROSPECTS && in_array($request->query('stage'), ClientSegments::PROSPECT_STAGES, true)
+                ? (string) $request->query('stage')
+                : '',
+        ];
+
+        $query = Client::query()
             ->select('clients.*')
             ->selectSub(
                 DB::table('activity_logs')
@@ -52,46 +74,64 @@ class ClientController extends Controller
                 'last_activity_at'
             );
 
-        $search = trim((string) $request->get('q'));
-        $query = $search;
-        $status = $request->get('status', 'all');
-
-        if ($search !== '') {
-            $queryBuilder->where(function ($inner) use ($search) {
-                $inner->where('business_name', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%")
-                    ->orWhere('business_phone', 'like', "%{$search}%")
-                    ->orWhere('city_area', 'like', "%{$search}%");
-            });
+        if (($stages = ClientSegments::stages($segment)) !== null) {
+            $query->whereIn('stage', $filters['stage'] !== '' ? [$filters['stage']] : $stages);
         }
 
-        if ($status !== 'all') {
-            $queryBuilder->where(function ($inner) use ($status) {
-                if ($status === 'archived') {
-                    $inner->where('stage', ClientLifecycle::CLOSED)->orWhere('status', 'archived');
-                    return;
-                }
-
-                $inner->where('stage', $status);
-                if (in_array($status, ['prospect', 'subscriber'], true)) {
-                    $inner->orWhere('status', $status);
+        if ($filters['q'] !== '') {
+            $term = '%'.$filters['q'].'%';
+            $digits = preg_replace('/\D/', '', $filters['q']);
+            $query->where(function ($inner) use ($term, $digits) {
+                $inner->where('business_name', 'like', $term)
+                    ->orWhere('phone', 'like', $term)
+                    ->orWhere('business_phone', 'like', $term)
+                    ->orWhere('city_area', 'like', $term)
+                    ->orWhereHas('contacts', fn ($contacts) => $contacts
+                        ->where('name', 'like', $term)
+                        ->orWhere('primary_phone', 'like', $term)
+                        ->orWhere('whatsapp_number', 'like', $term));
+                // Phone numbers are stored with spaces; also match the typed digits without them.
+                if (strlen($digits) >= 4) {
+                    $inner->orWhereRaw("REPLACE(REPLACE(phone, ' ', ''), '-', '') LIKE ?", ['%'.$digits.'%'])
+                        ->orWhereRaw("REPLACE(REPLACE(business_phone, ' ', ''), '-', '') LIKE ?", ['%'.$digits.'%']);
                 }
             });
         }
 
-        $clients = $queryBuilder->orderByDesc('updated_at')->paginate(10)->withQueryString();
+        if ($filters['category'] !== '') {
+            $query->where('business_category', $filters['category']);
+        }
+        if ($filters['area'] !== '') {
+            $query->where('city_area', $filters['area']);
+        }
 
-        $lifecycleStages = ClientLifecycle::STAGES;
-        $lifecycleLabels = ClientLifecycle::labels();
-        $clientListViewModel = ClientListViewModel::make(
-            $clients,
-            ['q' => $query, 'status' => $status],
-            $lifecycleStages,
-            $lifecycleLabels,
-            $operationalQueues
-        );
+        $query->when(
+            $segment === ClientSegments::CLOSED,
+            fn ($closed) => $closed->orderByDesc('closed_at'),
+            fn ($open) => $open->orderByDesc('last_activity_at'),
+        )->orderByDesc('clients.id');
 
-        return view('clients.index', compact('clients', 'search', 'query', 'status', 'lifecycleStages', 'lifecycleLabels', 'clientListViewModel'));
+        $clients = $query->paginate(15)->withQueryString();
+
+        $stageCounts = Client::query()->select('stage', DB::raw('COUNT(*) as total'))->groupBy('stage')->pluck('total', 'stage');
+        $segmentCounts = collect(ClientSegments::SEGMENTS)
+            ->reject(fn (string $key) => $key === ClientSegments::ALL)
+            ->mapWithKeys(fn (string $key) => [$key => (int) $stageCounts->only(ClientSegments::stages($key))->sum()])
+            ->all();
+
+        $filterOptions = [
+            'categories' => Client::query()->whereNotNull('business_category')->where('business_category', '!=', '')
+                ->distinct()->orderBy('business_category')->limit(60)->pluck('business_category')->all(),
+            'areas' => Client::query()->whereNotNull('city_area')->where('city_area', '!=', '')
+                ->distinct()->orderBy('city_area')->limit(60)->pluck('city_area')->all(),
+            'stages' => $segment === ClientSegments::PROSPECTS
+                ? collect(ClientSegments::PROSPECT_STAGES)->mapWithKeys(fn (string $stage) => [$stage => __('notify.clients.stages.'.$stage)])->all()
+                : [],
+        ];
+
+        $list = ClientListViewModel::make($clients, $segment, $segmentCounts, $filters, $filterOptions, $user, $receivables);
+
+        return view('clients.index', ['list' => $list]);
     }
 
     public function create(): View
@@ -135,112 +175,72 @@ class ClientController extends Controller
         return redirect()->route('clients.show', $client->id)->with('success', __('notify.clients.created_successfully'));
     }
 
-    public function show(
-        int $id,
-        ReceivableService $receivableService,
-        OperationalQueueService $operationalQueues,
-        PaymentScheduleService $paymentScheduleService
-    ): View
+    public function show(Request $request, int $id, ReceivableService $receivableService, ClientCredentialService $credentialService): View
     {
-        $clientModel = Client::findOrFail($id);
-        Gate::authorize('view', $clientModel);
+        $client = Client::findOrFail($id);
+        Gate::authorize('view', $client);
+        $user = $request->user();
 
-        $client = $clientModel;
-        $customProjects = CustomProject::where('client_id', $client->id)->orderByDesc('created_at')->get();
-        $client->load(['contacts', 'primaryContact', 'systems']);
-        $timeline = DB::table('activity_logs')->where('client_id', $client->id)->orderByDesc('created_at')->get();
-        $appointments = Appointment::where('client_id', $client->id)->with('users')->orderByDesc('appointment_date')->orderByDesc('appointment_time')->get();
-        $payments = \App\Models\Payment::with(['reversal', 'allocations.invoice', 'allocations.reversal'])
+        // High-value summaries only (§19, P10): no allocation/journal/credit-note engine data is loaded here.
+        $client->load(['contacts', 'primaryOwner', 'systems', 'reviewItems' => fn ($items) => $items->where('status', ClientReviewItem::STATUS_PENDING)]);
+
+        $subscriptions = Subscription::query()
+            ->with(['systems', 'plan.product'])
             ->where('client_id', $client->id)
-            ->orderByDesc('paid_at')
-            ->orderByDesc('id')
-            ->get();
-        $creditNotes = \App\Models\CreditNote::with(['originalInvoice', 'lines', 'applications.invoice', 'applications.reversal', 'refunds'])
-            ->where('client_id', $client->id)
-            ->orderByDesc('issue_date')
-            ->orderByDesc('id')
-            ->get();
-        $refunds = \App\Models\Refund::with(['payment', 'creditNote'])
-            ->where('client_id', $client->id)
-            ->orderByDesc('refunded_at')
-            ->orderByDesc('id')
-            ->get();
-        $offers = DB::table('commercial_offers')->where('client_id', $client->id)->orderByDesc('offer_date')->get();
-        $subscriptions = Subscription::with([
-            'plan.product',
-            'plan.services',
-            'billingPeriods.invoice',
-            'lifecycleEvents',
-            'pendingPlanPrice.plan',
-            'contracts',
-            'contract',
-            'systems',
-            'invoices',
-        ])
-            ->where('client_id', $client->id)
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
             ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->get();
-        $installmentScheduleProjections = $subscriptions
-            ->mapWithKeys(fn (Subscription $subscription) => [
-                $subscription->id => $paymentScheduleService->annualInstallmentProjection($subscription),
-            ])
-            ->filter();
-        $invoices = Invoice::with('lines')
+
+        $appointments = Appointment::query()
+            ->with('users')
             ->where('client_id', $client->id)
-            ->orderByDesc('issue_date')
-            ->orderByDesc('id')
-            ->get();
-        $invoiceReceivables = $receivableService->invoiceProjections($invoices);
-        $paymentReceivables = $receivableService->paymentProjections($payments);
-        $creditNoteReceivables = $receivableService->creditNoteProjections($creditNotes);
-        $availableCustomerCredits = $receivableService->availableCustomerCredits(['client_id' => $client->id]);
-        $receivableSummary = $receivableService->clientSummary($client);
-        $followUps = DB::table('follow_ups')->where('client_id', $client->id)->orderByDesc('next_follow_up_date')->get();
-        $outcomes = DB::table('meeting_outcomes')->where('client_id', $client->id)->orderByDesc('created_at')->get();
-        $schedules = DB::table('payment_schedules')
-            ->join('subscriptions', 'subscriptions.id', '=', 'payment_schedules.subscription_id')
-            ->where('subscriptions.client_id', $client->id)
-            ->whereNull('payment_schedules.schedule_engine_version')
-            ->select('payment_schedules.*')
-            ->orderBy('payment_schedules.due_date')
-            ->get();
-        $teamUsers = User::query()
-            ->where('is_active', true)
-            ->where(function ($query) {
-                $query->whereNull('role')
-                    ->orWhereIn('role', User::activeInternalRoles());
-            })
-            ->orderBy('name')
-            ->get();
-        $catalogServices = \App\Models\Service::active()->get();
-        $contracts = \App\Models\Contract::where('client_id', $client->id)->orderByDesc('id')->get();
-        $contactAttempts = \App\Models\ContactAttempt::where('client_id', $client->id)->orderByDesc('created_at')->get();
-        $installations = Installation::with(['items', 'installedBy', 'appointment'])
-            ->where('client_id', $client->id)
-            ->orderByDesc('installed_at')
-            ->get();
-        $installationAppointments = $appointments
-            ->where('appointment_type', AppointmentTypes::INSTALLATION)
-            ->values();
-        $activeInstallationAppointments = $installationAppointments
             ->whereIn('status', AppointmentTypes::activeStatuses())
-            ->values();
-        $appointmentTypeLabels = AppointmentTypes::labels();
-        $lifecycleStages = ClientLifecycle::STAGES;
-        $lifecycleLabels = ClientLifecycle::labels();
-        $contactOutcomes = ClientLifecycle::CONTACT_OUTCOMES;
-        $paymentMethodOptions = PaymentMethods::v1Labels();
-        $pendingPaymentReceipts = \App\Models\PaymentReceiptConfirmation::with('submitter:id,name')
+            ->orderBy('appointment_date')
+            ->orderBy('appointment_time')
+            ->get();
+
+        $followUp = DB::table('follow_ups')
+            ->where('client_id', $client->id)
+            ->whereNull('completed_at')
+            ->orderBy('follow_up_date_time')
+            ->first();
+
+        $invoices = Invoice::query()->where('client_id', $client->id)->get();
+        $projections = $receivableService->invoiceProjections($invoices);
+        $summary = $receivableService->clientSummary($client);
+        $receivable = [
+            'due_minor' => (int) $summary['total_outstanding_minor'],
+            'overdue_minor' => (int) $summary['overdue_outstanding_minor'],
+            'credit_minor' => (int) $summary['total_customer_credit_minor'],
+            'next_due_date' => $invoices
+                ->filter(fn (Invoice $invoice) => ($projections[$invoice->id]['outstanding_minor'] ?? 0) > 0)
+                ->pluck('due_date')->filter()->sort()->first(),
+        ];
+
+        $latestPayment = Payment::query()
+            ->where('client_id', $client->id)
+            ->whereDoesntHave('reversal')
+            ->orderByDesc('paid_at')
+            ->orderByDesc('id')
+            ->first();
+
+        $pendingReceipts = PaymentReceiptConfirmation::with('submitter:id,name')
             ->where('client_id', $client->id)
             ->pending()
             ->orderByDesc('received_at')
             ->get();
-        $activeFinancialAccounts = \App\Models\FinancialAccount::where('is_active', true)
-            ->whereNull('archived_at')
-            ->orderBy('name_ar')
-            ->get();
-        $credentialService = app(ClientCredentialService::class);
+
+        $showAllActivity = $request->query('activity') === 'all';
+        $activityLimit = $showAllActivity ? 200 : 10;
+        $activity = DB::table('activity_logs')
+            ->leftJoin('users', 'users.id', '=', 'activity_logs.user_id')
+            ->where('activity_logs.client_id', $client->id)
+            ->orderByDesc('activity_logs.created_at')
+            ->orderByDesc('activity_logs.id')
+            ->limit($activityLimit + 1)
+            ->get(['activity_logs.type', 'activity_logs.description', 'activity_logs.created_at', 'users.name as actor_name']);
+
         $credentialSystems = $credentialService->applicableSystems($client);
         $credentialPanel = [
             'systems' => $credentialSystems,
@@ -248,63 +248,55 @@ class ClientController extends Controller
             'credentials' => $client->credentials()->get()->keyBy('product_id'),
             'addable' => $credentialService->addableSystems($client)->whereNotIn('id', $credentialSystems->pluck('id')),
             'recipient' => $credentialService->defaultRecipient($client),
-            'can_manage' => Permissions::allows(auth()->user(), Permissions::MANAGE_CLIENT_CREDENTIALS),
-            'can_reveal' => Permissions::allows(auth()->user(), Permissions::REVEAL_CLIENT_CREDENTIALS),
+            'can_manage' => Permissions::allows($user, Permissions::MANAGE_CLIENT_CREDENTIALS),
+            'can_reveal' => Permissions::allows($user, Permissions::REVEAL_CLIENT_CREDENTIALS),
         ];
+
         $sellableProducts = Product::sellable()->orderBy('name_ar')->get();
-        $sellablePlans = collect();
-        $accountingTrace = collect();
-        if (Gate::allows(Permissions::VIEW_ACCOUNTING)) {
-            $sourcePairs = [
-                Invoice::class => $invoices->pluck('id')->all(),
-                \App\Models\PaymentAllocation::class => $payments->flatMap->allocations->pluck('id')->all(),
-                \App\Models\PaymentAllocationReversal::class => $payments->flatMap->allocations->pluck('reversal.id')->filter()->all(),
-                \App\Models\CreditNote::class => $creditNotes->pluck('id')->all(),
-                \App\Models\CreditNoteApplication::class => $creditNotes->flatMap->applications->pluck('id')->all(),
-                \App\Models\CreditNoteApplicationReversal::class => $creditNotes->flatMap->applications->pluck('reversal.id')->filter()->all(),
-                \App\Models\Refund::class => $refunds->pluck('id')->all(),
-            ];
-            $accountingTrace = collect($sourcePairs)
-                ->flatMap(function (array $ids, string $type) {
-                    if ($ids === []) {
-                        return collect();
-                    }
+        $contracts = Contract::query()->where('client_id', $client->id)->orderByDesc('id')->get();
 
-                    return JournalEntry::query()
-                        ->where('source_type', $type)
-                        ->whereIn('source_id', $ids)
-                        ->orderBy('entry_date')
-                        ->orderBy('id')
-                        ->get()
-                        ->map(fn (JournalEntry $entry) => [
-                            'entry' => $entry,
-                            'source_label' => class_basename($type).' #'.$entry->source_id,
-                        ]);
-                })
-                ->values();
-        }
+        $workspace = ClientWorkspaceViewModel::make($client, $user, [
+            'subscriptions' => $subscriptions,
+            'appointments' => $appointments,
+            'followUp' => $followUp,
+            'receivable' => $receivable,
+            'latestPayment' => $latestPayment,
+            'pendingReceipts' => $pendingReceipts,
+            'contracts' => $contracts,
+            'contactAttempts' => ContactAttempt::where('client_id', $client->id)->count(),
+            'activity' => $activity->take($activityLimit),
+            'activityHasMore' => $activity->count() > $activityLimit,
+            'activityAll' => $showAllActivity,
+            'credentialPanel' => $credentialPanel,
+            'sellableProducts' => $sellableProducts,
+            'customProjectsCount' => CustomProject::where('client_id', $client->id)->count(),
+        ]);
 
-        $clientWorkspaceViewModel = ClientWorkspaceViewModel::make(
-            $client,
-            $timeline,
-            $appointments,
-            $followUps,
-            $outcomes,
-            $payments,
-            $subscriptions,
-            $contracts,
-            $offers,
-            $contactAttempts,
-            $installations,
-            $lifecycleLabels,
-            $operationalQueues,
-            $receivableSummary,
-            $invoiceReceivables,
-            auth()->user()
-        );
-        $contactOutcomeViewModel = ContactOutcomeViewModel::make($appointmentTypeLabels);
+        // Data the existing action sheets need (§13: the workflow itself is unchanged).
+        $teamUsers = User::query()
+            ->where('is_active', true)
+            ->where(fn ($query) => $query->whereNull('role')->orWhereIn('role', User::activeInternalRoles()))
+            ->orderBy('name')
+            ->get();
+        $openKey = (string) $request->query('open');
 
-        return view('clients.show', compact('customProjects', 'client', 'timeline', 'appointments', 'payments', 'creditNotes', 'refunds', 'offers', 'subscriptions', 'installmentScheduleProjections', 'invoices', 'invoiceReceivables', 'paymentReceivables', 'creditNoteReceivables', 'availableCustomerCredits', 'receivableSummary', 'followUps', 'outcomes', 'schedules', 'teamUsers', 'catalogServices', 'contracts', 'contactAttempts', 'installations', 'installationAppointments', 'activeInstallationAppointments', 'appointmentTypeLabels', 'lifecycleStages', 'lifecycleLabels', 'contactOutcomes', 'paymentMethodOptions', 'pendingPaymentReceipts', 'activeFinancialAccounts', 'sellableProducts', 'sellablePlans', 'accountingTrace', 'clientWorkspaceViewModel', 'contactOutcomeViewModel', 'credentialPanel', 'credentialService'));
+        return view('clients.show', [
+            'client' => $client,
+            'workspace' => $workspace,
+            'teamUsers' => $teamUsers,
+            'appointmentTypeLabels' => AppointmentTypes::labels(),
+            'catalogServices' => Service::active()->get(),
+            'paymentMethodOptions' => PaymentMethods::v1Labels(),
+            'sellableProducts' => $sellableProducts,
+            'credentialPanel' => $credentialPanel,
+            'credentialService' => $credentialService,
+            'amountDue' => [
+                'total_minor' => $receivable['due_minor'],
+                'total_formatted' => Money::fromMinorUnits($receivable['due_minor'])->format(),
+                'currency' => __('notify.common.currency_jod'),
+            ],
+            'openSheet' => ClientWorkspaceViewModel::SHEETS[$openKey] ?? null,
+        ]);
     }
 
     public function edit(int $id): View

@@ -46,17 +46,15 @@ class Phase2BClientWorkspaceTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('clients.show', $client));
 
+        // P10 (§19): one card stack (header, next step, systems, activity, details) replaces the tabbed sections.
         $response->assertOk()
-            ->assertViewHas('clientWorkspaceViewModel')
-            ->assertViewHas('contactOutcomeViewModel')
-            ->assertSee('notify-client-workspace', false)
-            ->assertSee('CLIENT_DETAIL_01')
-            ->assertSee('نظرة عامة')
-            ->assertSee('جهات الاتصال')
-            ->assertSee('الخط الزمني')
-            ->assertSee('التركيب والمتابعة')
-            ->assertSee('الاشتراك والفوترة')
-            ->assertSee('ملاحظات العميل')
+            ->assertViewHas('workspace')
+            ->assertSee('data-client-workspace', false)
+            ->assertSee('data-client-header', false)
+            ->assertSee('data-client-state', false)
+            ->assertSee('data-client-activity', false)
+            ->assertSee('data-client-details', false)
+            ->assertDontSee('CLIENT_DETAIL_01')
             ->assertSee('شركة الإشعارات التجارية ذات الاسم الطويل جداً لفرع خلدا')
             ->assertSee('بانتظار القرار')
             ->assertSee('ليان')
@@ -70,20 +68,15 @@ class Phase2BClientWorkspaceTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('clients.show', $client));
 
-        $response->assertOk()
-            ->assertSee('CONTACT_01')
-            ->assertSee('data-contact-outcome-panel', false)
-            ->assertSee('data-outcome-fields="appointment"', false)
-            ->assertSee('data-outcome-fields="callback_later"', false)
-            ->assertSee('data-outcome-fields="wrong_invalid"', false)
-            ->assertSee('data-outcome-fields="not_interested"', false)
-            ->assertSee('value="appointment"', false)
-            ->assertSee('value="no_contact"', false)
-            ->assertSee('value="callback_later"', false)
-            ->assertSee('value="no_answer_busy"', false)
-            ->assertSee('value="wrong_invalid"', false)
-            ->assertSee('value="not_interested"', false)
-            ->assertDontSee('name="close_client"', false);
+        // P10: the Record call sheet is the single call-outcome surface (the legacy CONTACT_01 panel is retired).
+        $html = $response->assertOk()->getContent();
+        $sheet = str($html)->betweenFirst('id="modal-record-call"', '</form>')->toString();
+        foreach (['appointment', 'callback_later', 'no_answer_busy', 'wrong_invalid', 'not_interested'] as $outcome) {
+            $this->assertStringContainsString('value="'.$outcome.'"', $sheet);
+        }
+        $this->assertStringContainsString(route('clients.contact-attempts.store', $client->id), $sheet);
+        $this->assertStringNotContainsString('name="close_client"', $html);
+        $this->assertStringNotContainsString('CONTACT_01', $html);
     }
 
     public function test_not_interested_requires_note_and_wrong_invalid_preserves_review_workflow(): void
@@ -121,18 +114,30 @@ class Phase2BClientWorkspaceTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $client = $this->client();
+        Appointment::create([
+            'client_id' => $client->id,
+            'appointment_date' => now()->toDateString(),
+            'appointment_time' => '09:00',
+            'appointment_type' => 'installation',
+            'status' => 'scheduled',
+        ]);
 
         $response = $this->actingAs($admin)->get(route('clients.show', $client));
 
+        // P10: every workflow sheet still posts to the existing controllers (§13).
         $response->assertOk()
+            ->assertSee(route('clients.contact-attempts.store', $client->id), false)
             ->assertSee(route('clients.installations.schedule', $client), false)
             ->assertSee(route('clients.installations.complete', $client), false)
             ->assertSee(route('appointments.store'), false)
-            ->assertSee(route('clients.follow-ups.store', $client), false)
-            ->assertSee(route('clients.offers.store', $client), false)
-            ->assertSee(route('clients.collections.payments.store', $client), false)
+            ->assertSee(route('clients.payments.normal.store', $client), false)
             ->assertSee(route('clients.guided-subscription.store', $client), false)
-            ->assertSee(route('clients.one-time-invoices.store', $client), false);
+            ->assertSee(route('clients.close', $client->id), false);
+
+        // Retired from the workspace: legacy collections form, offers (not V1) and one-time invoices (Custom Projects, D-14).
+        $response->assertDontSee(route('clients.collections.payments.store', $client), false)
+            ->assertDontSee(route('clients.offers.store', $client), false)
+            ->assertDontSee(route('clients.one-time-invoices.store', $client), false);
     }
 
     private function client(array $overrides = []): Client

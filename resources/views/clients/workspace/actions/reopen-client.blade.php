@@ -6,7 +6,6 @@
     <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-reopen-client-title">
         <div class="notify-modal-header">
             <div>
-                <span class="notify-eyebrow">DAILY_REOPEN_01</span>
                 <h3 id="modal-reopen-client-title">{{ __('notify.client_workspace.action_reopen') }}</h3>
                 <small style="color:var(--nd-muted)">{{ $client->business_name }}</small>
             </div>

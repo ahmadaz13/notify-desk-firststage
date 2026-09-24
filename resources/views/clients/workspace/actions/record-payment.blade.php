@@ -27,7 +27,6 @@
     <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-record-payment-title" style="max-width:560px">
         <div class="notify-modal-header">
             <div>
-                <span class="notify-eyebrow">{{ $canRecordPayment ? 'PAYMENT_NORMAL_01' : 'PAYMENT_RECEIPT_01' }}</span>
                 <h3 id="modal-record-payment-title">{{ $sheetTitle }}</h3>
             </div>
             <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.client_workspace.cancel') }}">×</button>

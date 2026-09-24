@@ -90,8 +90,9 @@ class Phase3ClientWorkspaceTest extends TestCase
             ->assertSee('150.000 د.أ')
             ->assertSee('REC-99881')
             ->assertSee(route('finance.collections', ['client_id' => $client->id]), false)
-            ->assertSee('notify-workspace-command-card', false)
-            ->assertSee('notify-latest-payment-box', false);
+            // P10 (§19): state card + compact money card replace the Phase 3 command card.
+            ->assertSee('data-client-state', false)
+            ->assertSee('data-client-money', false);
     }
 
     public function test_workspace_does_not_contain_dense_mini_erp_tables_in_normal_view(): void
@@ -103,8 +104,9 @@ class Phase3ClientWorkspaceTest extends TestCase
         $response->assertOk();
         // Normal operational view does not render full-width raw invoices / credit allocations
         $response->assertDontSee('notify-management-finance-dense-table', false);
-        // Clean View Financial Details link is present instead
-        $response->assertSee(route('finance.collections', ['client_id' => $client->id]), false);
+        // P10: a prospect with no money history gets no money card at all (the Collections link lives on the money card).
+        $response->assertDontSee('data-client-money', false);
+        $response->assertDontSee('payment_allocation', false);
     }
 
     public function test_valid_path_prospect_to_record_call(): void

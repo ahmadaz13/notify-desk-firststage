@@ -1,242 +1,99 @@
+{{-- Client Workspace behaviour (P10): focused sheets, deep links, confirmations. Workflow forms are unchanged. --}}
 <script>
-function switchTab(tabName) {
-    var target = document.getElementById('sec-' + tabName) || document.getElementById('tab-' + tabName) || document.getElementById(tabName);
-    if (target) {
-        var details = target.closest('details');
-        if (details) details.open = true;
-        target.style.display = 'block';
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+(function () {
+    var lastOpener = null;
+    var openSheetId = @js($openSheet ?? null);
+    // Today work items link with hash anchors; land them on the matching action (§22).
+    var hashSheets = {
+        '#call': 'modal-record-call',
+        '#payment': 'modal-record-payment',
+        '#follow-up': 'modal-follow-up',
+        '#installation': 'modal-complete-installation',
+        '#appointments': 'modal-appointment-result',
+    };
+    var hashTargets = { '#review': '[data-client-review]', '#collapsible-management': '#client-next-step' };
 
-    document.querySelectorAll('.tab-pane').forEach(function(pane) {
-        if (pane !== target && !pane.closest('details')) {
-            pane.style.display = 'none';
-        }
-    });
-
-    document.querySelectorAll('.tab-btn').forEach(function(btn) {
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-ghost');
-        btn.classList.remove('is-active');
-    });
-
-    var targetBtn = document.getElementById('tab-btn-' + tabName);
-    if (targetBtn) {
-        targetBtn.classList.remove('btn-ghost');
-        targetBtn.classList.add('btn-primary');
-        targetBtn.classList.add('is-active');
-    }
-}
-
-function toggleAccordion(tabName) {
-    var targetPane = document.getElementById('tab-' + tabName) || document.getElementById('sec-' + tabName);
-    var targetHeader = document.getElementById('acc-header-' + tabName);
-    if (!targetPane) return;
-
-    var isOpen = targetPane.style.display === 'block';
-    if (isOpen) {
-        targetPane.style.display = 'none';
-        if (targetHeader) {
-            targetHeader.classList.remove('active');
-            var chevron = targetHeader.querySelector('.chevron-icon');
-            if (chevron) chevron.style.transform = 'rotate(0deg)';
-        }
-    } else {
-        switchTab(tabName);
-        targetHeader?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-}
-
-function calculateOfferFinal() {
-    var p = parseFloat(document.getElementById('offer_price').value) || 0;
-    var d = parseFloat(document.getElementById('offer_discount').value) || 0;
-    document.getElementById('offer_final').value = Math.max(0, p - d).toFixed(2);
-}
-
-function initContactOutcome(root) {
-    var panel = root.querySelector('[data-contact-outcome-panel]');
-    var overlay = root.querySelector('[data-contact-outcome-overlay]');
-    var note = root.querySelector('[data-contact-note]');
-    var noteMark = root.querySelector('[data-note-required]');
-    var fieldGroups = root.querySelectorAll('[data-outcome-fields]');
-    var openers = root.querySelectorAll('[data-contact-outcome-open]');
-    var closers = root.querySelectorAll('[data-contact-outcome-close], [data-contact-outcome-overlay]');
-    var radios = root.querySelectorAll('input[name="result"]');
-
-    function setOpen(open) {
-        panel.hidden = !open;
-        overlay.hidden = !open;
-        document.documentElement.classList.toggle('notify-panel-open', open);
-    }
-
-    function setGroupRequired(group, required) {
-        group.querySelectorAll('input, select, textarea').forEach(function(input) {
-            if (['appointment_date', 'appointment_time', 'follow_up_date_time'].includes(input.name)) {
-                input.required = required;
-            }
-        });
-    }
-
-    function syncOutcome() {
-        var selected = root.querySelector('input[name="result"]:checked');
-        var value = selected ? selected.value : 'no_contact';
-
-        fieldGroups.forEach(function(group) {
-            var active = group.getAttribute('data-outcome-fields') === value;
-            group.hidden = !active;
-            setGroupRequired(group, active);
-        });
-
-        var noteRequired = value === 'not_interested';
-        if (note) {
-            note.required = noteRequired;
-        }
-        if (noteMark) {
-            noteMark.hidden = !noteRequired;
-        }
-    }
-
-    openers.forEach(function(button) {
-        button.addEventListener('click', function() {
-            setOpen(true);
-            syncOutcome();
-        });
-    });
-
-    closers.forEach(function(button) {
-        button.addEventListener('click', function() {
-            setOpen(false);
-        });
-    });
-
-    radios.forEach(function(radio) {
-        radio.addEventListener('change', syncOutcome);
-    });
-
-    syncOutcome();
-}
-
-document.querySelectorAll('[data-contact-outcome-root]').forEach(initContactOutcome);
-
-// Modal Open / Close Helpers
-function openModal(id) {
-    var modal = document.getElementById(id);
-    if (modal) {
+    window.openModal = function (id, opener) {
+        var modal = document.getElementById(id);
+        if (!modal) { return false; }
+        lastOpener = opener || document.activeElement;
         modal.hidden = false;
-        document.body.style.overflow = 'hidden';
-    }
-}
+        document.body.classList.add('notify-sheet-open');
+        var focusTarget = modal.querySelector('input:not([type=hidden]):not([disabled]), select, textarea, button:not([data-close-action-modal])');
+        if (focusTarget) { focusTarget.focus({ preventScroll: true }); }
+        return true;
+    };
 
-function closeModal(modal) {
-    if (modal) {
+    window.closeModal = function (modal) {
+        if (!modal) { return; }
         modal.hidden = true;
-        document.body.style.overflow = '';
-    }
-}
-
-// Global triggers for Phase 5 action modals
-document.addEventListener('click', function(e) {
-    var triggerCall = e.target.closest('[data-trigger-call-outcome]');
-    if (triggerCall) {
-        e.preventDefault();
-        var modalCall = document.getElementById('modal-record-call');
-        if (modalCall) {
-            openModal('modal-record-call');
-        } else {
-            var outcomeOpener = document.querySelector('[data-contact-outcome-open]');
-            if (outcomeOpener) outcomeOpener.click();
+        if (!document.querySelector('.notify-modal-backdrop:not([hidden])')) {
+            document.body.classList.remove('notify-sheet-open');
         }
-        return;
-    }
+        if (lastOpener && document.body.contains(lastOpener)) { lastOpener.focus({ preventScroll: true }); }
+    };
 
-    var triggerApt = e.target.closest('[data-trigger-create-appointment]');
-    if (triggerApt) {
-        e.preventDefault();
-        openModal('modal-create-appointment');
-        return;
-    }
+    document.addEventListener('click', function (event) {
+        var opener = event.target.closest('[data-open-sheet]');
+        if (opener) {
+            event.preventDefault();
+            var menu = opener.closest('details.notify-menu');
+            if (menu) { menu.open = false; }
+            openModal(opener.getAttribute('data-open-sheet'), opener);
+            return;
+        }
 
-    var triggerResult = e.target.closest('[data-trigger-appointment-result]');
-    if (triggerResult) {
-        e.preventDefault();
-        openModal('modal-appointment-result');
-        return;
-    }
+        var closer = event.target.closest('[data-close-action-modal]');
+        if (closer) {
+            event.preventDefault();
+            closeModal(closer.closest('.notify-modal-backdrop'));
+            return;
+        }
 
-    var triggerInstall = e.target.closest('[data-trigger-installation-modal]');
-    if (triggerInstall) {
-        e.preventDefault();
-        openModal('modal-complete-installation');
-        return;
-    }
+        if (event.target.classList.contains('notify-modal-backdrop')) {
+            closeModal(event.target);
+            return;
+        }
 
-    var triggerFollowup = e.target.closest('[data-trigger-followup-modal]');
-    if (triggerFollowup) {
-        e.preventDefault();
-        openModal('modal-follow-up');
-        return;
-    }
+        document.querySelectorAll('details.notify-menu[open]').forEach(function (menu) {
+            if (!menu.contains(event.target)) { menu.open = false; }
+        });
+    });
 
-    var triggerClose = e.target.closest('[data-trigger-close-client]');
-    if (triggerClose) {
-        e.preventDefault();
-        openModal('modal-close-client');
-        return;
-    }
-
-    var triggerStartSub = e.target.closest('[data-trigger-start-subscription]');
-    if (triggerStartSub) {
-        e.preventDefault();
-        openModal('modal-start-subscription');
-        return;
-    }
-
-    var triggerRecordPayment = e.target.closest('[data-trigger-record-payment]');
-    if (triggerRecordPayment) {
-        e.preventDefault();
-        openModal('modal-record-payment');
-        return;
-    }
-
-    var triggerScheduleInstall = e.target.closest('[data-trigger-schedule-installation]');
-    if (triggerScheduleInstall) {
-        e.preventDefault();
-        openModal('modal-schedule-installation');
-        return;
-    }
-
-    var triggerReopen = e.target.closest('[data-trigger-reopen-client]');
-    if (triggerReopen) {
-        e.preventDefault();
-        openModal('modal-reopen-client');
-        return;
-    }
-
-    var closer = e.target.closest('[data-close-action-modal]');
-    if (closer) {
-        e.preventDefault();
-        closeModal(closer.closest('.notify-modal-backdrop'));
-        return;
-    }
-
-    // Click on backdrop background
-    if (e.target.classList.contains('notify-modal-backdrop')) {
-        closeModal(e.target);
-        return;
-    }
-});
-
-// Collections links (?open=record-payment) open the existing payment sheet instead of duplicating the form.
-if (new URLSearchParams(window.location.search).get('open') === 'record-payment' && document.getElementById('modal-record-payment')) {
-    openModal('modal-record-payment');
-}
-
-// Escape key closes modals
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') { return; }
         document.querySelectorAll('.notify-modal-backdrop:not([hidden])').forEach(closeModal);
+        document.querySelectorAll('details.notify-menu[open]').forEach(function (menu) {
+            menu.open = false;
+            menu.querySelector('summary').focus();
+        });
+    });
+
+    // Destructive inline actions ask once in the app's own dialog.
+    var pendingForm = null;
+    document.addEventListener('submit', function (event) {
+        var form = event.target.closest('form[data-confirm]');
+        if (!form || form.dataset.confirmed === '1') { return; }
+        event.preventDefault();
+        pendingForm = form;
+        document.querySelector('[data-confirm-text]').textContent = form.getAttribute('data-confirm');
+        openModal('modal-confirm', event.submitter || form.querySelector('[type=submit]'));
+    }, true);
+    document.addEventListener('click', function (event) {
+        if (!event.target.closest('[data-confirm-accept]') || !pendingForm) { return; }
+        pendingForm.dataset.confirmed = '1';
+        pendingForm.submit();
+    });
+
+    var initial = openSheetId || hashSheets[window.location.hash];
+    if (initial && !openModal(initial)) {
+        initial = null;
     }
-});
+    if (!initial && hashTargets[window.location.hash]) {
+        var target = document.querySelector(hashTargets[window.location.hash]);
+        if (target) { target.scrollIntoView({ block: 'start' }); }
+    }
+})();
 
 // 1. Record Call outcome conditional fields
 document.querySelectorAll('[data-call-outcome-form]').forEach(function(form) {
@@ -329,25 +186,6 @@ document.querySelectorAll('[data-close-client-form]').forEach(function(form) {
     if (reasonSelect) {
         reasonSelect.addEventListener('change', syncCloseReason);
         syncCloseReason();
-    }
-});
-
-// Global anchor scroll handler that opens parent <details>
-document.addEventListener('click', function(e) {
-    var link = e.target.closest('a[href^="#"], [data-scroll-to]');
-    if (!link) return;
-
-    var targetId = link.getAttribute('data-scroll-to') || link.getAttribute('href');
-    if (!targetId || targetId === '#' || !targetId.startsWith('#')) return;
-
-    var targetElem = document.querySelector(targetId);
-    if (targetElem) {
-        e.preventDefault();
-        var details = targetElem.closest('details');
-        if (details) {
-            details.open = true;
-        }
-        targetElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 });
 

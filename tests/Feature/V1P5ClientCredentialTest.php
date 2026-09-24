@@ -397,8 +397,9 @@ class V1P5ClientCredentialTest extends TestCase
         $html = $response->getContent();
 
         $this->assertStringContainsString('data-credential-card', $html);
-        $this->assertStringContainsString('<h3 class="notify-credential__system">'.e('القائمة الإلكترونية').'</h3>', $html);
-        $this->assertStringNotContainsString('<h3 class="notify-credential__system">'.e('نظام الرسائل النصية التلقائية').'</h3>', $html);
+        // P10: credentials sit inside their System row; only capable Systems carry the credential block.
+        $this->assertMatchesRegularExpression('/<h3 class="notify-system__name\s+notify-credential__system\s*">'.preg_quote(e('القائمة الإلكترونية'), '/').'<\/h3>/', $html);
+        $this->assertDoesNotMatchRegularExpression('/<h3 class="notify-system__name\s+notify-credential__system\s*">'.preg_quote(e('نظام الرسائل النصية التلقائية'), '/').'<\/h3>/', $html);
         $this->assertStringNotContainsString('value="'.$this->systems[Product::CODE_AUTO_SMS]->id.'">', $this->addFormHtml($html));
         $this->assertStringNotContainsString('value="'.$this->systems['plain']->id.'">', $this->addFormHtml($html));
 

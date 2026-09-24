@@ -48,13 +48,12 @@ class ExampleTest extends TestCase
             ->get(route('clients.show', $clientId))
             ->assertOk()
             ->assertSee('مطعم الأهرام')
-            ->assertSee('notify-client-workspace', false)
-            ->assertSee('نظرة عامة')
-            ->assertSee('جهات الاتصال')
-            ->assertSee('الخط الزمني')
-            ->assertSee('سجل المواعيد')
-            ->assertSee('سجل المتابعات الدورية')
-            ->assertSee('الاشتراك والفوترة');
+            // P10 (§19): card stack instead of the legacy tabbed sections.
+            ->assertSee('data-client-workspace', false)
+            ->assertSee('data-client-state', false)
+            ->assertSee('data-client-details', false)
+            ->assertSee('data-client-activity', false)
+            ->assertSee(__('notify.client_hub.state.eyebrow'));
     }
 
     public function test_authenticated_user_can_view_import_and_notifications(): void

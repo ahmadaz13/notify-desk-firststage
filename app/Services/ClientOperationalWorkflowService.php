@@ -114,6 +114,11 @@ class ClientOperationalWorkflowService
             throw ValidationException::withMessages(['closed_reason' => 'ملاحظة الإغلاق مطلوبة عند اختيار سبب آخر.']);
         }
 
+        // §4: closing never cancels subscriptions; an active paid subscription must be cancelled first.
+        if ($client->subscriptions()->where('status', 'active')->exists()) {
+            throw ValidationException::withMessages(['closed_reason_code' => __('notify.client_hub.close.blocked_active_subscription')]);
+        }
+
         return DB::transaction(function () use ($client, $actor, $reasonCode, $note) {
             $oldStage = ClientLifecycle::normalizeStage($client->stage, $client->status);
             $closedReason = $note !== '' ? "{$reasonCode}: {$note}" : $reasonCode;

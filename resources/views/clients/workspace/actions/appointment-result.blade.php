@@ -8,9 +8,8 @@
     <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-appointment-result-title">
         <div class="notify-modal-header">
             <div>
-                <span class="notify-eyebrow">DAILY_RESULT_01</span>
                 <h3 id="modal-appointment-result-title">{{ __('notify.client_workspace.record_result') }}</h3>
-                <small style="color:var(--nd-muted)">#{{ $activeAppointment->id }} · {{ $activeAppointment->appointment_date?->toDateString() }} · {{ $activeAppointment->appointment_time }}</small>
+                <small class="notify-sheet-hint" dir="ltr">{{ $activeAppointment->appointment_date?->toDateString() }} · {{ $activeAppointment->appointment_time }}</small>
             </div>
             <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.client_workspace.cancel') }}">×</button>
         </div>

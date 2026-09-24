@@ -52,6 +52,7 @@ class ClientWorkspacePhase04Test extends TestCase
 
         $response = $this->actingAs($this->admin)->get(route('clients.show', $client));
 
+        // P10 (§19, §11): the state card offers one primary action — record the first contact.
         $response->assertOk()
             ->assertSee('مطعم النجوم اللامعة')
             ->assertSee('مطاعم وكافيهات')
@@ -59,8 +60,9 @@ class ClientWorkspacePhase04Test extends TestCase
             ->assertSee('خالد العلي')
             ->assertSee('0799887766')
             ->assertSee('فرصة جديدة')
-            ->assertSee('تسجيل اتصال')
-            ->assertSee('data-trigger-call-outcome', false);
+            ->assertSee('سجّل أول تواصل')
+            ->assertSee('تسجيل مكالمة');
+        $this->assertMatchesRegularExpression('/<button(?=[^>]*data-primary-action)(?=[^>]*data-open-sheet="modal-record-call")[^>]*>/', $response->getContent());
     }
 
     public function test_workspace_labels_are_localized_without_internal_queue_codes(): void
@@ -76,28 +78,25 @@ class ClientWorkspacePhase04Test extends TestCase
             ->get(route('clients.show', $client));
 
         $english->assertOk()
-            ->assertSee('Next Action')
-            ->assertSee('Call client')
+            ->assertSee('Next step')
+            ->assertSee('Record the first contact')
+            ->assertSee('Record call')
             ->assertSee('WhatsApp')
+            ->assertDontSee('notify.client_hub', false)
             ->assertDontSee('notify.action_call')
-            ->assertDontSee('notify.action_whatsapp')
-            ->assertDontSee('notify.next_action')
             ->assertDontSee('active_contact_queue')
-            ->assertViewHas('clientWorkspaceViewModel', function ($workspace) {
-                return $workspace->stage['label'] === 'Prospect'
-                    && $workspace->nextAction['label'] === 'Call client'
-                    && $workspace->nextAction['context'] === null;
-            });
+            ->assertViewHas('workspace', fn ($workspace) => $workspace->header['stage_label'] === 'Prospect'
+                && $workspace->state['key'] === 'first_contact');
 
         $arabic = $this->actingAs($this->admin)
             ->withSession(['locale' => 'ar'])
             ->get(route('clients.show', $client));
 
         $arabic->assertOk()
-            ->assertSee('الإجراء القادم')
-            ->assertSee('الاتصال بالعميل')
+            ->assertSee('الخطوة التالية')
+            ->assertSee('سجّل أول تواصل')
             ->assertDontSee('active_contact_queue')
-            ->assertViewHas('clientWorkspaceViewModel', fn ($workspace) => $workspace->stage['label'] === 'فرصة جديدة');
+            ->assertViewHas('workspace', fn ($workspace) => $workspace->header['stage_label'] === 'فرصة جديدة');
     }
 
     public function test_appointment_scheduled_client_renders_appointment_context(): void
@@ -114,8 +113,10 @@ class ClientWorkspacePhase04Test extends TestCase
         $response = $this->actingAs($this->admin)->get(route('clients.show', $client));
 
         $response->assertOk()
-            ->assertSee('موعد')
-            ->assertSee('عرض الموعد');
+            ->assertSee('موعد قادم')
+            ->assertSee('14:00')
+            ->assertSee('تسجيل نتيجة الموعد')
+            ->assertSee('id="modal-appointment-result"', false);
     }
 
     public function test_installed_followup_client_renders_followup_context(): void
@@ -144,7 +145,9 @@ class ClientWorkspacePhase04Test extends TestCase
 
         $response->assertOk()
             ->assertSee('تم التركيب المجاني')
-            ->assertSee('تسجيل متابعة');
+            ->assertSee('متابعة مجدولة')
+            ->assertSee('إتمام المتابعة')
+            ->assertSee('id="modal-follow-up"', false);
     }
 
     public function test_subscriber_workspace_renders_independent_product_subscription_cards(): void
@@ -165,10 +168,12 @@ class ClientWorkspacePhase04Test extends TestCase
 
         $response = $this->actingAs($this->admin)->get(route('clients.show', $client));
 
+        // Legacy plan-based subscriptions stay readable (product · plan) in the P10 Subscription card.
         $response->assertOk()
             ->assertSee('نظام كور POS')
             ->assertSee('الباقة الاحترافية')
-            ->assertSee('نشط');
+            ->assertSee('data-client-subscription', false)
+            ->assertSee('فعّال');
     }
 
     public function test_multi_product_subscriber_shows_multiple_product_cards_independently(): void
@@ -203,15 +208,17 @@ class ClientWorkspacePhase04Test extends TestCase
         $client = $this->createClient([
             'stage' => ClientLifecycle::CLOSED,
             'status' => 'archived',
-            'closed_reason' => 'عدم التفرغ',
+            'closed_reason' => 'not_interested',
         ]);
 
         $response = $this->actingAs($this->admin)->get(route('clients.show', $client));
 
         $response->assertOk()
             ->assertSee('مغلق')
-            ->assertSee('إعادة فتح العميل')
-            ->assertSee('#sec-reopen-client');
+            ->assertSee('ملف مغلق')
+            ->assertSee('إعادة فتح الملف')
+            ->assertSee('id="modal-reopen-client"', false);
+        $this->assertMatchesRegularExpression('/<button(?=[^>]*data-primary-action)(?=[^>]*data-open-sheet="modal-reopen-client")[^>]*>/', $response->getContent());
     }
 
     public function test_review_required_client_renders_review_oriented_action(): void
@@ -221,14 +228,17 @@ class ClientWorkspacePhase04Test extends TestCase
             'client_id' => $client->id,
             'type' => ClientReviewItem::TYPE_WRONG_INVALID,
             'status' => ClientReviewItem::STATUS_PENDING,
-            'notes' => 'الرقم مغلق تماماً يحتاج مراجعة',
+            'note' => 'الرقم مغلق تماماً يحتاج مراجعة',
         ]);
 
         $response = $this->actingAs($this->admin)->get(route('clients.show', $client));
 
         $response->assertOk()
-            ->assertSee('مراجعة القرار')
-            ->assertSee('#sec-review-item-' . $review->id);
+            ->assertSee('يحتاج مراجعة')
+            ->assertSee('رقم خاطئ أو غير صالح')
+            ->assertSee('الرقم مغلق تماماً يحتاج مراجعة')
+            ->assertSee('id="sec-review-item-'.$review->id.'"', false)
+            ->assertSee(route('client-review-items.resolve', $review->id), false);
     }
 
     /**
@@ -252,7 +262,8 @@ class ClientWorkspacePhase04Test extends TestCase
         $response = $this->actingAs($this->admin)->get(route('clients.show', $client));
 
         $response->assertOk()
-            ->assertSee('sec-start-subscription', false);
+            ->assertSee('id="modal-start-subscription"', false)
+            ->assertSee('data-open-sheet="modal-start-subscription"', false);
     }
 
     public function test_contract_links_respect_policy_and_routes(): void
@@ -302,13 +313,22 @@ class ClientWorkspacePhase04Test extends TestCase
 
     public function test_zero_due_state_is_rendered_correctly(): void
     {
-        $client = $this->createClient();
+        // P10: prospects without money history show no money card; a subscriber with nothing due shows "Nothing due".
+        $prospect = $this->createClient();
+        $this->actingAs($this->admin)->get(route('clients.show', $prospect))
+            ->assertOk()
+            ->assertDontSee('data-client-money', false);
 
-        $response = $this->actingAs($this->admin)->get(route('clients.show', $client));
+        $client = $this->createClient(['stage' => ClientLifecycle::SUBSCRIBER, 'phone' => '0795550000']);
+        $product = Product::create(['name_ar' => 'نظام المحاسبة', 'code' => 'ZERO_DUE']);
+        $plan = Plan::create(['product_id' => $product->id, 'name_ar' => 'باقة', 'code' => 'ZERO_DUE_P', 'tier' => 1]);
+        $this->createSubscription($client, $plan);
 
-        $response->assertOk()
-            ->assertSee('0.000 د.أ')
-            ->assertSee('مسدد بالكامل');
+        $this->actingAs($this->admin)->get(route('clients.show', $client))
+            ->assertOk()
+            ->assertSee('data-amount-clear', false)
+            ->assertSee('لا توجد مبالغ مستحقة')
+            ->assertSee('مشترك فعّال');
     }
 
     public function test_rendering_workspace_causes_no_database_side_effects(): void
@@ -340,32 +360,43 @@ class ClientWorkspacePhase04Test extends TestCase
 
         $response = $this->actingAs($this->admin)->get(route('clients.show', $client));
 
+        // P10 (§19.11): the Activity card lists up to 10 human events, newest first.
         $response->assertOk();
-        $vm = $response->viewData('clientWorkspaceViewModel');
-        $this->assertCount(3, $vm->recentActivities);
-        $this->assertSame('النشاط الأحدث جداً', $vm->recentActivities[0]['description']);
-        $this->assertSame('النشاط الثالث حديث', $vm->recentActivities[1]['description']);
-        $this->assertSame('النشاط الثاني متوسط', $vm->recentActivities[2]['description']);
+        $items = $response->viewData('workspace')->activity['items'];
+        $this->assertCount(4, $items);
+        $this->assertSame('النشاط الأحدث جداً', $items[0]['title']);
+        $this->assertSame('النشاط الثالث حديث', $items[1]['title']);
+        $this->assertSame('النشاط الثاني متوسط', $items[2]['title']);
+        $this->assertSame('تمت إضافة العميل', $items[3]['title']);
+        $this->assertSame('النشاط الأول قديم', $items[3]['description']);
+        $this->assertSame($this->admin->name, $items[0]['actor']);
     }
 
     public function test_full_history_remains_accessible_in_collapsible_section(): void
     {
+        // P10 (§19, §30): the collapsible legacy history partial is retired; the Activity card
+        // shows the latest 10 events and "Show all activity" loads the full history.
         $client = $this->createClient();
-        Appointment::create([
-            'client_id' => $client->id,
-            'appointment_date' => now()->subDays(10)->toDateString(),
-            'appointment_time' => '11:00',
-            'appointment_type' => 'physical_visit',
-            'status' => 'completed',
-            'notes' => 'زيارة سابقة مكتملة',
-        ]);
+        foreach (range(1, 12) as $i) {
+            DB::table('activity_logs')->insert([
+                'client_id' => $client->id,
+                'user_id' => $this->admin->id,
+                'type' => 'note_added',
+                'description' => 'حدث رقم '.$i,
+                'created_at' => now()->subMinutes(100 - $i),
+                'updated_at' => now()->subMinutes(100 - $i),
+            ]);
+        }
 
-        $response = $this->actingAs($this->admin)->get(route('clients.show', $client));
+        $recent = $this->actingAs($this->admin)->get(route('clients.show', $client))->assertOk();
+        $recent->assertSee('حدث رقم 12')
+            ->assertDontSee('حدث رقم 1<', false)
+            ->assertSee(route('clients.show', ['client' => $client->id, 'activity' => 'all']), false);
 
-        $response->assertOk()
-            ->assertSee('collapsible-history', false)
-            ->assertSee('السجل الكامل للعميل')
-            ->assertSee('زيارة سابقة مكتملة');
+        $this->actingAs($this->admin)->get(route('clients.show', ['client' => $client->id, 'activity' => 'all']))
+            ->assertOk()
+            ->assertSee('حدث رقم 1<', false)
+            ->assertSee('حدث رقم 12');
     }
 
     private function createClient(array $overrides = []): Client

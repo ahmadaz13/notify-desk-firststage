@@ -16,7 +16,7 @@
     </div>
 </header>
 <nav class="notify-fin-sections" aria-label="{{ __('notify.finance_hub.nav_label') }}" data-finance-sections
-     x-data x-init="$el.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest', inline: 'center' })">
+     x-data x-init="(() => { const current = $el.querySelector('[aria-current]'); if (!current || $el.scrollWidth <= $el.clientWidth) return; const box = $el.getBoundingClientRect(); const item = current.getBoundingClientRect(); $el.scrollLeft += (item.left + item.width / 2) - (box.left + box.width / 2); })()">
     @foreach($sections as $key => $section)
         <a href="{{ $section['href'] }}"
            class="notify-fin-sections__item @if($active === $key) is-active @endif"

@@ -128,10 +128,9 @@ class MultiAttendeeAppointmentTest extends TestCase
         $showResponse->assertSee('tel:0791234567');
         $showResponse->assertSee('https://wa.me/962791234567');
 
-        // Client Index View
-        $indexResponse = $this->actingAs($admin)->get(route('clients.index'));
+        // Client Index View — P10 (§5, §31): prospects segment, one quick action (Call) per row.
+        $indexResponse = $this->actingAs($admin)->get(route('clients.index', ['view' => 'prospects']));
         $indexResponse->assertOk();
         $indexResponse->assertSee('tel:0791234567');
-        $indexResponse->assertSee('https://wa.me/962791234567');
     }
 }

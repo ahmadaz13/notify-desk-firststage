@@ -118,7 +118,8 @@ class Phase01CrmCoreTest extends TestCase
             ->assertSee('مغلق');
 
         $this->actingAs($admin)
-            ->get(route('clients.index', ['status' => 'archived']))
+            // P10 (§5): the Closed segment (stage) replaces the legacy ?status= filter.
+            ->get(route('clients.index', ['view' => 'closed']))
             ->assertOk()
             ->assertSee($client->business_name);
     }

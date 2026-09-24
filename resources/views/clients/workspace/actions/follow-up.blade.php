@@ -9,9 +9,8 @@
     <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-follow-up-title">
         <div class="notify-modal-header">
             <div>
-                <span class="notify-eyebrow">DAILY_FOLLOWUP_01</span>
                 <h3 id="modal-follow-up-title">{{ __('notify.client_workspace.record_follow_up') }}</h3>
-                <small style="color:var(--nd-muted)">#{{ $activeFollowUp->id }} · {{ $activeFollowUp->reason }} · {{ $activeFollowUp->follow_up_date_time }}</small>
+                <small style="color:var(--nd-muted)">{{ $activeFollowUp->reason }} · {{ $activeFollowUp->follow_up_date_time }}</small>
             </div>
             <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.client_workspace.cancel') }}">×</button>
         </div>

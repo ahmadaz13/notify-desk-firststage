@@ -8,7 +8,6 @@
     <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-create-appointment-title">
         <div class="notify-modal-header">
             <div>
-                <span class="notify-eyebrow">DAILY_APT_01</span>
                 <h3 id="modal-create-appointment-title">{{ __('notify.client_workspace.create_appointment') }}</h3>
             </div>
             <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.client_workspace.cancel') }}">×</button>

@@ -8,10 +8,9 @@
     <div class="notify-modal-card notify-action-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-complete-installation-title">
         <div class="notify-modal-header">
             <div>
-                <span class="notify-eyebrow">DAILY_INSTALL_01</span>
                 <h3 id="modal-complete-installation-title">{{ __('notify.client_workspace.complete_installation') }}</h3>
                 @if($eligibleInstallationAppointment)
-                    <small style="color:var(--nd-muted)">#{{ $eligibleInstallationAppointment->id }} · {{ $eligibleInstallationAppointment->appointment_date?->toDateString() }} · {{ $eligibleInstallationAppointment->appointment_time }}</small>
+                    <small class="notify-sheet-hint" dir="ltr">{{ $eligibleInstallationAppointment->appointment_date?->toDateString() }} · {{ $eligibleInstallationAppointment->appointment_time }}</small>
                 @endif
             </div>
             <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.client_workspace.cancel') }}">×</button>
