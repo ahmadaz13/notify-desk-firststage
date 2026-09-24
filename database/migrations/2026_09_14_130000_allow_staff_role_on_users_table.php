@@ -11,7 +11,7 @@ return new class extends Migration
         $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'mysql') {
-            DB::statement("ALTER TABLE users MODIFY role ENUM('admin', 'staff', 'partner') NOT NULL DEFAULT 'admin'");
+            DB::statement("ALTER TABLE users MODIFY role ENUM('admin', 'staff', 'partner') NOT NULL DEFAULT 'staff'");
 
             return;
         }
@@ -24,7 +24,7 @@ return new class extends Migration
                     partner_id integer null,
                     name varchar not null,
                     email varchar not null,
-                    role varchar check ("role" in ('admin', 'staff', 'partner')) not null default 'admin',
+                    role varchar check ("role" in ('admin', 'staff', 'partner')) not null default 'staff',
                     email_verified_at datetime null,
                     password varchar not null,
                     remember_token varchar null,

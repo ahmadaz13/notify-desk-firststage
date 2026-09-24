@@ -13,8 +13,9 @@ return new class extends Migration {
      * intentional Founder — the configured Founder accounts (config/founder_accounts.php) and the demo
      * Founders Ahmad and Khalid created by DatabaseSeeder. Founder rows are untouched. Idempotent.
      *
-     * The legacy column default ('admin') is left in place; the User model defaults new rows to Staff and
-     * a user that still carries 'admin' is not an active application user.
+     * The users.role column default is 'staff' (corrected column definitions for fresh installs, and
+     * 2026_09_28_000200 for existing databases). A user that still carries 'admin' is not an active
+     * application user.
      */
     private const DEMO_FOUNDER_EMAILS = ['ahmad@example.com', 'khalid@example.com'];
 

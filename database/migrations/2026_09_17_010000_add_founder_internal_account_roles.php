@@ -17,8 +17,9 @@ return new class extends Migration
             });
         }
 
+        // P13.1 (D-25): the column default is 'staff'. 'admin' stays a representable, dormant value.
         if ($driver === 'mysql') {
-            DB::statement("ALTER TABLE users MODIFY role ENUM('founder', 'admin', 'staff', 'employee', 'partner') NOT NULL DEFAULT 'admin'");
+            DB::statement("ALTER TABLE users MODIFY role ENUM('founder', 'admin', 'staff', 'employee', 'partner') NOT NULL DEFAULT 'staff'");
 
             return;
         }
@@ -31,7 +32,7 @@ return new class extends Migration
                     partner_id integer null,
                     name varchar not null,
                     email varchar not null,
-                    role varchar check ("role" in ('founder', 'admin', 'staff', 'employee', 'partner')) not null default 'admin',
+                    role varchar check ("role" in ('founder', 'admin', 'staff', 'employee', 'partner')) not null default 'staff',
                     is_active tinyint(1) not null default '1',
                     email_verified_at datetime null,
                     password varchar not null,

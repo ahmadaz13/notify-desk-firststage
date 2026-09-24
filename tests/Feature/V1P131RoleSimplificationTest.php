@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Support\Permissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
@@ -35,19 +36,85 @@ class V1P131RoleSimplificationTest extends TestCase
     public function test_existing_admin_rows_become_staff_never_founder(): void
     {
         $plainAdmin = $this->insertUser('ops@example.test', 'admin');
-        $defaultAdmin = $this->insertUser('legacy-default@example.test', null); // legacy column default = admin
+        $secondAdmin = $this->insertUser('legacy-second@example.test', 'admin');
         $founder = $this->insertUser('owner@example.test', 'founder');
         $staff = $this->insertUser('staff@example.test', 'staff');
-        $this->assertSame('admin', DB::table('users')->where('id', $defaultAdmin)->value('role'));
 
         $this->retireAdminRole();
         $this->retireAdminRole(); // idempotent
 
         $this->assertSame('staff', DB::table('users')->where('id', $plainAdmin)->value('role'));
-        $this->assertSame('staff', DB::table('users')->where('id', $defaultAdmin)->value('role'));
+        $this->assertSame('staff', DB::table('users')->where('id', $secondAdmin)->value('role'));
         $this->assertSame('founder', DB::table('users')->where('id', $founder)->value('role'));
         $this->assertSame('staff', DB::table('users')->where('id', $staff)->value('role'));
         $this->assertSame(0, DB::table('users')->where('role', 'admin')->count());
+    }
+
+    private function roleColumnDefault(): string
+    {
+        return trim((string) collect(Schema::getColumns('users'))->firstWhere('name', 'role')['default'], "'\" ()");
+    }
+
+    /** P13.1 hardening: the database itself defaults users.role to Staff (fresh schema). */
+    public function test_database_default_for_role_is_staff(): void
+    {
+        $this->assertSame('staff', $this->roleColumnDefault());
+
+        $raw = $this->insertUser('raw-insert@example.test', null);
+        $this->assertSame('staff', DB::table('users')->where('id', $raw)->value('role'));
+
+        $raw = User::find($raw);
+        $this->assertFalse($raw->isOwnerLevelInternalUser());
+        $this->assertTrue($raw->isActiveApplicationUser());
+
+        // Admin stays representable (future compatibility) but grants nothing.
+        $dormant = $this->insertUser('dormant@example.test', 'admin');
+        $this->assertSame('admin', DB::table('users')->where('id', $dormant)->value('role'));
+        $this->assertFalse(User::find($dormant)->isActiveApplicationUser());
+    }
+
+    /**
+     * Databases created before the fix (users.role defaulting to 'admin') are corrected by the forward
+     * migration: only the default changes; columns, rows and indexes are kept.
+     */
+    public function test_forward_migration_corrects_a_legacy_admin_default(): void
+    {
+        if (DB::getDriverName() !== 'sqlite') {
+            $this->markTestSkipped('SQLite rebuild path; MySQL uses ALTER ... MODIFY.');
+        }
+
+        $founder = $this->insertUser('kept-founder@example.test', 'founder');
+        $create = (string) DB::table('sqlite_master')->where('type', 'table')->where('name', 'users')->value('sql');
+
+        // Recreate the pre-fix definition (default 'admin') with the same columns and rows.
+        $legacy = preg_replace("/(\"?role\"?\s[^,]*?default\s+\(?)'staff'/i", "$1'admin'", $create, 1);
+        $legacy = preg_replace('/^CREATE TABLE\s+"?users"?/i', 'CREATE TABLE "users_legacy"', $legacy, 1);
+        $indexes = DB::table('sqlite_master')->where('type', 'index')->where('tbl_name', 'users')->whereNotNull('sql')->pluck('sql')->all();
+        DB::statement($legacy);
+        DB::statement('INSERT INTO users_legacy SELECT * FROM users');
+        DB::statement('DROP TABLE users');
+        DB::statement('ALTER TABLE users_legacy RENAME TO users');
+        foreach ($indexes as $index) {
+            DB::statement($index);
+        }
+        $this->assertSame('admin', $this->roleColumnDefault());
+
+        $migration = require database_path('migrations/2026_09_28_000200_set_users_role_database_default_to_staff.php');
+        $migration->up();
+        $migration->up(); // idempotent
+
+        $this->assertSame('staff', $this->roleColumnDefault());
+        $this->assertSame('founder', DB::table('users')->where('id', $founder)->value('role'), 'existing rows are not rewritten');
+        $this->assertSame('staff', DB::table('users')->where('id', $this->insertUser('after-fix@example.test', null))->value('role'));
+        $this->assertEqualsCanonicalizing(
+            collect($indexes)->map(fn ($sql) => strtolower($sql))->all(),
+            DB::table('sqlite_master')->where('type', 'index')->where('tbl_name', 'users')->whereNotNull('sql')->pluck('sql')->map(fn ($sql) => strtolower($sql))->all(),
+            'indexes are restored'
+        );
+        $this->assertSame(
+            collect(Schema::getColumns('users'))->pluck('name')->all(),
+            ['id', 'name', 'email', 'role', 'is_active', 'email_verified_at', 'password', 'remember_token', 'first_login_at', 'reset_expires_at', 'created_at', 'updated_at', 'phone', 'job_title', 'avatar_path'],
+        );
     }
 
     public function test_only_repository_evidenced_founder_accounts_keep_owner_access(): void
