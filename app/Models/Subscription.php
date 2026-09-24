@@ -160,7 +160,7 @@ class Subscription extends Model
     public function systems(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'subscription_system')
-            ->withPivot(['system_code_snapshot', 'system_name_ar_snapshot', 'system_name_en_snapshot'])
+            ->withPivot(['system_code_snapshot', 'system_name_ar_snapshot', 'system_name_en_snapshot', 'custom_title', 'custom_description'])
             ->withTimestamps();
     }
 

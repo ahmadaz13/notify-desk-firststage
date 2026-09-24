@@ -160,7 +160,7 @@ class BillingTermsAndAnnualInstallmentsGate5Test extends TestCase
         $snapshot = $contract->snapshot_data;
         $this->assertSame('installments', $snapshot['subscription']['payment_terms']);
         $this->assertSame(3, $snapshot['subscription']['installments_count']);
-        $this->assertSame([33333, 33333, 33335], array_column($snapshot['schedules'], 'amount_due_minor'));
+        $this->assertSame([33333, 33333, 33335], array_column($snapshot['schedules'], 'amount_minor'));
         $schedules->first()->update(['due_date' => '2030-01-01']);
         $this->assertSame($snapshot, $contract->fresh()->snapshot_data);
     }

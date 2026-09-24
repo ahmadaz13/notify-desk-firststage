@@ -98,12 +98,13 @@ class V1P3SchemaReferenceAndCapitalGateTest extends TestCase
             $this->assertSame($requiresCredentials, $system->requires_credentials, $code);
             $this->assertTrue($system->is_active, $code);
         }
-        $this->assertSame('Smart Link', Product::where('code', 'smart_link')->value('name_en'));
+        // P8 owner decision: business display names were aligned later; identities/capabilities are unchanged.
+        $this->assertSame('Smart-Link Premium', Product::where('code', 'smart_link')->value('name_en'));
         $this->assertSame('E-Menu', Product::where('code', 'e_menu')->value('name_en'));
         $this->assertSame('E-Store', Product::where('code', 'e_store')->value('name_en'));
 
-        // Unrelated existing systems are kept as they were (not renamed, not flagged).
-        foreach (['restaurant_system' => 'Restaurant System', 'digital_store_system' => 'Digital Store System'] as $code => $name) {
+        // Existing systems keep their identity and capability (P8 aligned only the Store System display name).
+        foreach (['restaurant_system' => 'Restaurant System', 'digital_store_system' => 'Store System'] as $code => $name) {
             $system = Product::where('code', $code)->firstOrFail();
             $this->assertSame($name, $system->name_en);
             $this->assertFalse($system->requires_credentials);

@@ -728,13 +728,26 @@ return array (
   ),
   'contracts' =>
   array (
-    'print' => 'Print',
     'download_pdf' => 'Download PDF',
-    'issue' => 'Issue Contract',
+    'issue' => 'Issue contract',
     'supersede' => 'Supersede',
     'void' => '● Void',
     'void_action' => 'Void',
     'voided' => 'Voided',
+    'draft_label' => 'Draft',
+    'back_to_client' => 'Back to client',
+    'pdf_failed' => 'The contract PDF could not be generated right now. You can preview the contract and try again later.',
+    'draft_ready' => 'The draft contract is ready to preview.',
+    'current_ready' => 'The current contract :number is ready.',
+    'issued' => 'Contract issued with number :number.',
+    'voided_done' => 'Contract :number voided.',
+    'superseded_done' => 'Contract superseded; a new draft was created.',
+    'errors' =>
+    array (
+      'missing_value' => 'A contract cannot be issued without an agreed value.',
+      'installments_mismatch' => 'Cannot issue: the installments do not add up to the agreed value.',
+      'not_draft' => 'Only drafts can be issued.',
+    ),
   ),
   'executive' =>
   array (
@@ -1154,7 +1167,7 @@ return array (
     'subtitle' => 'Company-wide defaults for documents, operations, subscriptions, and contracts.',
     'company_documents' => 'Company & Documents', 'operations' => 'Operations', 'subscriptions_contracts' => 'Subscriptions & Contracts',
     'company_name_ar' => 'Company name (Arabic)', 'company_name_en' => 'Company name (English)', 'company_logo' => 'Company logo', 'company_phone' => 'Phone', 'company_email' => 'Email',
-    'company_address' => 'Address', 'registration_number' => 'Registration number', 'tax_number' => 'Tax number', 'authorized_signatory' => 'Authorized signatory',
+    'company_address' => 'Address', 'registration_number' => 'Registration number', 'company_national_number' => 'Company national number', 'tax_number' => 'Tax number', 'authorized_signatory' => 'Authorized signatory',
     'default_contract_terms' => 'Default contract terms', 'contract_prefix' => 'Contract prefix', 'invoice_prefix' => 'Invoice prefix',
     'timezone' => 'Timezone', 'appointment_duration' => 'Appointment duration (minutes)', 'free_installation_duration' => 'Free installation duration (minutes)',
     'post_install_followup_days' => 'Post-install follow-up (days)', 'workday_start' => 'Workday start', 'workday_end' => 'Workday end',
@@ -1247,6 +1260,9 @@ return array (
       'plan_price_invalid' => 'The selected plan or price is invalid.',
       'same_product_conflict' => 'An active subscription or scheduled plan change already exists for this product.',
     ),
+    'custom_system_title' => 'Custom system title',
+    'custom_system_description' => 'Short description',
+    'custom_system_title_required' => 'Enter a short title for the custom system.',
   ),
   'systems' => array (
     'title' => 'Systems', 'add' => 'Add System', 'name_ar' => 'Arabic name', 'name_en' => 'English name',

@@ -88,7 +88,7 @@ class V1DomainSimplificationTest extends TestCase
         $this->assertNotNull($subscription->contract);
         $this->assertSame(125750, Invoice::sole()->total_minor);
         $this->assertSame(1509000, SubscriptionMetricEvent::sole()->arr_after_minor);
-        $this->assertSame(collect([$this->autoSms->id, $this->smartLink->id])->sort()->values()->all(), $subscription->contract->snapshot_data['systems'] ? collect($subscription->contract->snapshot_data['systems'])->pluck('id')->sort()->values()->all() : []);
+        $this->assertSame(collect([$this->autoSms->id, $this->smartLink->id])->sort()->values()->all(), collect($subscription->contract->snapshot_data['services'])->pluck('product_id')->sort()->values()->all(), 'P8: V1 snapshot lists the subscribed systems as services.');
     }
 
     public function test_annual_full_and_installment_flows_have_identical_economics_and_contract_endpoints(): void
@@ -108,7 +108,6 @@ class V1DomainSimplificationTest extends TestCase
 
         $contract = $installment->contract;
         $this->actingAs($this->founder)->get(route('contracts.preview', $contract))->assertOk();
-        $this->actingAs($this->founder)->get(route('contracts.print', $contract))->assertOk();
         $this->actingAs($this->founder)->get(route('contracts.download-pdf', $contract))->assertOk();
     }
 

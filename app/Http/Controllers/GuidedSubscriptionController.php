@@ -77,6 +77,10 @@ class GuidedSubscriptionController extends Controller
             throw ValidationException::withMessages(['system_ids' => __('notify.client_workspace.validation.systems')]);
         }
         $terms = $this->paymentTerms($data);
+        // A Custom System line needs its short project title for the contract (P8).
+        if ($systems->contains('code', Product::CODE_CUSTOM_SYSTEM) && blank($data['custom_system_title'] ?? null)) {
+            throw ValidationException::withMessages(['custom_system_title' => __('notify.subscriptions.custom_system_title_required')]);
+        }
 
         [$subscription, $invoice, $contractResult] = $this->billingService->startAgreedSubscription($client, $systems, [
             'billing_interval' => $data['billing_interval'],
@@ -86,6 +90,8 @@ class GuidedSubscriptionController extends Controller
             'installments_count' => $terms['count'],
             'installment_due_day' => $terms['due_day'],
             'notes' => $data['notes'] ?? null,
+            'custom_system_title' => $data['custom_system_title'] ?? null,
+            'custom_system_description' => $data['custom_system_description'] ?? null,
         ], $request->user()->id);
 
         $response = redirect()->route('clients.show', $client)->with('success', __('notify.subscriptions.converted'));
@@ -109,6 +115,8 @@ class GuidedSubscriptionController extends Controller
             'installments_count' => ['nullable', 'integer', 'min:2', 'max:12'],
             'installment_due_day' => ['nullable', 'integer', 'min:1', 'max:31'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'custom_system_title' => ['nullable', 'string', 'max:160'],
+            'custom_system_description' => ['nullable', 'string', 'max:300'],
         ], [
             'system_ids.required' => __('notify.client_workspace.validation.systems'),
             'system_ids.min' => __('notify.client_workspace.validation.systems'),

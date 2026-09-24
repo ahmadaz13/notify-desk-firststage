@@ -47,7 +47,7 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
         'clients.credentials.store', 'clients.credentials.update', 'clients.credentials.destroy',
         'clients.credentials.reveal', 'clients.credentials.copied', 'clients.credentials.send',
         'clients.guided-subscription.catalog', 'clients.guided-subscription.preview', 'clients.guided-subscription.store',
-        'contracts.preview', 'contracts.print', 'contracts.download', 'contracts.download-pdf',
+        'contracts.preview', 'contracts.download-pdf',
         'clients.payment-receipts.store', 'payment-receipts.cancel',
         'custom-projects.index', 'custom-projects.show', 'clients.custom-projects.index',
         // P6 Staff operational collections list (§9.7)

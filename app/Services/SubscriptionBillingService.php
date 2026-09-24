@@ -244,7 +244,7 @@ class SubscriptionBillingService
                 'system_code_snapshot' => $system->code,
                 'system_name_ar_snapshot' => $system->name_ar,
                 'system_name_en_snapshot' => $system->name_en,
-            ]])->all());
+            ] + $this->customSystemDetails($system, $data)])->all());
 
             foreach ($systems as $system) {
                 DB::table('client_system')->updateOrInsert(
@@ -1222,7 +1222,6 @@ class SubscriptionBillingService
 
         try {
             $contract = $this->contractService->ensureDraftContract($client, $subscription, $author);
-            $contract = $this->contractService->generateArtifact($contract);
 
             return ['status' => 'ready', 'contract_id' => $contract->id, 'artifact_ready' => true];
         } catch (Throwable $exception) {
@@ -1289,6 +1288,22 @@ class SubscriptionBillingService
         }
 
         return ['type' => 'installments', 'installments_count' => $count, 'due_day' => $dueDay];
+    }
+
+    /**
+     * Custom System lines keep their own short title/description (contract snapshot source); other systems
+     * carry NULLs so every pivot row in the bulk attach has the same columns.
+     */
+    private function customSystemDetails(Product $system, array $data): array
+    {
+        if ($system->code !== Product::CODE_CUSTOM_SYSTEM) {
+            return ['custom_title' => null, 'custom_description' => null];
+        }
+
+        return [
+            'custom_title' => filled($data['custom_system_title'] ?? null) ? trim($data['custom_system_title']) : null,
+            'custom_description' => filled($data['custom_system_description'] ?? null) ? trim($data['custom_system_description']) : null,
+        ];
     }
 
     private function simplePaymentTerms(string $interval, array $data): array

@@ -4,217 +4,90 @@ namespace App\Services;
 
 use App\Models\Client;
 use App\Models\Contract;
+use App\Models\Product;
 use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Support\Money;
+use Carbon\Carbon;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use RuntimeException;
+use Illuminate\Validation\ValidationException;
 
+/**
+ * Contract lifecycle (§8, FROZEN D-10): Draft (no number) → Owner/Admin Issue (number, company block
+ * and service names captured, snapshot frozen) → PDF → physical signatures.
+ *
+ * The contract is generated from the client, subscription, subscribed systems, agreed value, payment
+ * schedule and company settings; nobody types contractual data into the document.
+ */
 class ContractService
 {
-    public const TEMPLATE_VERSION = '1.1';
+    public const TEMPLATE_VERSION = '2.0';
+    public const SNAPSHOT_SCHEMA = 2;
 
-    public function generateNextContractNumber(): string
+    /** Company settings printed on contracts; each line is printed only when configured. */
+    public const COMPANY_FIELDS = [
+        'name_ar' => 'company_name_ar',
+        'name_en' => 'company_name_en',
+        'address' => 'company_address',
+        'phone' => 'company_phone',
+        'email' => 'company_email',
+        'registration_number' => 'registration_number',
+        'national_number' => 'company_national_number',
+        'tax_number' => 'tax_number',
+        'authorized_signatory' => 'authorized_signatory',
+        'logo' => 'company_logo',
+    ];
+
+    private const ISSUE_ATTEMPTS = 3;
+
+    public function buildSnapshot(Client $client, Subscription $subscription, User $author): array
     {
-        $year = now()->format('Y');
-        $prefix = strtoupper((string) Setting::get('contract_prefix', 'ND'));
+        $client->loadMissing('primaryContact');
+        $subscription->loadMissing(['systems', 'plan.product', 'invoices']);
 
-        return DB::transaction(function () use ($year, $prefix) {
-            $latest = Contract::where('contract_number', 'like', "{$prefix}-{$year}-%")
-                ->orderByDesc('id')
-                ->lockForUpdate()
-                ->first();
-
-            $nextSequence = 1;
-            if ($latest) {
-                $parts = explode('-', $latest->contract_number);
-                $sequence = end($parts);
-                if (is_numeric($sequence)) {
-                    $nextSequence = ((int) $sequence) + 1;
-                }
-            }
-
-            return sprintf('%s-%s-%04d', $prefix, $year, $nextSequence);
-        });
-    }
-
-    public function buildSnapshot(Client $client, Subscription $subscription, User $author, ?string $contractNumber = null): array
-    {
-        $subscription->loadMissing(['plan.product', 'plan.services', 'systems', 'invoices']);
-        $isV2 = $subscription->billing_engine_version === 'v2' && $subscription->plan !== null;
-        $usesMinorUnits = in_array($subscription->billing_engine_version, ['v2', 'v1_simple'], true);
-
-        $services = $isV2
-            ? $subscription->plan->services->map(function ($service) {
-                return [
-                    'id' => $service->id,
-                    'key' => $service->key,
-                    'code' => $service->key,
-                    'name_ar' => $service->name_ar,
-                    'name_en' => $service->name_en,
-                    'sort_order' => (int) ($service->pivot->sort_order ?? $service->sort_order ?? 0),
-                    'notes' => $service->pivot->notes ?? null,
-                    'price_contribution' => null,
-                    'source' => 'plan_service',
-                ];
-            })->values()->all()
-            : ($subscription->billing_engine_version === 'v1_simple' ? collect() : DB::table('subscription_service')
-                ->where('subscription_id', $subscription->id)
-                ->get()
-                ->map(function ($service) {
-                    return [
-                        'id' => $service->service_id,
-                        'key' => $service->service_key,
-                        'code' => $service->service_key,
-                        'name_ar' => $service->service_name_ar,
-                        'name_en' => $service->service_name_en,
-                        'sort_order' => 0,
-                        'notes' => null,
-                        'price_contribution' => (float) $service->price_contribution,
-                        'source' => 'subscription_service',
-                    ];
-                }))->all();
-
+        $interval = $subscription->billing_interval_v2 ?: $subscription->billing_type;
+        $installments = (int) ($subscription->installments_count ?? 1);
         $schedules = DB::table('payment_schedules')
             ->where('subscription_id', $subscription->id)
             ->orderBy('sequence')
             ->get()
-            ->map(function ($schedule) {
-                return [
-                    'id' => $schedule->id,
-                    'invoice_id' => $schedule->invoice_id ?? null,
-                    'schedule_engine_version' => $schedule->schedule_engine_version ?? null,
-                    'sequence' => $schedule->sequence,
-                    'due_date' => $schedule->due_date,
-                    'amount_due' => (float) $schedule->amount_due,
-                    'amount_due_minor' => $schedule->amount_due_minor !== null ? (int) $schedule->amount_due_minor : null,
-                    'subtotal' => (float) ($schedule->subtotal ?? 0),
-                    'discount_amount' => (float) ($schedule->discount_amount ?? 0),
-                    'setup_fee_amount' => (float) ($schedule->setup_fee_amount ?? 0),
-                    'tax_amount' => (float) ($schedule->tax_amount ?? 0),
-                    'status' => $schedule->status,
-                ];
-            })->all();
-
-        $initialInvoice = $subscription->invoices
-            ->sortBy(fn ($invoice) => ($invoice->issue_date?->format('Y-m-d') ?? '').str_pad((string) $invoice->id, 20, '0', STR_PAD_LEFT))
-            ->first();
-        $plan = $subscription->plan;
-        $product = $plan?->product;
-
-        $financial = $usesMinorUnits
-            ? [
-                'currency' => $subscription->currency ?: 'JOD',
-                'currency_ar' => 'د.أ',
-                'base_subtotal' => $this->majorUnits((int) $subscription->subtotal_minor),
-                'setup_fee' => $this->majorUnits((int) $subscription->setup_fee_minor_v2),
-                'annual_discount_percentage' => 0.0,
-                'discount_amount' => $this->majorUnits((int) $subscription->discount_minor),
-                'tax_percentage' => ((int) ($subscription->tax_rate_bps ?? 0)) / 100,
-                'tax_amount' => $this->majorUnits((int) $subscription->tax_minor_v2),
-                'grand_total' => $this->majorUnits((int) $subscription->total_minor),
-            ]
-            : [
-                'currency' => 'JOD',
-                'currency_ar' => 'د.أ',
-                'base_subtotal' => (float) ($subscription->base_subtotal ?? $subscription->total_price),
-                'setup_fee' => (float) ($subscription->setup_fee ?? 0.000),
-                'annual_discount_percentage' => (float) ($subscription->annual_discount_percentage ?? 0.00),
-                'discount_amount' => (float) ($subscription->discount_amount ?? 0.000),
-                'tax_percentage' => (float) ($subscription->tax_percentage ?? 16.00),
-                'tax_amount' => (float) ($subscription->tax_amount ?? 0.000),
-                'grand_total' => (float) ($subscription->grand_total ?? $subscription->total_price),
-            ];
+            ->map(fn ($schedule) => [
+                'sequence' => (int) $schedule->sequence,
+                'due_date' => $schedule->due_date ? Carbon::parse($schedule->due_date)->toDateString() : null,
+                'amount_minor' => $schedule->amount_due_minor !== null
+                    ? (int) $schedule->amount_due_minor
+                    : Money::fromJod((string) $schedule->amount_due)->minorUnits(),
+            ])->values()->all();
+        $firstInvoice = $subscription->invoices->sortBy('id')->first();
 
         return [
-            'provider' => [
-                'name' => Setting::get('company_name_en', 'Notify'),
-                'name_ar' => Setting::get('company_name_ar', 'نوتيفاي'),
-                'country' => 'المملكة الأردنية الهاشمية',
-                'city' => 'عمان',
-                'email' => Setting::get('company_email', 'support@notify.local'),
-                'phone' => Setting::get('company_phone', ''),
-                'address' => Setting::get('company_address', ''),
-                'registration_number' => Setting::get('registration_number', ''),
-                'tax_number' => Setting::get('tax_number', ''),
-                'authorized_signatory' => Setting::get('authorized_signatory', ''),
-                'legal_notice' => Setting::get('default_contract_terms', 'مسودة تشغيلية للمراجعة القانونية والاعتماد الداخلي'),
-            ],
-            'client' => [
-                'id' => $client->id,
-                'business_name' => $client->business_name,
-                'phone' => $client->phone,
-                'contact_person' => $client->contact_person,
-                'city_area' => $client->city_area,
-                'business_category' => $client->business_category,
-            ],
-            'product' => [
-                'id' => $product?->id,
-                'code' => $product?->code,
-                'name_ar' => $product?->name_ar,
-                'name_en' => $product?->name_en,
-            ],
-            'systems' => $subscription->systems->map(fn ($system) => [
-                'id' => $system->id,
-                'code' => $system->pivot->system_code_snapshot,
-                'name_ar' => $system->pivot->system_name_ar_snapshot,
-                'name_en' => $system->pivot->system_name_en_snapshot,
-            ])->values()->all(),
-            'package' => [
-                'plan_id' => $subscription->plan_id,
-                'plan_code_snapshot' => $subscription->plan_code_snapshot ?: $plan?->code,
-                'plan_name_snapshot' => $subscription->plan_name_snapshot ?: $plan?->name_ar,
-                'name_ar' => $subscription->plan_name_snapshot ?: $plan?->name_ar,
-                'name_en' => $plan?->name_en,
-                'tier' => $plan?->tier,
-                'offer_type' => $plan?->offer_type,
-            ],
-            'pricing' => [
-                'plan_price_id' => $subscription->plan_price_id,
-                'billing_interval' => $subscription->billing_interval_v2 ?: $subscription->billing_type,
-                'currency' => $subscription->currency ?: 'JOD',
-                'quantity' => (int) ($subscription->quantity ?: 1),
-                'unit_price_minor' => $subscription->unit_price_minor !== null ? (int) $subscription->unit_price_minor : null,
-                'setup_fee_minor' => $subscription->setup_fee_minor_v2 !== null ? (int) $subscription->setup_fee_minor_v2 : null,
-                'subtotal_minor' => $subscription->subtotal_minor !== null ? (int) $subscription->subtotal_minor : null,
-                'discount_minor' => $subscription->discount_minor !== null ? (int) $subscription->discount_minor : null,
-                'tax_rate_bps' => $subscription->tax_rate_bps !== null ? (int) $subscription->tax_rate_bps : null,
-                'tax_minor' => $subscription->tax_minor_v2 !== null ? (int) $subscription->tax_minor_v2 : null,
-                'total_minor' => $subscription->total_minor !== null ? (int) $subscription->total_minor : null,
-                'agreed_value_minor' => $subscription->agreed_value_minor !== null ? (int) $subscription->agreed_value_minor : null,
-            ],
+            'schema' => self::SNAPSHOT_SCHEMA,
+            'company' => $this->companyBlock(),
+            'client' => $this->clientBlock($client),
+            'services' => $this->serviceDisplay($this->subscribedServices($subscription)),
             'subscription' => [
                 'id' => $subscription->id,
-                'billing_type' => $subscription->billing_type,
-                'billing_engine_version' => $subscription->billing_engine_version,
-                'start_date' => $subscription->start_date?->toDateString() ?? now()->toDateString(),
-                'current_period_start' => $subscription->current_period_start?->toDateString(),
-                'current_period_end' => $subscription->current_period_end?->toDateString(),
-                'next_billing_date' => $subscription->next_billing_date?->toDateString(),
-                'renewal_date' => $subscription->renewal_date?->toDateString(),
-                'version' => $subscription->version ?? 1,
-                'monthly_due_day' => $subscription->monthly_due_day ?? 1,
-                'installments_count' => $subscription->installments_count ?? 1,
+                'billing_interval' => $interval === 'annual' ? 'annual' : 'monthly',
                 'payment_terms' => $subscription->payment_terms
-                    ?: ($subscription->billing_interval_v2 === 'annual' && (int) $subscription->installments_count > 1 ? 'installments' : 'full'),
+                    ?: ($interval === 'annual' && $installments > 1 ? 'installments' : 'full'),
+                'installments_count' => $installments,
+                'monthly_due_day' => (int) ($subscription->monthly_due_day ?? 1),
+                'start_date' => $subscription->start_date?->toDateString() ?? $subscription->current_period_start?->toDateString(),
+                'end_date' => $subscription->current_period_end?->toDateString(),
+                'full_payment_date' => $schedules[0]['due_date'] ?? $firstInvoice?->due_date?->toDateString() ?? $subscription->start_date?->toDateString(),
             ],
-            'invoice' => $initialInvoice ? [
-                'id' => $initialInvoice->id,
-                'invoice_number' => $initialInvoice->invoice_number,
-                'subtotal_minor' => (int) $initialInvoice->subtotal_minor,
-                'discount_minor' => (int) $initialInvoice->discount_minor,
-                'tax_minor' => (int) $initialInvoice->tax_minor,
-                'total_minor' => (int) $initialInvoice->total_minor,
-            ] : null,
-            'financial' => $financial,
-            'services' => $services,
+            'pricing' => [
+                'currency' => $subscription->currency ?: 'JOD',
+                'agreed_value_minor' => $this->agreedValueMinor($subscription),
+            ],
             'schedules' => $schedules,
-            'clauses_count' => 22,
-            'appendices_count' => 3,
+            'terms' => filled(Setting::get('default_contract_terms')) ? trim((string) Setting::get('default_contract_terms')) : null,
             'metadata' => [
-                'contract_number' => $contractNumber,
+                'template_version' => self::TEMPLATE_VERSION,
+                'contract_number' => null,
+                'issued_at' => null,
                 'created_at' => now()->toDateTimeString(),
                 'created_by' => $author->name,
                 'created_by_id' => $author->id,
@@ -222,12 +95,42 @@ class ContractService
         ];
     }
 
+    /** Current Company & Contracts settings; unset fields are omitted, never replaced by placeholders. */
+    public function companyBlock(): array
+    {
+        return collect(self::COMPANY_FIELDS)
+            ->map(fn (string $setting) => trim((string) Setting::get($setting, '')))
+            ->filter(fn (string $value) => $value !== '')
+            ->all();
+    }
+
+    /**
+     * Contract display names and short descriptions come from the current catalog (by product id),
+     * so a draft shows what Issue will freeze. Custom System details stay as captured.
+     */
+    public function serviceDisplay(array $services): array
+    {
+        $products = Product::whereIn('id', collect($services)->pluck('product_id')->filter())->get()->keyBy('id');
+
+        return collect($services)->map(function (array $service) use ($products) {
+            $product = $products->get($service['product_id'] ?? null);
+            if ($product === null) {
+                return $service;
+            }
+
+            return array_merge($service, [
+                'code' => $product->code,
+                'name_ar' => $product->name_ar,
+                'name_en' => $product->name_en,
+                'name' => $product->name_en ?: $product->name_ar,
+                'description_ar' => filled($product->description_ar) ? $product->description_ar : null,
+            ]);
+        })->values()->all();
+    }
+
     public function createContract(Client $client, Subscription $subscription, User $author): Contract
     {
-        $contract = $this->persistDraft($client, $subscription, $author);
-        $this->generateArtifact($contract);
-
-        return $contract->fresh();
+        return $this->ensureDraftContract($client, $subscription, $author);
     }
 
     public function ensureDraftContract(Client $client, Subscription $subscription, User $author): Contract
@@ -243,115 +146,202 @@ class ContractService
         });
     }
 
-    public function generateArtifact(Contract $contract): Contract
-    {
-        $path = $contract->private_file_path ?: "contracts/{$contract->contract_number}.html";
-        $html = view('contracts.template', [
-            'contract' => $contract,
-            'contractNumber' => $contract->contract_number,
-            'snapshot' => $contract->snapshot_data,
-            'issuedDate' => $contract->issued_at?->toDateString() ?? $contract->created_at->toDateString(),
-            'legalReviewStatus' => $contract->legal_review_status,
-            'autoPrint' => false,
-        ])->render();
-
-        if (! Storage::disk('local')->put($path, $html)) {
-            throw new RuntimeException("Unable to store contract artifact for contract {$contract->id}.");
-        }
-
-        $contract->update([
-            'private_file_path' => $path,
-            'file_hash' => hash('sha256', $html),
-        ]);
-
-        return $contract->fresh();
-    }
-
+    /**
+     * Owner/Admin Issue: exactly once, under a row lock. Re-running on an issued contract returns it unchanged.
+     */
     public function issueContract(Contract $contract, User $actor): Contract
     {
-        if ($contract->isIssued()) {
-            return $contract;
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return DB::transaction(fn () => $this->issueLocked($contract->id, $actor));
+            } catch (UniqueConstraintViolationException $exception) {
+                // Another Issue took the same sequence number concurrently; recompute and retry.
+                if ($attempt >= self::ISSUE_ATTEMPTS) {
+                    throw $exception;
+                }
+            }
+        }
+    }
+
+    /** Installment plans must add up to the agreed value exactly before a contract can be issued. */
+    public function assertIssuable(array $snapshot): void
+    {
+        $agreed = (int) ($snapshot['pricing']['agreed_value_minor'] ?? 0);
+        if ($agreed <= 0) {
+            throw ValidationException::withMessages(['contract' => __('notify.contracts.errors.missing_value')]);
         }
 
-        $contract->update(['status' => 'issued', 'issued_at' => now()]);
-
-        DB::table('activity_logs')->insert([
-            'client_id' => $contract->client_id,
-            'user_id' => $actor->id,
-            'type' => 'contract_issued',
-            'description' => "تم إصدار العقد الرسمي رقم {$contract->contract_number} بنجاح",
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        return $contract;
+        if (($snapshot['subscription']['billing_interval'] ?? null) === 'annual'
+            && ($snapshot['subscription']['payment_terms'] ?? null) === 'installments') {
+            $schedules = collect($snapshot['schedules'] ?? []);
+            if ($schedules->isEmpty() || (int) $schedules->sum('amount_minor') !== $agreed) {
+                throw ValidationException::withMessages(['contract' => __('notify.contracts.errors.installments_mismatch')]);
+            }
+        }
     }
 
     public function voidContract(Contract $contract, string $reason, User $actor): Contract
     {
         $contract->update(['status' => 'voided']);
-
-        DB::table('activity_logs')->insert([
-            'client_id' => $contract->client_id,
-            'user_id' => $actor->id,
-            'type' => 'contract_voided',
-            'description' => "تم إلغاء (Void) العقد رقم {$contract->contract_number}: {$reason}",
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $this->log($contract, $actor, 'contract_voided', "تم إلغاء العقد {$contract->displayNumber()}: {$reason}");
 
         return $contract;
     }
 
     public function supersedeContract(Contract $oldContract, User $actor): Contract
     {
-        $newContract = DB::transaction(function () use ($oldContract, $actor) {
+        return DB::transaction(function () use ($oldContract, $actor) {
             $newContract = $this->persistDraft($oldContract->client, $oldContract->subscription, $actor);
-
-            $oldContract->update([
-                'status' => 'superseded',
-                'superseded_by_contract_id' => $newContract->id,
-            ]);
-
-            DB::table('activity_logs')->insert([
-                'client_id' => $oldContract->client_id,
-                'user_id' => $actor->id,
-                'type' => 'contract_superseded',
-                'description' => "تم استبدال العقد {$oldContract->contract_number} بالعقد الجديد {$newContract->contract_number}",
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            $oldContract->update(['status' => 'superseded', 'superseded_by_contract_id' => $newContract->id]);
+            $this->log($oldContract, $actor, 'contract_superseded', "تم استبدال العقد {$oldContract->displayNumber()} بمسودة عقد جديدة");
 
             return $newContract;
         });
+    }
 
-        $this->generateArtifact($newContract);
+    private function issueLocked(int $contractId, User $actor): Contract
+    {
+        $contract = Contract::whereKey($contractId)->lockForUpdate()->firstOrFail();
+        if ($contract->isIssued()) {
+            return $contract;
+        }
+        if ($contract->status !== 'draft') {
+            throw ValidationException::withMessages(['contract' => __('notify.contracts.errors.not_draft')]);
+        }
 
-        return $newContract->fresh();
+        // Pricing/subscription data stays as captured at draft creation; legacy drafts are rebuilt once.
+        $snapshot = ($contract->snapshot_data['schema'] ?? null) === self::SNAPSHOT_SCHEMA
+            ? $contract->snapshot_data
+            : $this->buildSnapshot($contract->client, $contract->subscription, $actor);
+        $this->assertIssuable($snapshot);
+
+        $issuedAt = now();
+        $number = $contract->contract_number ?: $this->nextContractNumber($issuedAt);
+        $snapshot['company'] = $this->companyBlock();
+        $snapshot['services'] = $this->serviceDisplay($snapshot['services'] ?? []);
+        $snapshot['metadata'] = array_merge($snapshot['metadata'] ?? [], [
+            'template_version' => self::TEMPLATE_VERSION,
+            'contract_number' => $number,
+            'issued_at' => $issuedAt->toDateTimeString(),
+            'issued_by' => $actor->name,
+            'issued_by_id' => $actor->id,
+        ]);
+
+        $contract->update([
+            'contract_number' => $number,
+            'status' => 'issued',
+            'issued_at' => $issuedAt,
+            'template_version' => self::TEMPLATE_VERSION,
+            'snapshot_data' => $snapshot,
+            'file_hash' => hash('sha256', json_encode($snapshot, JSON_UNESCAPED_UNICODE)),
+        ]);
+        $this->log($contract, $actor, 'contract_issued', "تم إصدار العقد الرسمي رقم {$number}");
+
+        return $contract->fresh();
+    }
+
+    /** `{prefix}-{YYYY}-{NNNN}`, sequential per year; drafts never consume a number. */
+    private function nextContractNumber(Carbon $issuedAt): string
+    {
+        $prefix = strtoupper(trim((string) Setting::get('contract_prefix', 'ND'))) ?: 'ND';
+        $year = $issuedAt->format('Y');
+        $pattern = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
+
+        $last = Contract::where('contract_number', 'like', $prefix.'-'.$year.'-%')
+            ->lockForUpdate()
+            ->pluck('contract_number')
+            ->map(fn (string $number) => preg_match($pattern, $number, $match) ? (int) $match[1] : 0)
+            ->max() ?? 0;
+
+        return sprintf('%s-%s-%04d', $prefix, $year, $last + 1);
     }
 
     private function persistDraft(Client $client, Subscription $subscription, User $author): Contract
     {
-        $contractNumber = $this->generateNextContractNumber();
-
         return Contract::create([
-            'contract_number' => $contractNumber,
+            'contract_number' => null,
             'client_id' => $client->id,
             'subscription_id' => $subscription->id,
             'generated_by' => $author->id,
             'template_version' => self::TEMPLATE_VERSION,
             'status' => 'draft',
             'legal_review_status' => 'pending',
-            'snapshot_data' => $this->buildSnapshot($client, $subscription, $author, $contractNumber),
-            'private_file_path' => "contracts/{$contractNumber}.html",
+            'snapshot_data' => $this->buildSnapshot($client, $subscription, $author),
+            'private_file_path' => null,
             'file_hash' => null,
-            'page_count' => 14,
+            'page_count' => null,
             'issued_at' => null,
         ]);
     }
 
-    private function majorUnits(int $minorUnits): float
+    private function clientBlock(Client $client): array
     {
-        return (float) Money::fromMinorUnits($minorUnits)->format();
+        $contact = $client->primaryContact;
+        $phone = $client->business_phone ?: $client->phone;
+        $contactPhone = $contact?->primary_phone ?: $contact?->secondary_phone;
+        $city = $client->city_area ?: collect([$client->city, $client->area])->filter()->join('، ');
+
+        return array_filter([
+            'business_name' => $client->business_name,
+            'phone' => $phone,
+            'city_area' => $city,
+            'address' => $client->location_text,
+            'contact_name' => $contact?->name ?: $client->contact_person,
+            'contact_phone' => $contactPhone !== $phone ? $contactPhone : null,
+        ], fn ($value) => filled($value));
+    }
+
+    private function subscribedServices(Subscription $subscription): array
+    {
+        if ($subscription->systems->isNotEmpty()) {
+            return $subscription->systems->map(fn (Product $system) => [
+                'product_id' => $system->id,
+                'code' => $system->pivot->system_code_snapshot,
+                'name_ar' => $system->pivot->system_name_ar_snapshot,
+                'name_en' => $system->pivot->system_name_en_snapshot,
+                'name' => $system->pivot->system_name_en_snapshot ?: $system->pivot->system_name_ar_snapshot,
+                'description_ar' => null,
+                'custom_title' => $system->pivot->custom_title,
+                'custom_description' => $system->pivot->custom_description,
+            ])->values()->all();
+        }
+
+        // Pre-V1 plan subscriptions: the plan's product is the subscribed service.
+        $product = $subscription->plan?->product;
+
+        return $product === null ? [] : [[
+            'product_id' => $product->id,
+            'code' => $product->code,
+            'name_ar' => $product->name_ar,
+            'name_en' => $product->name_en,
+            'name' => $product->name_en ?: $product->name_ar,
+            'description_ar' => null,
+            'custom_title' => null,
+            'custom_description' => null,
+        ]];
+    }
+
+    private function agreedValueMinor(Subscription $subscription): int
+    {
+        if ($subscription->agreed_value_minor !== null) {
+            return (int) $subscription->agreed_value_minor;
+        }
+        if ($subscription->total_minor !== null) {
+            return (int) $subscription->total_minor;
+        }
+
+        return Money::fromJod((string) ($subscription->grand_total ?? $subscription->total_price ?? '0'))->minorUnits();
+    }
+
+    private function log(Contract $contract, User $actor, string $type, string $description): void
+    {
+        DB::table('activity_logs')->insert([
+            'client_id' => $contract->client_id,
+            'user_id' => $actor->id,
+            'type' => $type,
+            'description' => $description,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }

@@ -182,7 +182,8 @@ class ClientWorkspaceViewModel
             $contract = $contracts->firstWhere('subscription_id', $sub->id) ?? $sub->contracts->first();
             $contractInfo = $contract ? [
                 'id' => $contract->id,
-                'number' => $contract->contract_number,
+                'number' => $contract->displayNumber(),
+                'is_draft' => $contract->isDraft(),
                 'status' => $contract->status,
                 'status_label' => self::statusLabel($contract->status),
                 'status_variant' => match ($contract->status) {
@@ -192,9 +193,7 @@ class ClientWorkspaceViewModel
                     default => 'warning',
                 },
                 'preview_url' => route('contracts.preview', $contract->id),
-                'download_url' => route('contracts.download', $contract->id),
                 'download_pdf_url' => route('contracts.download-pdf', $contract->id),
-                'print_url' => route('contracts.print', $contract->id),
             ] : null;
 
             return [
@@ -254,7 +253,8 @@ class ClientWorkspaceViewModel
         $contractAccess = $contracts->map(function (Contract $contract) use ($actor) {
             return [
                 'id' => $contract->id,
-                'number' => $contract->contract_number,
+                'number' => $contract->displayNumber(),
+                'is_draft' => $contract->isDraft(),
                 'status' => $contract->status,
                 'status_label' => self::statusLabel($contract->status),
                 'status_variant' => match ($contract->status) {
@@ -265,9 +265,7 @@ class ClientWorkspaceViewModel
                 },
                 'issued_at' => $contract->issued_at ? Carbon::parse($contract->issued_at)->format('Y-m-d') : null,
                 'preview_url' => route('contracts.preview', $contract->id),
-                'download_url' => route('contracts.download', $contract->id),
                 'download_pdf_url' => route('contracts.download-pdf', $contract->id),
-                'print_url' => route('contracts.print', $contract->id),
                 'can_download' => $actor ? Gate::forUser($actor)->allows('download', $contract) : Gate::allows('download', $contract),
                 'can_view' => $actor ? Gate::forUser($actor)->allows('view', $contract) : Gate::allows('view', $contract),
             ];

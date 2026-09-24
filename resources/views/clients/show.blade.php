@@ -367,20 +367,9 @@
                                                     <span class="notify-badge notify-badge--{{ $sub['contract']['status_variant'] }} notify-badge--sm">{{ $sub['contract']['status_label'] }}</span>
                                                 </div>
                                                 <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-                                                    <a href="{{ $sub['contract']['print_url'] }}" target="_blank" class="notify-button notify-button--ghost notify-button--sm">
-                                                        <span>{{ __('notify.contracts.print') }}</span>
-                                                    </a>
                                                     <a href="{{ $sub['contract']['download_pdf_url'] }}" class="notify-button notify-button--ghost notify-button--sm">
                                                         <span>PDF</span>
                                                     </a>
-                                                    @if($sub['contract']['status'] === 'draft' && \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::ISSUE_CONTRACTS))
-                                                        <form method="POST" action="{{ route('contracts.issue', $sub['contract']['id']) }}" style="display:inline">
-                                                            @csrf
-                                                            <button type="submit" class="notify-button notify-button--soft notify-button--sm">
-                                                                <span>{{ __('notify.contracts.issue') }}</span>
-                                                            </button>
-                                                        </form>
-                                                    @endif
                                                 </div>
                                             </div>
                                         </div>
@@ -427,12 +416,13 @@
                                             <span>{{ __('notify.contracts.download_pdf') }}</span>
                                         </a>
                                     @endif
-                                    @if(!empty($contract['print_url']))
-                                        <a href="{{ $contract['print_url'] }}"
-                                           target="_blank"
-                                           class="notify-button notify-button--ghost notify-button--sm">
-                                            <span>{{ __('notify.client_workspace.print_contract') }}</span>
-                                        </a>
+                                    @if(!empty($contract['is_draft']) && \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::ISSUE_CONTRACTS))
+                                        <form method="POST" action="{{ route('contracts.issue', $contract['id']) }}" style="display:inline" data-issue-contract>
+                                            @csrf
+                                            <button type="submit" class="notify-button notify-button--primary notify-button--sm">
+                                                <span>{{ __('notify.contracts.issue') }}</span>
+                                            </button>
+                                        </form>
                                     @endif
                                 </div>
                             </div>

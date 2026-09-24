@@ -16,6 +16,11 @@ class Product extends Model
     public const CODE_E_MENU = 'e_menu';
     public const CODE_E_STORE = 'e_store';
     public const CODE_AUTO_SMS = 'auto_sms_system';
+    public const CODE_RESTAURANT_SYSTEM = 'restaurant_system';
+    public const CODE_STORE_SYSTEM = 'digital_store_system';
+    public const CODE_CLINK_MANAGEMENT = 'clink_management';
+    public const CODE_CRM_AI_TOOL = 'crm_ai_tool';
+    public const CODE_CUSTOM_SYSTEM = 'custom_system';
 
     /**
      * Canonical V1 System identities and their credential capability (§6, §18.1; owner decision in P3).

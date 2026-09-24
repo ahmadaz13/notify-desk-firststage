@@ -33,7 +33,7 @@ class SettingsController extends Controller
         $data = $request->validate([
             'company_name_ar' => ['nullable', 'string', 'max:255'], 'company_name_en' => ['nullable', 'string', 'max:255'],
             'company_phone' => ['nullable', 'string', 'max:50'], 'company_email' => ['nullable', 'email', 'max:255'],
-            'company_address' => ['nullable', 'string', 'max:1000'], 'registration_number' => ['nullable', 'string', 'max:100'],
+            'company_address' => ['nullable', 'string', 'max:1000'], 'registration_number' => ['nullable', 'string', 'max:100'], 'company_national_number' => ['nullable', 'string', 'max:100'],
             'tax_number' => ['nullable', 'string', 'max:100'], 'authorized_signatory' => ['nullable', 'string', 'max:255'],
             'default_contract_terms' => ['nullable', 'string', 'max:10000'], 'contract_prefix' => ['required', 'regex:/^[A-Za-z0-9_]+$/', 'max:12'],
             'invoice_prefix' => ['required', 'regex:/^[A-Za-z0-9_]+$/', 'max:12'], 'timezone' => ['required', 'in:Asia/Amman'],
@@ -60,7 +60,7 @@ class SettingsController extends Controller
     {
         return [
             'company_name_ar' => 'نوتيفاي', 'company_name_en' => 'Notify', 'company_logo' => '', 'company_phone' => '', 'company_email' => '', 'company_address' => '',
-            'registration_number' => '', 'tax_number' => '', 'authorized_signatory' => '', 'default_contract_terms' => '', 'contract_prefix' => 'ND', 'invoice_prefix' => 'INV',
+            'registration_number' => '', 'company_national_number' => '', 'tax_number' => '', 'authorized_signatory' => '', 'default_contract_terms' => '', 'contract_prefix' => 'ND', 'invoice_prefix' => 'INV',
             'timezone' => 'Asia/Amman', 'appointment_duration' => '60', 'free_installation_duration' => '60', 'post_install_followup_days' => '3',
             'workday_start' => '09:00', 'workday_end' => '17:00', 'currency' => 'JOD', 'default_billing_cycle' => 'monthly',
             'auto_contract_on_paid_subscription' => '1', 'allow_monthly' => '1', 'allow_annual_installments' => '1',

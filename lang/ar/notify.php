@@ -728,13 +728,26 @@ return array (
   ),
   'contracts' =>
   array (
-    'print' => 'طباعة',
     'download_pdf' => 'تحميل PDF',
     'issue' => 'اعتماد وإصدار',
     'supersede' => 'استبدال',
     'void' => '● لاغٍ',
     'void_action' => 'إلغاء',
     'voided' => 'ملغي',
+    'draft_label' => 'مسودة / Draft',
+    'back_to_client' => 'العودة إلى ملف العميل',
+    'pdf_failed' => 'تعذر إنشاء ملف PDF للعقد حالياً. يمكنك معاينة العقد والمحاولة لاحقاً.',
+    'draft_ready' => 'مسودة العقد جاهزة للمعاينة.',
+    'current_ready' => 'العقد الحالي :number جاهز.',
+    'issued' => 'تم إصدار العقد رسمياً برقم :number.',
+    'voided_done' => 'تم إلغاء العقد :number.',
+    'superseded_done' => 'تم استبدال العقد وإنشاء مسودة جديدة.',
+    'errors' =>
+    array (
+      'missing_value' => 'لا يمكن إصدار العقد دون قيمة متفق عليها.',
+      'installments_mismatch' => 'لا يمكن إصدار العقد: مجموع الدفعات لا يساوي القيمة المتفق عليها.',
+      'not_draft' => 'يمكن إصدار المسودات فقط.',
+    ),
   ),
   'executive' =>
   array (
@@ -1154,7 +1167,7 @@ return array (
     'subtitle' => 'الإعدادات العامة لوثائق الشركة والعمليات والاشتراكات والعقود.',
     'company_documents' => 'الشركة والوثائق', 'operations' => 'العمليات', 'subscriptions_contracts' => 'الاشتراكات والعقود',
     'company_name_ar' => 'اسم الشركة بالعربية', 'company_name_en' => 'اسم الشركة بالإنجليزية', 'company_logo' => 'شعار الشركة', 'company_phone' => 'الهاتف', 'company_email' => 'البريد الإلكتروني',
-    'company_address' => 'العنوان', 'registration_number' => 'رقم التسجيل', 'tax_number' => 'الرقم الضريبي', 'authorized_signatory' => 'المفوّض بالتوقيع',
+    'company_address' => 'العنوان', 'registration_number' => 'رقم التسجيل', 'company_national_number' => 'الرقم الوطني للمنشأة', 'tax_number' => 'الرقم الضريبي', 'authorized_signatory' => 'المفوّض بالتوقيع',
     'default_contract_terms' => 'شروط العقد الافتراضية', 'contract_prefix' => 'بادئة رقم العقد', 'invoice_prefix' => 'بادئة رقم الفاتورة',
     'timezone' => 'المنطقة الزمنية', 'appointment_duration' => 'مدة الموعد (دقيقة)', 'free_installation_duration' => 'مدة التركيب المجاني (دقيقة)',
     'post_install_followup_days' => 'المتابعة بعد التركيب (أيام)', 'workday_start' => 'بداية يوم العمل', 'workday_end' => 'نهاية يوم العمل',
@@ -1247,6 +1260,9 @@ return array (
       'plan_price_invalid' => 'السعر أو الخطة المختارة غير صالحة.',
       'same_product_conflict' => 'يوجد اشتراك نشط أو تغيير مجدول لهذا المنتج.',
     ),
+    'custom_system_title' => 'عنوان النظام المخصص',
+    'custom_system_description' => 'وصف مختصر',
+    'custom_system_title_required' => 'أدخل عنواناً مختصراً للنظام المخصص.',
   ),
   'systems' => array (
     'title' => 'الأنظمة', 'add' => 'إضافة نظام', 'name_ar' => 'الاسم العربي', 'name_en' => 'الاسم الإنجليزي',

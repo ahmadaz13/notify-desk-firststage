@@ -11,7 +11,7 @@
             <button type="button" class="notify-icon-button" data-close-action-modal aria-label="{{ __('notify.actions.cancel') }}">×</button>
         </div>
 
-        <form method="POST" action="{{ route('clients.guided-subscription.store', $client) }}" class="notify-action-form" x-data="{ cycle: @js(old('billing_interval', \App\Models\Setting::get('default_billing_cycle', 'monthly'))), terms: @js(old('payment_terms', 'full')) }">
+        <form method="POST" action="{{ route('clients.guided-subscription.store', $client) }}" class="notify-action-form" x-data="{ cycle: @js(old('billing_interval', \App\Models\Setting::get('default_billing_cycle', 'monthly'))), terms: @js(old('payment_terms', 'full')), custom: @js($sellableProducts->where('code', \App\Models\Product::CODE_CUSTOM_SYSTEM)->pluck('id')->intersect(old('system_ids', []))->isNotEmpty()) }">
             @csrf
             <input type="hidden" name="_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
 
@@ -19,12 +19,25 @@
                 <legend class="notify-field-label"><strong>{{ __('notify.subscriptions.selected_systems') }}</strong></legend>
                 @foreach($sellableProducts as $system)
                     <label style="display:flex;gap:8px;align-items:center;margin:8px 0">
-                        <input type="checkbox" name="system_ids[]" value="{{ $system->id }}" @checked(in_array($system->id, old('system_ids', [])))>
+                        <input type="checkbox" name="system_ids[]" value="{{ $system->id }}" @checked(in_array($system->id, old('system_ids', []))) @if($system->code === \App\Models\Product::CODE_CUSTOM_SYSTEM) @change="custom = $event.target.checked" @endif>
                         <span>{{ $system->name_ar }}@if($system->name_en) · {{ $system->name_en }}@endif</span>
                     </label>
                 @endforeach
                 @error('system_ids') <span class="error">{{ $message }}</span> @enderror
             </fieldset>
+
+            {{-- Custom System: short project title/description for the contract (P8) --}}
+            <div x-show="custom" x-cloak class="notify-form-grid" data-custom-system-fields>
+                <div class="notify-form-group">
+                    <label for="custom-system-title">{{ __('notify.subscriptions.custom_system_title') }}</label>
+                    <input id="custom-system-title" name="custom_system_title" value="{{ old('custom_system_title') }}" maxlength="160" class="notify-form-input">
+                    @error('custom_system_title') <span class="error">{{ $message }}</span> @enderror
+                </div>
+                <div class="notify-form-group">
+                    <label for="custom-system-description">{{ __('notify.subscriptions.custom_system_description') }} <span class="notify-label-note">({{ __('notify.common.optional') }})</span></label>
+                    <input id="custom-system-description" name="custom_system_description" value="{{ old('custom_system_description') }}" maxlength="300" class="notify-form-input">
+                </div>
+            </div>
 
             <div class="notify-form-grid">
                 <div class="notify-form-group">

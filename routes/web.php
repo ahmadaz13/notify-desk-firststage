@@ -123,8 +123,6 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     // Contracts Workflow
     Route::post('/clients/{client}/subscriptions/{subscription}/contract', [ContractController::class, 'store'])->name('contracts.store');
     Route::get('/contracts/{contract}/preview', [ContractController::class, 'preview'])->name('contracts.preview');
-    Route::get('/contracts/{contract}/print', [ContractController::class, 'print'])->name('contracts.print');
-    Route::get('/contracts/{contract}/download', [ContractController::class, 'download'])->name('contracts.download');
     Route::get('/contracts/{contract}/download-pdf', [ContractController::class, 'downloadPdf'])->name('contracts.download-pdf');
     Route::post('/contracts/{contract}/issue', [ContractController::class, 'issue'])->name('contracts.issue');
     Route::post('/contracts/{contract}/void', [ContractController::class, 'void'])->name('contracts.void');

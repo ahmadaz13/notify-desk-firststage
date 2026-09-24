@@ -105,7 +105,7 @@ class Phase4SmokeVerificationTest extends TestCase
         $workspaceResponse = $this->actingAs($this->admin)->get(route('clients.show', $client));
         $workspaceResponse->assertOk()
             ->assertSee('برنامج نقاط البيع المتطور')
-            ->assertSee(route('contracts.print', $client->contracts()->first()->id), false);
+            ->assertSee(route('contracts.download-pdf', $client->contracts()->first()->id), false);
     }
 
     public function test_same_product_active_subscription_conflict_protection(): void

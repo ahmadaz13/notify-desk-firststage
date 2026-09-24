@@ -3,57 +3,48 @@
 namespace App\Services;
 
 use App\Models\Contract;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\ContractDocument;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Mpdf\Mpdf;
 use RuntimeException;
 use Throwable;
 
+/**
+ * Arabic contract PDF (§8.5, FROZEN D-11). dompdf reversed Arabic word order and broke mixed
+ * Arabic/English lines in the P8 spike, so contracts render with mPDF: OpenType shaping, RTL bidi and
+ * the bundled XB Riyaz Naskh font. A4, 19 mm margins; Draft pages carry a watermark.
+ */
 class ContractPdfService
 {
+    public const FONT = 'xbriyaz';
+
     public function generateFilename(Contract $contract): string
     {
-        $snapshot = $contract->snapshot_data ?? [];
+        $document = ContractDocument::for($contract);
+        $client = Str::slug((string) ($document['client']['business_name'] ?? ''), '-') ?: 'client';
+        $systems = collect($document['services'])->pluck('code')->filter()->map(fn ($code) => Str::slug((string) $code, '-'))->join('-') ?: 'services';
+        $suffix = $document['number'] ?: 'draft';
 
-        $clientName = $snapshot['client']['business_name']
-            ?? $contract->client?->business_name
-            ?? 'client';
-
-        $productName = $snapshot['product']['name_en']
-            ?? $snapshot['product']['code']
-            ?? $contract->subscription?->plan?->product?->name_en
-            ?? 'product';
-
-        $sanitizedClient = Str::slug($clientName, '-') ?: 'client';
-        $sanitizedProduct = Str::slug($productName, '-') ?: 'product';
-        $contractNumber = $contract->contract_number ?: "ND-{$contract->id}";
-
-        return "Notify-Contract-{$sanitizedClient}-{$sanitizedProduct}-{$contractNumber}.pdf";
+        return "Notify-Contract-{$client}-{$systems}-{$suffix}.pdf";
     }
 
     public function generatePdfOutput(Contract $contract): string
     {
         try {
-            $snapshot = $contract->snapshot_data;
-            if (! is_array($snapshot) || empty($snapshot)) {
-                throw new RuntimeException("Contract {$contract->id} does not contain valid snapshot data.");
+            $document = ContractDocument::for($contract);
+            $html = view('contracts.document', ['document' => $document, 'mode' => 'pdf'])->render();
+
+            $mpdf = $this->makeMpdf();
+            if ($document['is_draft'] || $document['is_voided']) {
+                $mpdf->SetWatermarkText($document['is_voided'] ? 'VOID' : 'DRAFT', 0.07);
+                $mpdf->showWatermarkText = true;
             }
+            $mpdf->SetHTMLFooter(view('contracts.partials.pdf-footer', ['document' => $document])->render());
+            $mpdf->WriteHTML($html);
 
-            $html = view('contracts.template', [
-                'contract' => $contract,
-                'contractNumber' => $contract->contract_number,
-                'snapshot' => $snapshot,
-                'issuedDate' => $contract->issued_at?->toDateString() ?? $contract->created_at->toDateString(),
-                'legalReviewStatus' => $contract->legal_review_status,
-                'autoPrint' => false,
-            ])->render();
-
-            $pdf = Pdf::loadHTML($html)
-                ->setPaper('a4', 'portrait')
-                ->setOption('isHtml5ParserEnabled', true)
-                ->setOption('isRemoteEnabled', false);
-
-            return $pdf->output();
+            return $mpdf->Output('', 'S');
         } catch (Throwable $e) {
             throw new RuntimeException('Failed to generate contract PDF: '.$e->getMessage(), 0, $e);
         }
@@ -61,15 +52,42 @@ class ContractPdfService
 
     public function downloadResponse(Contract $contract): Response
     {
-        $pdfOutput = $this->generatePdfOutput($contract);
-        $filename = $this->generateFilename($contract);
-
-        return response($pdfOutput, 200, [
+        return response($this->generatePdfOutput($contract), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Disposition' => 'attachment; filename="'.$this->generateFilename($contract).'"',
             'Cache-Control' => 'private, no-cache, no-store, must-revalidate',
             'Pragma' => 'no-cache',
             'Expires' => '0',
+        ]);
+    }
+
+    /** Number of pages in a generated PDF (used to hold the two-page contract target). */
+    public static function pageCount(string $pdf): int
+    {
+        return preg_match_all('#/Type\s*/Page(?!s)\b#', $pdf);
+    }
+
+    private function makeMpdf(): Mpdf
+    {
+        $tempDir = storage_path('framework/cache/mpdf');
+        File::ensureDirectoryExists($tempDir);
+
+        return new Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4',
+            'orientation' => 'P',
+            'margin_left' => 19,
+            'margin_right' => 19,
+            'margin_top' => 18,
+            'margin_bottom' => 20,
+            'margin_footer' => 8,
+            'default_font' => self::FONT,
+            'default_font_size' => 10,
+            'directionality' => 'rtl',
+            'useSubstitutions' => true,
+            'backupSubsFont' => ['dejavusans'],
+            'tempDir' => $tempDir,
+            'allow_output_buffering' => true,
         ]);
     }
 }

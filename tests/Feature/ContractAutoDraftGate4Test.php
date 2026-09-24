@@ -35,7 +35,7 @@ class ContractAutoDraftGate4Test extends TestCase
 
     public function test_paid_subscription_creates_one_immutable_v2_commercial_contract_snapshot(): void
     {
-        [$founder, $client, $product, $plan, $price, $service] = $this->commercialFixture();
+        [$founder, $client, $product, $plan, $price] = $this->commercialFixture();
 
         [$subscription, $invoice, $contractResult] = app(SubscriptionBillingService::class)->startPaidSubscription(
             $client,
@@ -47,49 +47,34 @@ class ContractAutoDraftGate4Test extends TestCase
         $contract = Contract::sole();
         $snapshot = $contract->snapshot_data;
 
+        // P8: the draft has no official number; the snapshot is the V1 contract shape (§8.2).
         $this->assertSame('ready', $contractResult['status']);
         $this->assertSame('draft', $contract->status);
+        $this->assertNull($contract->contract_number);
         $this->assertSame($client->id, $contract->client_id);
         $this->assertSame($subscription->id, $contract->subscription_id);
-        $this->assertSame($product->id, $snapshot['product']['id']);
-        $this->assertSame('gate4_product', $snapshot['product']['code']);
-        $this->assertSame('Gate 4 Product', $snapshot['product']['name_en']);
-        $this->assertSame($plan->id, $snapshot['package']['plan_id']);
-        $this->assertSame('gate4_plan', $snapshot['package']['plan_code_snapshot']);
-        $this->assertSame('Gate 4 Plan', $snapshot['package']['plan_name_snapshot']);
-        $this->assertSame($price->id, $snapshot['pricing']['plan_price_id']);
-        $this->assertSame($subscription->unit_price_minor, $snapshot['pricing']['unit_price_minor']);
-        $this->assertSame($subscription->setup_fee_minor_v2, $snapshot['pricing']['setup_fee_minor']);
-        $this->assertSame($subscription->subtotal_minor, $snapshot['pricing']['subtotal_minor']);
-        $this->assertSame($subscription->discount_minor, $snapshot['pricing']['discount_minor']);
-        $this->assertSame($subscription->tax_rate_bps, $snapshot['pricing']['tax_rate_bps']);
-        $this->assertSame($subscription->tax_minor_v2, $snapshot['pricing']['tax_minor']);
-        $this->assertSame($subscription->total_minor, $snapshot['pricing']['total_minor']);
-        $this->assertSame($invoice->total_minor, $snapshot['invoice']['total_minor']);
-        $this->assertSame($service->id, $snapshot['services'][0]['id']);
-        $this->assertSame('gate4_service', $snapshot['services'][0]['code']);
-        $this->assertSame(10, $snapshot['services'][0]['sort_order']);
-        $this->assertSame('Included for Gate 4', $snapshot['services'][0]['notes']);
-        $this->assertSame('plan_service', $snapshot['services'][0]['source']);
-        $this->assertSame($contract->contract_number, $snapshot['metadata']['contract_number']);
-        Storage::disk('local')->assertExists($contract->private_file_path);
-        $this->assertNotNull($contract->file_hash);
+        $this->assertSame(ContractService::SNAPSHOT_SCHEMA, $snapshot['schema']);
+        $this->assertSame($product->id, $snapshot['services'][0]['product_id']);
+        $this->assertSame('gate4_product', $snapshot['services'][0]['code']);
+        $this->assertSame('Gate 4 Product', $snapshot['services'][0]['name']);
+        $this->assertSame($subscription->total_minor, $snapshot['pricing']['agreed_value_minor']);
+        $this->assertSame($invoice->total_minor, $snapshot['pricing']['agreed_value_minor']);
+        $this->assertNull($snapshot['metadata']['contract_number']);
 
-        $frozen = $contract->snapshot_data;
+        // The stored snapshot never changes when the catalog/pricing changes; Issue freezes display names.
+        app(ContractService::class)->issueContract($contract, $founder);
+        $frozen = $contract->fresh()->snapshot_data;
         $product->update(['name_ar' => 'منتج معدل', 'name_en' => 'Changed Product', 'is_active' => false, 'archived_at' => now()]);
         $plan->update(['name_ar' => 'باقة معدلة', 'name_en' => 'Changed Plan']);
-        $plan->services()->detach($service->id);
         $price->update(['amount_minor' => 999999, 'setup_fee_minor' => 888888]);
 
         $this->assertSame($frozen, $contract->fresh()->snapshot_data);
 
         $this->actingAs($founder)
-            ->get(route('contracts.print', $contract))
+            ->get(route('contracts.preview', $contract))
             ->assertOk()
-            ->assertSee('size: A4 portrait', false)
             ->assertSee('Gate 4 Product')
-            ->assertSee('Gate 4 Plan')
-            ->assertSee('Gate 4 Service');
+            ->assertDontSee('Changed Product');
     }
 
     public function test_auto_draft_and_manual_recovery_are_idempotent(): void
@@ -106,27 +91,22 @@ class ContractAutoDraftGate4Test extends TestCase
         $sameContract = app(ContractService::class)->ensureDraftContract($client, $subscription, $founder);
         $this->assertTrue($contract->is($sameContract));
 
-        Storage::disk('local')->delete($contract->private_file_path);
         $this->actingAs($founder)
             ->post(route('contracts.store', ['client' => $client, 'subscription' => $subscription]))
             ->assertRedirect(route('clients.show', $client))
             ->assertSessionHas('success');
 
         $this->assertSame(1, Contract::where('subscription_id', $subscription->id)->where('status', 'draft')->count());
-        Storage::disk('local')->assertExists($contract->private_file_path);
 
         app(ContractService::class)->issueContract($contract->fresh(), $founder);
         $currentContract = app(ContractService::class)->ensureDraftContract($client, $subscription, $founder);
         $this->assertTrue($contract->is($currentContract));
         $this->assertSame(1, Contract::where('subscription_id', $subscription->id)->count());
 
-        Storage::disk('local')->delete($contract->private_file_path);
-        $this->actingAs($founder)->get(route('contracts.download', $contract))->assertStatus(409);
         $this->actingAs($founder)
             ->post(route('contracts.store', ['client' => $client, 'subscription' => $subscription]))
             ->assertSessionHas('success');
         $this->assertSame(1, Contract::where('subscription_id', $subscription->id)->count());
-        Storage::disk('local')->assertExists($contract->private_file_path);
     }
 
     public function test_contract_lifecycle_remains_issue_supersede_and_void(): void
@@ -149,11 +129,12 @@ class ContractAutoDraftGate4Test extends TestCase
         $this->assertSame('voided', $voided->fresh()->status);
     }
 
-    public function test_artifact_failure_does_not_roll_back_subscription_invoice_or_draft(): void
+    public function test_draft_failure_does_not_roll_back_subscription_or_invoice(): void
     {
+        // P8: the HTML artifact is retired; a failing draft is the recoverable step after payment terms commit.
         [$founder, $client, , , $price] = $this->commercialFixture();
         $contractService = $this->partialMock(ContractService::class, function ($mock) {
-            $mock->shouldReceive('generateArtifact')->once()->andThrow(new RuntimeException('simulated storage failure'));
+            $mock->shouldReceive('ensureDraftContract')->once()->andThrow(new RuntimeException('simulated draft failure'));
         });
         $this->app->instance(ContractService::class, $contractService);
 
@@ -167,7 +148,7 @@ class ContractAutoDraftGate4Test extends TestCase
         $this->assertSame('failed', $contractResult['status']);
         $this->assertDatabaseHas('subscriptions', ['id' => $subscription->id]);
         $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'subscription_id' => $subscription->id]);
-        $this->assertDatabaseHas('contracts', ['subscription_id' => $subscription->id, 'status' => 'draft']);
+        $this->assertDatabaseMissing('contracts', ['subscription_id' => $subscription->id]);
         $this->assertDatabaseHas('notifications', [
             'user_id' => $founder->id,
             'type' => 'contract_draft_recovery_required',
