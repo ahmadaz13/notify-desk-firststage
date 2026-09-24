@@ -10,6 +10,14 @@
         <p class="notify-flash" role="status">{{ __('notify.subscriptions.activated_success') }}</p>
     @endif
 
+    @if(in_array(request('from'), ['today', 'work'], true))
+        {{-- Opened from a Today card (P11): one tap back to the same queue. --}}
+        <a class="notify-back-link" href="{{ route('dashboard', array_filter(['mode' => request('from') === 'work' ? 'work' : null, 'scope' => request('scope') === 'my' ? 'my' : null])) }}" data-return-to-today>
+            <x-notify.icon name="chevron-left" :size="18" class="notify-icon--directional" />
+            <span>{{ __('notify.today_board.back_to_today') }}</span>
+        </a>
+    @endif
+
     @include('clients.workspace.header')
 
     <div class="notify-workspace__layout">

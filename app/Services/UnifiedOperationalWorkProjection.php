@@ -5,14 +5,24 @@ namespace App\Services;
 use App\Models\Appointment;
 use App\Models\Client;
 use App\Models\ClientReviewItem;
+use App\Models\PaymentReceiptConfirmation;
 use App\Models\User;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
+use App\Support\OperationalTime;
 use App\Support\Permissions;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Today Board / Open Work projection (§20, P11).
+ *
+ * A read-only projection over the authoritative workflow records (appointments, installations,
+ * follow-ups, pending client reviews, receivables, first-contact prospects). It never stores
+ * workflow state and never writes; every action links to the existing Client Workspace sheets.
+ */
 class UnifiedOperationalWorkProjection
 {
     public const TYPE_CALL = 'call';
@@ -29,84 +39,102 @@ class UnifiedOperationalWorkProjection
     public const FILTER_FOLLOW_UPS = 'follow_ups';
     public const FILTER_COLLECTIONS = 'collections';
 
+    /** "Next" holds work due within this window from now. */
+    public const NEXT_WINDOW_MINUTES = 120;
+
+    /**
+     * An appointment or installation stays "now" (in progress) this long after it starts before it
+     * counts as late. Matches the 60-minute appointment_duration default; P13 wires that setting.
+     */
+    public const IN_PROGRESS_MINUTES = 60;
+
+    /** Date-only work (a payment due today) is ordered at the end of the working day. */
+    public const DATE_ONLY_ANCHOR = '17:00:00';
+
+    /** Overdue ordering: operational importance first, then oldest first. */
+    private const OVERDUE_TIERS = [
+        self::TYPE_APPOINTMENT => 0,
+        self::TYPE_INSTALLATION => 0,
+        self::TYPE_FOLLOW_UP => 1,
+        self::TYPE_CALL => 1,
+        self::TYPE_COLLECTION => 2,
+        self::TYPE_REVIEW => 3,
+    ];
+
+    /** Where Client Workspace links return after an action ("today" or "work") plus the scope. */
+    protected array $returnContext = ['from' => 'today', 'scope' => 'all'];
+
     public function __construct(
         protected ReceivableService $receivableService
     ) {}
 
     /**
-     * Build the projection for Today page.
-     * Sections:
-     * 1. Overdue: due_at < now
-     * 2. Next: due now or within next 2 hours, plus nearest upcoming and undated prospects needing first contact
-     * 3. Later Today: remaining work due today after the Next window
+     * Today Board. Sections:
+     * 1. Overdue: timed work past its time (appointments/installations after the in-progress window),
+     *    payments past their due date, reviews waiting since an earlier day.
+     * 2. Next: work in progress or due within NEXT_WINDOW_MINUTES, reviews raised today; when empty,
+     *    the nearest later item is pulled forward so the next action is always obvious.
+     * 3. Later Today: remaining work for today, chronological.
+     * First-contact prospects are undated and are not part of the timed queue (count only).
      */
     public function today(User $user, ?Carbon $now = null, string $scope = 'all'): array
     {
         $now = $this->businessTime($now);
-        $nextWindowEnd = $now->copy()->addHours(2);
+        $scope = $scope === 'my' ? 'my' : 'all';
+        $this->returnContext = ['from' => 'today', 'scope' => $scope];
 
-        $allItems = $this->projectAll($user, $now);
+        $items = $this->applyScope(
+            $this->projectAll($user, $now, $now->copy()->endOfDay(), false),
+            $user,
+            $scope
+        );
 
-        if ($scope === 'my') {
-            $allItems = $allItems->filter(function ($item) use ($user) {
-                return in_array($user->id, $item['assigned_user_ids'] ?? [], true);
-            })->values();
-        }
-
-        // Filter items relevant for Today:
-        // Overdue items, items due today, and undated items (actionable today). Future items (after today) are excluded.
         $overdue = collect();
         $next = collect();
         $laterToday = collect();
+        $nextWindowEnd = $now->copy()->addMinutes(self::NEXT_WINDOW_MINUTES);
 
-        foreach ($allItems as $item) {
-            $dueAt = $item['due_at'];
+        foreach ($items as $item) {
+            $state = $item['timing']['state'];
 
-            if ($dueAt === null) {
-                // Undated prospect needing first contact belongs in Next
-                $next->push($item);
-                continue;
-            }
-
-            if ($dueAt->lt($now)) {
-                // Due time has passed -> Overdue
+            if ($state === 'overdue') {
                 $item['priority'] = 'overdue';
                 $overdue->push($item);
-            } elseif ($dueAt->isSameDay($now)) {
-                if ($dueAt->lte($nextWindowEnd)) {
-                    $item['priority'] = 'next';
-                    $next->push($item);
-                } else {
-                    $item['priority'] = 'later_today';
-                    $laterToday->push($item);
-                }
+            } elseif (in_array($state, ['now', 'soon', 'waiting'], true)
+                || ($state === 'due_today' && Carbon::createFromTimestamp($item['sort_at'], OperationalTime::TIMEZONE)->lte($nextWindowEnd))) {
+                $item['priority'] = 'next';
+                $next->push($item);
+            } elseif (in_array($state, ['scheduled', 'due_today'], true) && $item['due_at']?->isSameDay($now)) {
+                $item['priority'] = 'later_today';
+                $laterToday->push($item);
             }
-            // Future items (due after today) do not belong on Today
         }
 
-        // If Next is empty but we have items in laterToday, pull the nearest one into Next
+        $laterToday = $laterToday->sortBy('sort_at')->values();
+
         if ($next->isEmpty() && $laterToday->isNotEmpty()) {
-            $firstLater = $laterToday->shift();
-            $firstLater['priority'] = 'next';
-            $next->push($firstLater);
+            $first = $laterToday->shift();
+            $first['priority'] = 'next';
+            $next->push($first);
         }
 
-        // Sort Overdue: oldest due first
-        $overdue = $overdue->sortBy(fn ($i) => $i['due_at']->timestamp)->values();
+        $overdue = $overdue->sortBy([
+            fn (array $a, array $b) => (self::OVERDUE_TIERS[$a['type']] ?? 9) <=> (self::OVERDUE_TIERS[$b['type']] ?? 9),
+            fn (array $a, array $b) => $a['sort_at'] <=> $b['sort_at'],
+        ])->values();
 
-        // Sort Next: due time first, undated by created timestamp or default to end
-        $next = $next->sortBy(function ($i) {
-            return $i['due_at'] ? $i['due_at']->timestamp : PHP_INT_MAX;
-        })->values();
-
-        // Sort Later Today: due time first
-        $laterToday = $laterToday->sortBy(fn ($i) => $i['due_at']->timestamp)->values();
+        // Timed work first (in time order), then reviews raised today.
+        $next = $next->sortBy([
+            fn (array $a, array $b) => ($a['timing']['state'] === 'waiting') <=> ($b['timing']['state'] === 'waiting'),
+            fn (array $a, array $b) => $a['sort_at'] <=> $b['sort_at'],
+        ])->values();
 
         return [
             'scope' => $scope,
             'overdue' => $overdue,
             'next' => $next,
             'later_today' => $laterToday,
+            'ready_to_contact' => $this->readyToContactCount($user, $now, $scope),
             'counts' => [
                 'overdue' => $overdue->count(),
                 'next' => $next->count(),
@@ -117,16 +145,15 @@ class UnifiedOperationalWorkProjection
     }
 
     /**
-     * Build the projection for Work page.
+     * Open Work (Today's internal "work" mode).
      * Filters: all, calls, appointments, installations, follow_ups, collections
-     * Groups:
-     * 1. Overdue: due_at < now
-     * 2. Today: due_at is today and >= now, plus undated items
-     * 3. Upcoming: due_at > end of today
+     * Groups: Overdue, Today (incl. undated first-contact prospects), Upcoming (after today).
      */
     public function work(User $user, ?string $filter = self::FILTER_ALL, ?Carbon $now = null, string $scope = 'all'): array
     {
         $now = $this->businessTime($now);
+        $scope = $scope === 'my' ? 'my' : 'all';
+        $this->returnContext = ['from' => 'work', 'scope' => $scope];
         $filter = strtolower(trim($filter ?? self::FILTER_ALL));
 
         $validFilters = [
@@ -142,62 +169,33 @@ class UnifiedOperationalWorkProjection
             $filter = self::FILTER_ALL;
         }
 
-        $allItems = $this->projectAll($user, $now);
-
-        if ($scope === 'my') {
-            $allItems = $allItems->filter(function ($item) use ($user) {
-                return in_array($user->id, $item['assigned_user_ids'] ?? [], true);
-            })->values();
-        }
-
-        // Filter items
-        $filteredItems = $allItems->filter(function ($item) use ($filter) {
-            return $this->itemMatchesFilter($item, $filter);
-        })->values();
+        $allItems = $this->applyScope($this->projectAll($user, $now), $user, $scope);
 
         $overdue = collect();
         $today = collect();
         $upcoming = collect();
 
-        foreach ($filteredItems as $item) {
-            $dueAt = $item['due_at'];
+        foreach ($allItems->filter(fn (array $item) => $this->itemMatchesFilter($item, $filter)) as $item) {
+            $state = $item['timing']['state'];
 
-            if ($dueAt === null) {
-                // Undated items belong under Today group
-                $today->push($item);
-                continue;
-            }
-
-            if ($dueAt->lt($now)) {
+            if ($state === 'overdue') {
                 $item['priority'] = 'overdue';
                 $overdue->push($item);
-            } elseif ($dueAt->isSameDay($now)) {
-                $item['priority'] = 'today';
-                $today->push($item);
-            } else {
+            } elseif ($item['due_at'] !== null && $item['due_at']->copy()->startOfDay()->gt($now->copy()->startOfDay())) {
                 $item['priority'] = 'upcoming';
                 $upcoming->push($item);
+            } else {
+                $item['priority'] = 'today';
+                $today->push($item);
             }
         }
 
-        // Sort Overdue: oldest due first
-        $overdue = $overdue->sortBy(fn ($i) => $i['due_at']->timestamp)->values();
+        $overdue = $overdue->sortBy('sort_at')->values();
+        $today = $today->sortBy('sort_at')->values();
+        $upcoming = $upcoming->sortBy('sort_at')->values();
 
-        // Sort Today: due time first, undated last
-        $today = $today->sortBy(function ($i) {
-            return $i['due_at'] ? $i['due_at']->timestamp : PHP_INT_MAX;
-        })->values();
-
-        // Sort Upcoming: earliest due first
-        $upcoming = $upcoming->sortBy(fn ($i) => $i['due_at']->timestamp)->values();
-
-        // Count per filter for UI tabs
         $filterCounts = [];
         foreach ($validFilters as $f) {
-            if ($f === self::FILTER_COLLECTIONS && ! $this->canViewCollections($user)) {
-                $filterCounts[$f] = 0;
-                continue;
-            }
             $filterCounts[$f] = $allItems->filter(fn ($item) => $this->itemMatchesFilter($item, $f))->count();
         }
 
@@ -217,46 +215,48 @@ class UnifiedOperationalWorkProjection
     }
 
     /**
-     * Gather all open operational work across authoritative sources.
+     * Gather open operational work across the authoritative sources.
+     * $until bounds the fetch (Today needs nothing after the end of the operational day).
      */
-    public function projectAll(User $user, ?Carbon $now = null): Collection
+    public function projectAll(User $user, ?Carbon $now = null, ?Carbon $until = null, bool $includeContactQueue = true): Collection
     {
         $now = $this->businessTime($now);
         $items = collect();
 
-        // 1. Appointments & Installations
-        $appointments = $this->fetchAppointments();
-        foreach ($appointments as $apt) {
+        foreach ($this->fetchAppointments($until) as $apt) {
             $items->push($this->formatAppointmentItem($apt, $now));
         }
 
-        // 2. Open Follow-ups (excluding completed follow-ups)
-        $followUps = $this->fetchOpenFollowUps();
-        foreach ($followUps as $fu) {
+        foreach ($this->fetchOpenFollowUps($until) as $fu) {
             $items->push($this->formatFollowUpItem($fu, $now));
         }
 
-        // 3. Review-Required Items
-        $reviews = $this->fetchPendingReviews();
-        foreach ($reviews as $rev) {
+        foreach ($this->fetchPendingReviews() as $rev) {
             $items->push($this->formatReviewItem($rev, $now));
         }
 
-        // 4. Undated Calls / Active Contact Queue
-        $activeContactClients = $this->fetchActiveContactClients($user, $now);
-        foreach ($activeContactClients as $client) {
-            $items->push($this->formatActiveContactItem($client));
-        }
-
-        // 5. Collections (Permission-gated to authorized users only)
-        if ($this->canViewCollections($user)) {
-            $collections = $this->fetchCollections($now);
-            foreach ($collections as $col) {
-                $items->push($this->formatCollectionItem($col, $now));
+        if ($includeContactQueue) {
+            foreach ($this->activeContactQuery($now)->with('primaryOwner')->orderBy('created_at')->limit(20)->get() as $client) {
+                $items->push($this->formatActiveContactItem($client, $now));
             }
         }
 
-        return $items;
+        // Operational collections (§9.7, D-07): Owner and Staff; amounts per client only, never company totals.
+        if ($this->canViewCollections($user)) {
+            $items = $items->concat($this->collectionItems($user, $now, $until));
+        }
+
+        return $items->values();
+    }
+
+    /** "My Work": items whose assignee/attendee or client primary owner is the user. */
+    protected function applyScope(Collection $items, User $user, string $scope): Collection
+    {
+        if ($scope !== 'my') {
+            return $items;
+        }
+
+        return $items->filter(fn (array $item) => in_array($user->id, $item['assigned_user_ids'] ?? [], true))->values();
     }
 
     protected function itemMatchesFilter(array $item, string $filter): bool
@@ -290,11 +290,12 @@ class UnifiedOperationalWorkProjection
         return false;
     }
 
-    protected function fetchAppointments(): Collection
+    protected function fetchAppointments(?Carbon $until = null): Collection
     {
         return Appointment::with(['client.primaryOwner', 'users'])
             ->whereIn('status', AppointmentTypes::activeStatuses())
             ->whereHas('client', fn ($q) => $q->where('status', '!=', 'archived'))
+            ->when($until, fn ($q) => $q->whereDate('appointment_date', '<=', $until->toDateString()))
             ->get();
     }
 
@@ -305,75 +306,53 @@ class UnifiedOperationalWorkProjection
 
         $dueAt = null;
         if ($apt->appointment_date) {
-            $timeStr = $apt->appointment_time ?: '09:00:00';
-            $dueAt = Carbon::parse($apt->appointment_date->toDateString() . ' ' . $timeStr, 'Asia/Amman');
+            $dueAt = Carbon::parse($apt->appointment_date->toDateString().' '.($apt->appointment_time ?: '09:00:00'), OperationalTime::TIMEZONE);
         }
 
         $client = $apt->client;
-        $clientName = $client ? $client->business_name : ($apt->branch_name ?: 'عميل');
-        $area = $client?->city_area ?: ($client?->area ?: ($client?->city ?: null));
-
         $attendees = $apt->users;
         $assignedUserIds = $attendees->pluck('id')->all();
-        $responsibleStaff = $attendees->isNotEmpty()
-            ? $attendees->pluck('name')->join(', ')
-            : ($client?->primaryOwner?->name ?? null);
         if ($client?->primary_owner_id) {
             $assignedUserIds[] = $client->primary_owner_id;
         }
-        $assignedUserIds = array_values(array_unique($assignedUserIds));
 
-        $timeFormatted = $dueAt ? $dueAt->format('g:i A') : '';
-        $dateFormatted = $dueAt ? $dueAt->format('Y-m-d') : '';
-
-        $label = $isInstallation
-            ? (__('notify.work.installation_label', ['time' => $timeFormatted]) ?: "تركيب — {$timeFormatted}")
-            : (__('notify.work.appointment_label', ['time' => $timeFormatted]) ?: "موعد — {$timeFormatted}");
-
-        $contextParts = array_values(array_filter([
-            $apt->notes ?: ($apt->location ?: ($apt->appointment_type_label ?? $apt->appointment_type)),
-            $apt->users->isNotEmpty()
-                ? $apt->users->map(fn (User $attendee) => '👤 ' . $attendee->name)->join(' ')
-                : null,
-        ]));
-        $context = implode(' | ', $contextParts);
+        $typeLabel = $this->appointmentTypeLabel($apt->appointment_type);
+        $status = in_array($apt->status, ['confirmed', 'rescheduled'], true)
+            ? __('notify.today_board.statuses.'.$apt->status)
+            : null;
 
         $primaryAction = $isInstallation
             ? [
-                'label' => __('notify.actions.complete_installation') ?: 'إكمال التركيب',
-                'href' => $client ? route('clients.show', $client->id) . '#installation' : '#',
+                'label' => __('notify.today_board.actions.complete_installation'),
+                'href' => $this->clientHref($apt->client_id, ['open' => 'complete-installation', 'appointment' => $apt->id]),
                 'type' => 'installation',
             ]
             : [
-                'label' => __('notify.actions.record_outcome') ?: 'تسجيل النتيجة',
-                'href' => $client ? route('clients.show', $client->id) . '#appointments' : '#',
+                'label' => __('notify.today_board.actions.record_result'),
+                'href' => $this->clientHref($apt->client_id, ['open' => 'appointment-result', 'appointment' => $apt->id]),
                 'type' => 'appointment_outcome',
             ];
 
-        return [
+        return $this->item([
             'id' => "apt-{$apt->id}",
             'type' => $type,
             'subtype' => $apt->appointment_type,
+            'client' => $client,
             'client_id' => $apt->client_id,
-            'client_name' => $clientName,
-            'area' => $area,
-            'responsible_staff' => $responsibleStaff,
+            'client_name' => $client?->business_name ?: ($apt->branch_name ?: __('notify.today_board.unknown_client')),
+            'responsible_staff' => $attendees->isNotEmpty() ? $attendees->pluck('name')->join('، ') : $client?->primaryOwner?->name,
             'assigned_user_ids' => $assignedUserIds,
-            'label' => $label,
-            'context' => $context,
+            'label' => $typeLabel,
+            'status_label' => $status,
+            'context' => $apt->notes ?: $apt->location,
             'due_at' => $dueAt,
-            'due_formatted' => $timeFormatted ? "{$dateFormatted} {$timeFormatted}" : $dateFormatted,
-            'priority' => 'today',
+            'due_kind' => 'datetime',
             'primary_action' => $primaryAction,
-            'secondary_actions' => $this->clientQuickActions($client),
-            'source_reference' => [
-                'model' => 'Appointment',
-                'id' => $apt->id,
-            ],
-        ];
+            'source_reference' => ['model' => 'Appointment', 'id' => $apt->id],
+        ], $now);
     }
 
-    protected function fetchOpenFollowUps(): Collection
+    protected function fetchOpenFollowUps(?Carbon $until = null): Collection
     {
         return DB::table('follow_ups')
             ->join('clients', 'clients.id', '=', 'follow_ups.client_id')
@@ -382,11 +361,19 @@ class UnifiedOperationalWorkProjection
             ->whereNull('follow_ups.completed_at')
             ->where('clients.status', '!=', 'archived')
             ->where('clients.stage', '!=', ClientLifecycle::CLOSED)
+            ->when($until, fn ($q) => $q->where('follow_ups.follow_up_date_time', '<=', $until->format('Y-m-d H:i:s')))
             ->select(
-                'follow_ups.*',
+                'follow_ups.id',
+                'follow_ups.client_id',
+                'follow_ups.user_id',
+                'follow_ups.method',
+                'follow_ups.reason',
+                'follow_ups.next_action',
+                'follow_ups.notes',
+                'follow_ups.follow_up_date_time',
+                'follow_ups.next_follow_up_date',
+                'follow_ups.installation_id',
                 'clients.business_name',
-                'clients.phone as client_phone',
-                'clients.stage as client_stage',
                 'clients.city_area as client_city_area',
                 'clients.primary_owner_id',
                 'assigned_user.name as assigned_user_name',
@@ -398,69 +385,42 @@ class UnifiedOperationalWorkProjection
     protected function formatFollowUpItem(object $fu, Carbon $now): array
     {
         $isTrial = ! empty($fu->installation_id);
-        $isPhone = ($fu->method ?? '') === 'phone_call' || empty($fu->installation_id);
-
-        $type = $isTrial ? self::TYPE_FOLLOW_UP : self::TYPE_CALL;
-        $subtype = $isTrial ? 'trial_followup' : ($isPhone ? 'phone_call' : 'follow_up');
+        $isPhone = in_array($fu->method ?? '', ['phone', 'phone_call'], true);
 
         $dueAt = null;
         if (! empty($fu->follow_up_date_time)) {
-            $dueAt = Carbon::parse($fu->follow_up_date_time, 'Asia/Amman');
+            $dueAt = Carbon::parse($fu->follow_up_date_time, OperationalTime::TIMEZONE);
         } elseif (! empty($fu->next_follow_up_date)) {
-            $dueAt = Carbon::parse($fu->next_follow_up_date . ' 09:00:00', 'Asia/Amman');
+            $dueAt = Carbon::parse($fu->next_follow_up_date.' 09:00:00', OperationalTime::TIMEZONE);
         }
 
-        $timeFormatted = $dueAt ? $dueAt->format('g:i A') : '';
-        $dateFormatted = $dueAt ? $dueAt->format('Y-m-d') : '';
+        $label = match (true) {
+            $isTrial => __('notify.today_board.types.trial_follow_up'),
+            $isPhone => __('notify.today_board.types.call_follow_up'),
+            default => __('notify.today_board.types.follow_up'),
+        };
 
-        $label = $isTrial
-            ? (__('notify.work.trial_followup_label') ?: 'متابعة تجربة مجانية')
-            : (__('notify.work.callback_label') ?: 'متابعة هاتفية / اتصال');
-
-        $context = $fu->reason ?: ($fu->notes ?: ($fu->next_action ?: 'متابعة مجدولة'));
-        $responsibleStaff = $fu->assigned_user_name ?: ($fu->owner_user_name ?? null);
-        $assignedUserIds = array_values(array_filter(array_unique([$fu->user_id, $fu->primary_owner_id])));
-        $area = $fu->client_city_area ?? null;
-
-        $primaryAction = [
-            'label' => __('notify.actions.record_follow_up') ?: 'تسجيل المتابعة',
-            'href' => route('clients.show', $fu->client_id) . '#follow-up',
-            'type' => 'follow_up',
-        ];
-
-        return [
+        return $this->item([
             'id' => "fu-{$fu->id}",
-            'type' => $type,
-            'subtype' => $subtype,
+            // Scheduled follow-ups outside the free-installation trial are the operational "call" family.
+            'type' => $isTrial ? self::TYPE_FOLLOW_UP : self::TYPE_CALL,
+            'subtype' => $isTrial ? 'trial_followup' : 'phone_call',
             'client_id' => $fu->client_id,
             'client_name' => $fu->business_name,
-            'area' => $area,
-            'responsible_staff' => $responsibleStaff,
-            'assigned_user_ids' => $assignedUserIds,
+            'area' => $fu->client_city_area ?? null,
+            'responsible_staff' => $fu->assigned_user_name ?: ($fu->owner_user_name ?? null),
+            'assigned_user_ids' => array_values(array_filter([(int) $fu->user_id, (int) $fu->primary_owner_id])),
             'label' => $label,
-            'context' => $context,
+            'context' => $fu->reason ?: ($fu->next_action ?: $fu->notes),
             'due_at' => $dueAt,
-            'due_formatted' => $timeFormatted ? "{$dateFormatted} {$timeFormatted}" : $dateFormatted,
-            'priority' => 'today',
-            'primary_action' => $primaryAction,
-            'secondary_actions' => [
-                [
-                    'label' => __('notify.actions.call') ?: 'اتصال',
-                    'href' => $fu->client_phone ? 'tel:' . $fu->client_phone : '#',
-                    'icon' => 'phone',
-                ],
-                [
-                    'label' => __('notify.actions.open_client') ?: 'فتح ملف العميل',
-                    'href' => route('clients.show', $fu->client_id),
-                    'icon' => 'building',
-                ],
+            'due_kind' => 'datetime',
+            'primary_action' => [
+                'label' => __('notify.today_board.actions.complete_follow_up'),
+                'href' => $this->clientHref($fu->client_id, ['open' => 'follow-up', 'follow_up' => $fu->id]),
+                'type' => 'follow_up',
             ],
-            'source_reference' => [
-                'model' => 'FollowUp',
-                'id' => $fu->id,
-                'follow_up_id' => $fu->id,
-            ],
-        ];
+            'source_reference' => ['model' => 'FollowUp', 'id' => $fu->id, 'follow_up_id' => $fu->id],
+        ], $now);
     }
 
     protected function fetchPendingReviews(): Collection
@@ -473,203 +433,310 @@ class UnifiedOperationalWorkProjection
 
     protected function formatReviewItem(ClientReviewItem $rev, Carbon $now): array
     {
-        $dueAt = $rev->created_at ? Carbon::parse($rev->created_at, 'Asia/Amman') : $now;
         $client = $rev->client;
-        $clientName = $client ? $client->business_name : 'عميل';
-        $area = $client?->city_area ?: ($client?->area ?: null);
-        $responsibleStaff = $client?->primaryOwner?->name ?? null;
-        $assignedUserIds = array_values(array_filter([$client?->primary_owner_id]));
+        $typeKey = 'notify.client_hub.review.types.'.$rev->type;
+        $typeLabel = trans()->has($typeKey) ? __($typeKey) : null;
 
-        $label = __('notify.work.review_required') ?: 'مراجعة مطلوبة';
-        $context = $rev->note ?: 'مراجعة حالة العميل';
-
-        return [
+        return $this->item([
             'id' => "rev-{$rev->id}",
             'type' => self::TYPE_REVIEW,
             'subtype' => 'client_review',
+            'client' => $client,
             'client_id' => $rev->client_id,
-            'client_name' => $clientName,
-            'area' => $area,
-            'responsible_staff' => $responsibleStaff,
-            'assigned_user_ids' => $assignedUserIds,
-            'label' => $label,
-            'context' => $context,
-            'due_at' => $dueAt,
-            'due_formatted' => $dueAt->format('Y-m-d g:i A'),
-            'priority' => 'today',
+            'client_name' => $client?->business_name ?: __('notify.today_board.unknown_client'),
+            'responsible_staff' => $client?->primaryOwner?->name,
+            'assigned_user_ids' => array_values(array_filter([$client?->primary_owner_id])),
+            'label' => __('notify.today_board.types.review'),
+            'context' => collect([$typeLabel, $rev->note])->filter()->join(' · '),
+            'due_at' => $rev->created_at ? OperationalTime::inZone(Carbon::parse($rev->created_at)) : $now->copy(),
+            'due_kind' => 'since',
             'primary_action' => [
-                'label' => __('notify.actions.review') ?: 'مراجعة',
-                'href' => route('clients.show', $rev->client_id) . '#review',
+                'label' => __('notify.today_board.actions.open_review'),
+                'href' => $this->clientHref($rev->client_id, [], 'review'),
                 'type' => 'review',
             ],
-            'secondary_actions' => $this->clientQuickActions($client),
-            'source_reference' => [
-                'model' => 'ClientReviewItem',
-                'id' => $rev->id,
-            ],
-        ];
+            'source_reference' => ['model' => 'ClientReviewItem', 'id' => $rev->id],
+        ], $now);
     }
 
-    protected function fetchActiveContactClients(User $user, Carbon $now): Collection
+    /** Prospects still waiting for a first contact: no open future follow-up and no pending review. */
+    protected function activeContactQuery(Carbon $now): Builder
     {
-        $futureFollowClientIds = DB::table('follow_ups')
-            ->whereNull('completed_at')
-            ->where('follow_up_date_time', '>', $now)
-            ->pluck('client_id')
-            ->all();
-
-        $pendingReviewClientIds = ClientReviewItem::where('status', ClientReviewItem::STATUS_PENDING)
-            ->pluck('client_id')
-            ->all();
-
-        return Client::with('primaryOwner')
+        return Client::query()
             ->where('status', '!=', 'archived')
             ->whereIn('stage', [ClientLifecycle::PROSPECT, ClientLifecycle::CONTACTING])
-            ->whereNotIn('id', array_unique(array_merge($futureFollowClientIds, $pendingReviewClientIds)))
-            ->orderBy('created_at')
-            ->limit(20)
-            ->get();
+            ->whereNotIn('id', DB::table('follow_ups')
+                ->select('client_id')
+                ->whereNull('completed_at')
+                ->where('follow_up_date_time', '>', $now->format('Y-m-d H:i:s')))
+            ->whereNotIn('id', DB::table('client_review_items')
+                ->select('client_id')
+                ->where('status', ClientReviewItem::STATUS_PENDING));
     }
 
-    protected function formatActiveContactItem(Client $client): array
+    protected function readyToContactCount(User $user, Carbon $now, string $scope): int
+    {
+        return $this->activeContactQuery($now)
+            ->when($scope === 'my', fn ($q) => $q->where('primary_owner_id', $user->id))
+            ->count();
+    }
+
+    protected function formatActiveContactItem(Client $client, Carbon $now): array
     {
         $contact = $client->preferredOperationalContact();
-        $contactDetail = !empty($contact['name']) ? $contact['name'] . (!empty($contact['phone']) ? ' · ' . $contact['phone'] : '') : ($contact['phone'] ?? null);
-        $context = $contactDetail ?: ($client->phone ?: ($client->city_area ?: 'عميل محتمل'));
-        $area = $client->city_area ?: ($client->area ?: ($client->city ?: null));
-        $responsibleStaff = $client->primaryOwner?->name ?? null;
-        $assignedUserIds = array_values(array_filter([$client->primary_owner_id]));
+        $contactDetail = ! empty($contact['name'])
+            ? $contact['name'].(! empty($contact['phone']) ? ' · '.$contact['phone'] : '')
+            : ($contact['phone'] ?? null);
 
-        $label = __('notify.work.call_prospect', ['name' => $client->business_name]) ?: "اتصال بـ {$client->business_name}";
-
-        return [
+        return $this->item([
             'id' => "contact-{$client->id}",
             'type' => self::TYPE_CALL,
             'subtype' => 'active_contact',
+            'client' => $client,
             'client_id' => $client->id,
             'client_name' => $client->business_name,
-            'area' => $area,
-            'responsible_staff' => $responsibleStaff,
-            'assigned_user_ids' => $assignedUserIds,
-            'label' => $label,
-            'context' => $context,
-            'due_at' => null, // Undated new prospect
-            'due_formatted' => __('notify.common.undated_actionable') ?: 'جاهز للتواصل',
-            'priority' => 'today',
+            'responsible_staff' => $client->primaryOwner?->name,
+            'assigned_user_ids' => array_values(array_filter([$client->primary_owner_id])),
+            'label' => __('notify.today_board.types.first_contact'),
+            'context' => $contactDetail ?: $client->phone,
+            'due_at' => null,
+            'due_kind' => 'none',
             'primary_action' => [
-                'label' => __('notify.actions.record_call') ?: 'تسجيل اتصال',
-                'href' => route('clients.show', $client->id) . '#call',
+                'label' => __('notify.today_board.actions.record_call'),
+                'href' => $this->clientHref($client->id, ['open' => 'record-call']),
                 'type' => 'call',
             ],
-            'secondary_actions' => $this->clientQuickActions($client),
-            'source_reference' => [
-                'model' => 'Client',
-                'id' => $client->id,
-            ],
-        ];
+            'source_reference' => ['model' => 'Client', 'id' => $client->id],
+        ], $now);
     }
 
-    protected function fetchCollections(Carbon $now): Collection
+    /**
+     * One collection item per client, aggregated from ReceivableService invoice projections
+     * (the P6 authority; the same per-client aggregation as Collections due). Pending receipt
+     * confirmations have no financial effect: the amount due is unchanged, but a client whose
+     * pending receipts already cover the amount is waiting for owner confirmation, not for action.
+     */
+    protected function collectionItems(User $user, Carbon $now, ?Carbon $until): Collection
     {
-        // Safe aggregate read query via ReceivableService - zero N+1
-        return $this->receivableService->outstandingInvoices([], $now);
-    }
-
-    protected function formatCollectionItem(array $invoiceData, Carbon $now): array
-    {
-        $invoice = $invoiceData['invoice'];
-        $projection = $invoiceData['projection'];
-
-        $dueAt = $invoice->due_date
-            ? Carbon::parse($invoice->due_date->toDateString() . ' 17:00:00', 'Asia/Amman')
-            : $now;
-
-        $client = $invoice->client;
-        if ($client && ! $client->relationLoaded('primaryOwner') && $client->primary_owner_id) {
-            $client->load('primaryOwner');
+        $rows = $this->receivableService->outstandingInvoices([], $now->copy()->startOfDay());
+        if ($until) {
+            $rows = $rows->filter(fn (array $row) => $row['invoice']->due_date === null
+                || $row['invoice']->due_date->toDateString() <= $until->toDateString());
         }
-        $clientName = $client ? $client->business_name : 'عميل';
-        $area = $client?->city_area ?: ($client?->area ?: ($client?->city ?: null));
-        $responsibleStaff = $client?->primaryOwner?->name ?? null;
-        $assignedUserIds = array_values(array_filter([$client?->primary_owner_id]));
 
-        $amountFormatted = $projection['outstanding'] ?? '';
-        $label = __('notify.work.collection_due', ['amount' => $amountFormatted]) ?: "تحصيل مستحق — {$amountFormatted}";
-        $context = __('notify.work.collection_context', [
-            'invoice' => $invoice->invoice_number,
-            'date' => $invoice->due_date ? $invoice->due_date->toDateString() : __('notify.common.unspecified'),
-        ]);
+        if ($rows->isEmpty()) {
+            return collect();
+        }
 
-        return [
-            'id' => "col-{$invoice->id}",
-            'type' => self::TYPE_COLLECTION,
-            'subtype' => 'receivable_invoice',
-            'client_id' => $invoice->client_id,
-            'client_name' => $clientName,
-            'area' => $area,
-            'responsible_staff' => $responsibleStaff,
-            'assigned_user_ids' => $assignedUserIds,
-            'label' => $label,
-            'context' => $context,
-            'due_at' => $dueAt,
-            'due_formatted' => $invoice->due_date ? $invoice->due_date->toDateString() : '',
-            'priority' => $projection['is_overdue'] ? 'overdue' : 'today',
-            'primary_action' => [
-                'label' => __('notify.actions.record_payment') ?: 'تسجيل دفعة',
-                'href' => route('clients.show', $invoice->client_id) . '#payment',
-                'type' => 'payment',
-            ],
-            'secondary_actions' => $this->clientQuickActions($client),
-            'source_reference' => [
-                'model' => 'Invoice',
-                'id' => $invoice->id,
-                'invoice_id' => $invoice->id,
-            ],
-        ];
+        $byClient = $rows->groupBy(fn (array $row) => $row['invoice']->client_id);
+        $clientIds = $byClient->keys()->all();
+
+        $pendingByClient = PaymentReceiptConfirmation::query()
+            ->pending()
+            ->whereIn('client_id', $clientIds)
+            ->groupBy('client_id')
+            ->selectRaw('client_id, SUM(amount_minor) as pending_minor')
+            ->pluck('pending_minor', 'client_id');
+
+        $ownerIds = $rows->map(fn (array $row) => $row['invoice']->client?->primary_owner_id)->filter()->unique()->all();
+        $ownerNames = $ownerIds === [] ? collect() : User::whereIn('id', $ownerIds)->pluck('name', 'id');
+
+        $canRecord = Permissions::allows($user, Permissions::RECORD_PAYMENT);
+        $canSubmit = ! $canRecord && Permissions::allows($user, Permissions::SUBMIT_PAYMENT_RECEIPT);
+
+        return $byClient->map(function (Collection $group, $clientId) use ($now, $pendingByClient, $ownerNames, $canRecord, $canSubmit) {
+            $client = $group->first()['invoice']->client;
+            if (! $client || $client->status === 'archived') {
+                return null;
+            }
+
+            $dueMinor = (int) $group->sum(fn (array $row) => $row['projection']['outstanding_minor']);
+            $pendingMinor = (int) ($pendingByClient[$clientId] ?? 0);
+            if ($dueMinor <= 0 || ($pendingMinor > 0 && $pendingMinor >= $dueMinor)) {
+                return null;
+            }
+
+            $earliestDue = $group->map(fn (array $row) => $row['invoice']->due_date)->filter()->sort()->first();
+            $dueAt = $earliestDue
+                ? Carbon::parse($earliestDue->toDateString(), OperationalTime::TIMEZONE)
+                : $now->copy()->startOfDay();
+
+            $primaryAction = null;
+            if ($canRecord || $canSubmit) {
+                $primaryAction = [
+                    'label' => $canRecord
+                        ? __('notify.client_workspace.action_record_payment')
+                        : __('notify.payment_receipts.action_payment_received'),
+                    'href' => $this->clientHref((int) $clientId, ['open' => 'record-payment']),
+                    'type' => $canRecord ? 'payment' : 'payment_receipt',
+                ];
+            }
+
+            return $this->item([
+                'id' => "col-{$clientId}",
+                'type' => self::TYPE_COLLECTION,
+                'subtype' => 'client_receivable',
+                'client' => $client,
+                'client_id' => (int) $clientId,
+                'client_name' => $client->business_name,
+                'responsible_staff' => $client->primary_owner_id ? ($ownerNames[$client->primary_owner_id] ?? null) : null,
+                'assigned_user_ids' => array_values(array_filter([$client->primary_owner_id])),
+                'label' => __('notify.today_board.types.collection'),
+                'context' => null,
+                'amount_minor' => $dueMinor,
+                'pending_minor' => $pendingMinor,
+                'due_at' => $dueAt,
+                'due_kind' => 'date',
+                'primary_action' => $primaryAction,
+                'source_reference' => [
+                    'model' => 'Client',
+                    'id' => (int) $clientId,
+                    'invoice_ids' => $group->map(fn (array $row) => $row['invoice']->id)->values()->all(),
+                ],
+            ], $now);
+        })->filter()->values();
     }
 
     protected function canViewCollections(User $user): bool
     {
-        return Permissions::allows($user, Permissions::RECORD_PAYMENT)
-            || Permissions::allows($user, Permissions::VIEW_FINANCIAL_REPORTS);
+        return Permissions::allows($user, Permissions::VIEW_COLLECTIONS_DUE);
     }
 
-    protected function clientQuickActions(?Client $client): array
+    /** Normalise a work item and attach its timing (all times in Asia/Amman). */
+    protected function item(array $data, Carbon $now): array
     {
-        if (! $client) {
-            return [];
+        $client = $data['client'] ?? null;
+        unset($data['client']);
+
+        $timing = $this->timing($data['due_at'], $data['due_kind'], $data['type'], $now);
+        $clientHref = $this->clientHref($data['client_id']);
+
+        return array_merge([
+            'area' => $client?->city_area ?: ($client?->area ?: ($client?->city ?: null)),
+            'status_label' => null,
+            'amount_minor' => null,
+            'pending_minor' => 0,
+        ], $data, [
+            'assigned_user_ids' => array_values(array_unique(array_map('intval', $data['assigned_user_ids'] ?? []))),
+            'client_href' => $clientHref,
+            'timing' => $timing,
+            'sort_at' => $timing['sort_at'],
+            'due_formatted' => $timing['exact'] ?? $timing['text'],
+            'priority' => 'today',
+            'secondary_actions' => [[
+                'label' => __('notify.today_board.actions.open_client'),
+                'href' => $clientHref,
+                'icon' => 'building',
+            ]],
+        ]);
+    }
+
+    /**
+     * Timing states: overdue · now · soon (within the Next window) · scheduled · due_today (date-only)
+     * · waiting (review raised today) · ready (undated first contact).
+     */
+    protected function timing(?Carbon $dueAt, string $kind, string $type, Carbon $now): array
+    {
+        if ($dueAt === null || $kind === 'none') {
+            return ['state' => 'ready', 'text' => __('notify.today_board.timing.ready'), 'exact' => null, 'datetime' => null, 'sort_at' => PHP_INT_MAX];
         }
 
-        $actions = [];
-        if ($client->phone) {
-            $actions[] = [
-                'label' => __('notify.actions.call') ?: 'اتصال',
-                'href' => 'tel:' . $client->phone,
-                'icon' => 'phone',
-            ];
-            $cleanPhone = preg_replace('/[^0-9]/', '', $client->phone);
-            $actions[] = [
-                'label' => 'WhatsApp',
-                'href' => 'https://wa.me/' . $cleanPhone,
-                'icon' => 'message-circle',
+        $base = ['datetime' => $dueAt->toIso8601String(), 'sort_at' => $dueAt->getTimestamp()];
+
+        if ($kind === 'since') {
+            $since = OperationalTime::duration(OperationalTime::minutesBetween($dueAt, $now));
+
+            return $base + [
+                'state' => $dueAt->isSameDay($now) ? 'waiting' : 'overdue',
+                'text' => __('notify.today_board.timing.waiting_since', ['duration' => $since]),
+                'exact' => OperationalTime::dayAndClock($dueAt, $now),
             ];
         }
 
-        $actions[] = [
-            'label' => __('notify.actions.open_client') ?: 'فتح ملف العميل',
-            'href' => route('clients.show', $client->id),
-            'icon' => 'building',
-        ];
+        if ($kind === 'date') {
+            $day = $dueAt->copy()->startOfDay();
+            $today = $now->copy()->startOfDay();
 
-        return $actions;
+            if ($day->lt($today)) {
+                return $base + [
+                    'state' => 'overdue',
+                    'text' => __('notify.today_board.timing.late', ['duration' => OperationalTime::duration(OperationalTime::minutesBetween($day, $today))]),
+                    'exact' => __('notify.today_board.timing.due_on', ['day' => OperationalTime::day($day, $now)]),
+                ];
+            }
+
+            if ($day->equalTo($today)) {
+                return [
+                    'state' => 'due_today',
+                    'text' => __('notify.today_board.timing.due_today'),
+                    'exact' => null,
+                    'datetime' => $day->toIso8601String(),
+                    'sort_at' => Carbon::parse($day->toDateString().' '.self::DATE_ONLY_ANCHOR, OperationalTime::TIMEZONE)->getTimestamp(),
+                ];
+            }
+
+            return $base + [
+                'state' => 'scheduled',
+                'text' => __('notify.today_board.timing.due_on', ['day' => OperationalTime::day($day, $now)]),
+                'exact' => null,
+            ];
+        }
+
+        $minutesLate = OperationalTime::minutesBetween($dueAt, $now);
+        $grace = in_array($type, [self::TYPE_APPOINTMENT, self::TYPE_INSTALLATION], true) ? self::IN_PROGRESS_MINUTES : 0;
+        $exact = OperationalTime::dayAndClock($dueAt, $now);
+
+        if ($minutesLate > $grace || ($minutesLate > 0 && ! $dueAt->isSameDay($now))) {
+            return $base + [
+                'state' => 'overdue',
+                'text' => __('notify.today_board.timing.late', ['duration' => OperationalTime::duration($minutesLate)]),
+                'exact' => $exact,
+            ];
+        }
+
+        if ($dueAt->lte($now)) {
+            return $base + ['state' => 'now', 'text' => __('notify.today_board.timing.now'), 'exact' => $exact];
+        }
+
+        $minutesUntil = (int) ceil(($dueAt->getTimestamp() - $now->getTimestamp()) / 60);
+        if ($dueAt->isSameDay($now) && $minutesUntil <= self::NEXT_WINDOW_MINUTES) {
+            return $base + [
+                'state' => 'soon',
+                'text' => __('notify.today_board.timing.in', ['duration' => OperationalTime::duration($minutesUntil)]),
+                'exact' => $exact,
+            ];
+        }
+
+        return $base + ['state' => 'scheduled', 'text' => $exact, 'exact' => $exact];
+    }
+
+    /**
+     * Client Workspace link using the canonical P10 `?open=` sheet keys. `from`/`scope` let the
+     * workspace send the user back to the same Today view after the action completes.
+     */
+    protected function clientHref(int $clientId, array $query = [], ?string $fragment = null): string
+    {
+        $params = array_merge(['client' => $clientId], $query, array_filter([
+            'from' => $this->returnContext['from'],
+            'scope' => $this->returnContext['scope'] === 'my' ? 'my' : null,
+        ]));
+
+        return route('clients.show', $params).($fragment ? '#'.$fragment : '');
+    }
+
+    protected function appointmentTypeLabel(?string $type): string
+    {
+        $key = 'notify.today_board.appointment_types.'.$type;
+
+        return $type && trans()->has($key) ? __($key) : AppointmentTypes::label($type);
     }
 
     protected function businessTime(?Carbon $time = null): Carbon
     {
         if ($time !== null) {
-            return $time->copy()->timezone('Asia/Amman');
+            return $time->copy()->timezone(OperationalTime::TIMEZONE);
         }
 
-        return Carbon::now('Asia/Amman');
+        return OperationalTime::now();
     }
 }

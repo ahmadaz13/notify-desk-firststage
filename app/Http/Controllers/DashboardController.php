@@ -4,10 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\DailyNote;
+use App\Models\PaymentReceiptConfirmation;
 use App\Models\User;
+use App\Services\CompletedWorkService;
 use App\Services\FreeInstallationService;
 use App\Services\UnifiedOperationalWorkProjection;
 use App\Support\AppointmentTypes;
+use App\Support\OperationalTime;
+use App\Support\Permissions;
 use App\ViewModels\TodayViewModel;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -20,31 +24,48 @@ class DashboardController extends Controller
         protected UnifiedOperationalWorkProjection $unifiedWorkProjection
     ) {}
 
-    public function index()
+    public function index(CompletedWorkService $completedWork)
     {
         $user = auth()->user();
-        $businessNow = Carbon::now('Asia/Amman');
-        $dailyNote = DailyNote::where('user_id', $user->id)->whereDate('date', $businessNow->toDateString())->first();
+        $businessNow = OperationalTime::now();
 
         $requestedMode = request()->query('mode', 'daily');
-        $mode = in_array($requestedMode, ['daily', 'work'], true) ? $requestedMode : 'daily';
-        $currentMode = $mode;
+        $currentMode = in_array($requestedMode, ['daily', 'work'], true) ? $requestedMode : 'daily';
 
         $requestedScope = request()->query('scope', 'all');
         $scope = in_array($requestedScope, ['all', 'my'], true) ? $requestedScope : 'all';
 
-        $todayProjection = $this->unifiedWorkProjection->today($user, $businessNow, $scope);
-        $requestedFilter = request()->query('filter', UnifiedOperationalWorkProjection::FILTER_ALL);
-        $workProjection = $this->unifiedWorkProjection->work($user, $requestedFilter, $businessNow, $scope);
+        // Only the active mode's projection is built (Today is opened many times a day).
+        $dailyNote = null;
+        $signals = [];
+        if ($currentMode === 'daily') {
+            $todayProjection = $this->unifiedWorkProjection->today($user, $businessNow, $scope);
+            $workProjection = TodayViewModel::emptyWork();
+            $dailyNote = DailyNote::where('user_id', $user->id)->whereDate('date', $businessNow->toDateString())->first();
 
-        $todayViewModel = TodayViewModel::make(
-            $todayProjection,
-            $workProjection
-        );
+            $signals = [
+                'completed' => $completedWork->forUser($user, $businessNow),
+                'pending_confirmations' => Permissions::allows($user, Permissions::APPROVE_PAYMENT_RECEIPTS)
+                    ? PaymentReceiptConfirmation::pending()->count()
+                    : 0,
+                'my_pending_receipts' => ! Permissions::allows($user, Permissions::RECORD_PAYMENT) && Permissions::allows($user, Permissions::SUBMIT_PAYMENT_RECEIPT)
+                    ? PaymentReceiptConfirmation::pending()->where('submitted_by', $user->id)->count()
+                    : 0,
+                // Calm empty state: point at the nearest upcoming item instead of a dead page.
+                'next_upcoming' => $todayProjection['counts']['total'] === 0
+                    ? $this->unifiedWorkProjection->work($user, UnifiedOperationalWorkProjection::FILTER_ALL, $businessNow, $scope)['upcoming']->first()
+                    : null,
+            ];
+        } else {
+            $todayProjection = TodayViewModel::emptyToday();
+            $workProjection = $this->unifiedWorkProjection->work($user, request()->query('filter', UnifiedOperationalWorkProjection::FILTER_ALL), $businessNow, $scope);
+        }
+
+        $todayViewModel = TodayViewModel::make($todayProjection, $workProjection, $signals);
 
         return view('dashboard', compact(
             'dailyNote', 'currentMode', 'scope', 'todayViewModel',
-            'todayProjection', 'workProjection'
+            'todayProjection', 'workProjection', 'businessNow'
         ));
     }
 

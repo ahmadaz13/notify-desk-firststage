@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'financial.idempotency' => \App\Http\Middleware\EnsureFinancialIdempotency::class,
             'feature' => \App\Http\Middleware\EnsureFeatureEnabled::class,
+            'return.today' => \App\Http\Middleware\ReturnToToday::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

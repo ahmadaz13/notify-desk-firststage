@@ -85,6 +85,21 @@
         pendingForm.submit();
     });
 
+    // Opened from Today (P11): workspace actions return to the same Today view once they succeed.
+    var params = new URLSearchParams(window.location.search);
+    var returnTo = params.get('from');
+    if (returnTo === 'today' || returnTo === 'work') {
+        document.querySelectorAll('.notify-modal-backdrop form[method="POST"], [data-client-review] form[method="POST"]').forEach(function (form) {
+            [['_return_to', returnTo], ['_return_scope', params.get('scope') === 'my' ? 'my' : 'all']].forEach(function (pair) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = pair[0];
+                input.value = pair[1];
+                form.appendChild(input);
+            });
+        });
+    }
+
     var initial = openSheetId || hashSheets[window.location.hash];
     if (initial && !openModal(initial)) {
         initial = null;

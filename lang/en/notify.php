@@ -1469,6 +1469,103 @@ return array (
     'save_failed' => 'Save failed. Draft preserved locally.',
     'placeholder' => 'Write your personal daily notes here...',
     'restored_unsaved' => 'Restored unsaved draft',
+    'personal' => 'Private to you',
+    'open' => 'Write a note',
+    'has_content' => 'You have notes for today',
+  ),
+  'today_board' =>
+  array (
+    'title' => 'Today',
+    'mode_label' => 'View',
+    'mode_today' => 'Today’s queue',
+    'mode_open' => 'All open',
+    'scope_label' => 'Work scope',
+    'scope_all' => 'All',
+    'scope_my' => 'My work',
+    'signals_label' => 'Today summary',
+    'sections' =>
+    array (
+      'overdue' => 'Overdue',
+      'next' => 'Next',
+      'later_today' => 'Later today',
+    ),
+    'show_all_overdue' => 'Show all overdue (:count)',
+    'show_less' => 'Show less',
+    'empty_title' => 'Nothing due right now',
+    'empty_message' => 'No work is scheduled for the rest of today.',
+    'next_upcoming' => 'Next scheduled work',
+    'go_to_clients' => 'Open clients',
+    'completed_title' => 'Completed today',
+    'completed_count' => '{0} Nothing yet|{1} 1 task|[2,*] :count tasks',
+    'completed_types' =>
+    array (
+      'calls' => 'Calls',
+      'appointments' => 'Appointments',
+      'installations' => 'Installations',
+      'follow_ups' => 'Follow-ups',
+      'collections' => 'Collections',
+      'reviews' => 'Reviews',
+    ),
+    'pending_confirmations' => '{1} 1 payment awaiting your confirmation|[2,*] :count payments awaiting your confirmation',
+    'my_pending_receipts' => '{1} 1 payment you received is awaiting confirmation|[2,*] :count payments you received are awaiting confirmation',
+    'ready_to_contact' => '{1} 1 prospect awaiting first contact|[2,*] :count prospects awaiting first contact',
+    'pending_on_card' => 'Awaiting confirmation',
+    'responsible' => 'Owner: :name',
+    'back_to_today' => 'Back to Today',
+    'unknown_client' => 'Client',
+    'notes_jump' => 'My notes',
+    'types' =>
+    array (
+      'collection' => 'Payment due',
+      'review' => 'Review needed',
+      'first_contact' => 'First contact',
+      'follow_up' => 'Follow-up',
+      'call_follow_up' => 'Phone follow-up',
+      'trial_follow_up' => 'Post-installation follow-up',
+    ),
+    'appointment_types' =>
+    array (
+      'physical_visit' => 'Field visit',
+      'online_demo' => 'Online demo',
+      'phone_call' => 'Phone call',
+      'installation' => 'Free installation',
+    ),
+    'statuses' =>
+    array (
+      'confirmed' => 'Confirmed',
+      'rescheduled' => 'Rescheduled',
+    ),
+    'actions' =>
+    array (
+      'record_result' => 'Record result',
+      'complete_installation' => 'Complete installation',
+      'complete_follow_up' => 'Complete follow-up',
+      'open_review' => 'Open review',
+      'record_call' => 'Record call',
+      'open_client' => 'Open client',
+    ),
+    'timing' =>
+    array (
+      'late' => ':duration late',
+      'now' => 'Now',
+      'in' => 'In :duration',
+      'due_today' => 'Due today',
+      'due_on' => 'Due :day',
+      'waiting_since' => ':duration ago',
+      'ready' => 'Ready to contact',
+    ),
+    'duration' =>
+    array (
+      'minutes' => '{1} 1 minute|[2,*] :count minutes',
+      'hours' => '{1} 1 hour|[2,*] :count hours',
+      'days' => '{1} 1 day|[2,*] :count days',
+    ),
+    'days' =>
+    array (
+      'today' => 'today',
+      'yesterday' => 'yesterday',
+      'tomorrow' => 'tomorrow',
+    ),
   ),
   'shell' =>
   array (

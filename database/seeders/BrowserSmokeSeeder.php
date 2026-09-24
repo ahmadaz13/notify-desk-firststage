@@ -2,13 +2,17 @@
 
 namespace Database\Seeders;
 
+use App\Models\Appointment;
 use App\Models\Client;
+use App\Models\ClientReviewItem;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\ClientCredentialService;
 use App\Services\ClientOperationalWorkflowService;
+use App\Services\FreeInstallationService;
 use App\Services\PaymentReceiptService;
 use App\Services\SubscriptionBillingService;
+use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -89,6 +93,64 @@ class BrowserSmokeSeeder extends Seeder
                 'granted_by' => $staff->id,
             ]]);
         }
+
+        $this->todayBoard($owner, $staff);
+    }
+
+    /**
+     * P11 Today review: an overdue-heavy mixed day on new clients (ids after the P10 fixtures),
+     * created through the real workflow services. Times are relative to "now" in Asia/Amman.
+     */
+    private function todayBoard(User $owner, User $staff): void
+    {
+        $now = Carbon::now('Asia/Amman');
+        $sameDay = fn (Carbon $at) => $at->isSameDay($now) ? $at : $now->copy()->endOfDay()->subMinute();
+        $workflow = app(ClientOperationalWorkflowService::class);
+
+        $cafe = $this->client('مقهى الزاوية', 'مقهى', 'جبل عمّان', '0795550101');
+        $cafe->update(['primary_owner_id' => $staff->id]);
+        $late = Appointment::create([
+            'client_id' => $cafe->id,
+            'appointment_date' => $now->copy()->subDay()->toDateString(),
+            'appointment_time' => '11:00:00',
+            'appointment_type' => AppointmentTypes::PHYSICAL_VISIT,
+            'status' => 'scheduled',
+            'location' => 'جبل عمّان · الدوار الأول',
+        ]);
+        $late->users()->sync([$staff->id]);
+
+        $store = $this->client('متجر الريحان', 'متجر', 'خلدا', '0795550202');
+        $workflow->scheduleFollowUp($store, $staff, [
+            'follow_up_date_time' => $now->copy()->subDay()->setTime(16, 0)->toDateTimeString(),
+            'reason' => 'متابعة عرض الأسعار',
+        ]);
+
+        $sweets = $this->client('حلويات الشام', 'حلويات', 'الصويفية', '0795550303');
+        $next = $sameDay($now->copy()->addMinutes(40));
+        $soon = Appointment::create([
+            'client_id' => $sweets->id,
+            'appointment_date' => $next->toDateString(),
+            'appointment_time' => $next->format('H:i:s'),
+            'appointment_type' => AppointmentTypes::ONLINE_DEMO,
+            'status' => 'confirmed',
+            'notes' => 'عرض نظام القائمة الإلكترونية',
+        ]);
+        $soon->users()->sync([$owner->id]);
+
+        $bakery = $this->client('مخبز الفجر', 'مخبز', 'طبربور', '0795550404');
+        $later = $sameDay($now->copy()->addHours(4));
+        app(FreeInstallationService::class)->scheduleInstallation($bakery, $owner, [
+            'appointment_date' => $later->toDateString(),
+            'appointment_time' => $later->format('H:i'),
+            'attendees' => [$staff->id],
+            'notes' => 'تركيب الجهاز في الفرع الرئيسي',
+        ]);
+
+        $library = $this->client('مكتبة النور', 'مكتبة', 'الهاشمي', '0795550505');
+        $workflow->createReviewItem($library, $staff, ClientReviewItem::TYPE_WRONG_INVALID, 'الرقم لا يرد منذ أسبوع');
+
+        // Completed today for the Owner: one recorded call.
+        $workflow->recordContactOutcome($bakery, $owner, ['method' => 'phone', 'result' => 'no_answer_busy']);
     }
 
     private function client(string $name, string $category, string $area, string $phone): Client

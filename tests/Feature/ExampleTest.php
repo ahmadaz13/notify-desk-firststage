@@ -22,10 +22,11 @@ class ExampleTest extends TestCase
         $this->actingAs($user)
             ->get('/')
             ->assertOk()
-            ->assertSee('صباح الخير')
-            ->assertSee(__('notify.today.tab_today'))
-            ->assertSee(__('notify.work.my_work'))
-            ->assertSee(__('notify.today.all_clear'))
+            // P11: Today header is the operational page title + date; calm empty state.
+            ->assertSee(__('notify.today_board.title'))
+            ->assertSee(__('notify.today_board.mode_today'))
+            ->assertSee(__('notify.today_board.scope_my'))
+            ->assertSee(__('notify.today_board.empty_title'))
             ->assertDontSee('صافي نتيجة الشهر');
     }
 

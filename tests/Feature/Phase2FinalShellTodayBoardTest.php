@@ -15,6 +15,19 @@ class Phase2FinalShellTodayBoardTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // P11: pin the operational clock — "+4 hours" must stay on the same Amman day whenever the suite runs.
+        Carbon::setTestNow(Carbon::parse('2026-09-24 10:00:00', 'Asia/Amman'));
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     protected function createClient(array $attributes = []): Client
     {
         return Client::create(array_merge([

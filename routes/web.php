@@ -89,8 +89,8 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
         Route::post('/clients/{client}/credentials/{credential}/send', [ClientCredentialController::class, 'send'])->name('clients.credentials.send');
     });
     Route::post('/clients/{client}/one-time-invoices', [BillingController::class, 'storeOneTimeInvoice'])->middleware('financial.idempotency')->name('clients.one-time-invoices.store');
-    Route::post('/clients/{client}/payments/normal', [CollectionsController::class, 'storeNormalPayment'])->middleware('financial.idempotency')->name('clients.payments.normal.store');
-    Route::post('/clients/{client}/payment-receipts', [PaymentReceiptController::class, 'store'])->middleware('financial.idempotency')->name('clients.payment-receipts.store');
+    Route::post('/clients/{client}/payments/normal', [CollectionsController::class, 'storeNormalPayment'])->middleware(['return.today', 'financial.idempotency'])->name('clients.payments.normal.store');
+    Route::post('/clients/{client}/payment-receipts', [PaymentReceiptController::class, 'store'])->middleware(['return.today', 'financial.idempotency'])->name('clients.payment-receipts.store');
     Route::post('/payment-receipts/{paymentReceipt}/approve', [PaymentReceiptController::class, 'approve'])->middleware('financial.idempotency')->name('payment-receipts.approve');
     Route::post('/payment-receipts/{paymentReceipt}/reject', [PaymentReceiptController::class, 'reject'])->middleware('financial.idempotency')->name('payment-receipts.reject');
     Route::post('/payment-receipts/{paymentReceipt}/cancel', [PaymentReceiptController::class, 'cancel'])->name('payment-receipts.cancel');
@@ -99,13 +99,13 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::patch('/clients/{client}/stage', [ClientStageController::class, 'update'])->name('clients.stage.update');
     Route::post('/clients/{client}/close', [ClientStageController::class, 'close'])->name('clients.close');
     Route::post('/clients/{client}/reopen', [ClientStageController::class, 'reopen'])->name('clients.reopen');
-    Route::post('/client-review-items/{reviewItem}/resolve', [ClientReviewItemController::class, 'resolve'])->name('client-review-items.resolve');
-    Route::post('/client-review-items/{reviewItem}/dismiss', [ClientReviewItemController::class, 'dismiss'])->name('client-review-items.dismiss');
+    Route::post('/client-review-items/{reviewItem}/resolve', [ClientReviewItemController::class, 'resolve'])->middleware('return.today')->name('client-review-items.resolve');
+    Route::post('/client-review-items/{reviewItem}/dismiss', [ClientReviewItemController::class, 'dismiss'])->middleware('return.today')->name('client-review-items.dismiss');
     Route::post('/clients/{client}/contacts', [ClientContactController::class, 'store'])->name('clients.contacts.store');
     Route::patch('/clients/{client}/contacts/{contact}', [ClientContactController::class, 'update'])->name('clients.contacts.update');
-    Route::post('/clients/{client}/contact-attempts', [ContactAttemptController::class, 'store'])->name('clients.contact-attempts.store');
+    Route::post('/clients/{client}/contact-attempts', [ContactAttemptController::class, 'store'])->middleware('return.today')->name('clients.contact-attempts.store');
     Route::post('/clients/{client}/installations/schedule', [FreeInstallationController::class, 'schedule'])->name('clients.installations.schedule');
-    Route::post('/clients/{client}/installations/complete', [FreeInstallationController::class, 'complete'])->name('clients.installations.complete');
+    Route::post('/clients/{client}/installations/complete', [FreeInstallationController::class, 'complete'])->middleware('return.today')->name('clients.installations.complete');
 
     // Appointments & Financial Transactions
     Route::post('/appointments', [DashboardController::class, 'storeAppointment'])->name('appointments.store');
@@ -137,11 +137,11 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     // Meeting Outcomes
     Route::get('/appointments/{appointment}/outcome', [MeetingOutcomeController::class, 'create'])->name('appointments.outcome.create');
     Route::post('/appointments/{appointment}/outcome', [MeetingOutcomeController::class, 'store'])->name('appointments.outcome.store');
-    Route::post('/appointments/{appointment}/compact-outcome', [\App\Http\Controllers\CompactAppointmentOutcomeController::class, 'store'])->name('appointments.compact-outcome.store');
+    Route::post('/appointments/{appointment}/compact-outcome', [\App\Http\Controllers\CompactAppointmentOutcomeController::class, 'store'])->middleware('return.today')->name('appointments.compact-outcome.store');
 
     // Follow-ups & Offers
     Route::post('/clients/{client}/follow-ups', [FollowUpController::class, 'store'])->name('clients.follow-ups.store');
-    Route::post('/follow-ups/{followUp}/complete', [FollowUpController::class, 'complete'])->name('follow-ups.complete');
+    Route::post('/follow-ups/{followUp}/complete', [FollowUpController::class, 'complete'])->middleware('return.today')->name('follow-ups.complete');
     Route::post('/clients/{client}/offers', [OfferController::class, 'store'])->name('clients.offers.store');
 
     // CSV Import

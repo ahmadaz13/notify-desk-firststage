@@ -294,7 +294,7 @@ class Phase08TodayAndWorkTest extends TestCase
         $callResponse->assertSee('Contract Review Followup');
     }
 
-    public function test_collections_filter_works_for_authorized_and_is_hidden_from_staff(): void
+    public function test_collections_filter_gives_owner_payment_and_staff_receipt_paths(): void
     {
         $founder = User::factory()->create([
             'role' => User::ROLE_FOUNDER,
@@ -352,25 +352,29 @@ class Phase08TodayAndWorkTest extends TestCase
             'issue_date' => '2026-09-01',
         ]);
 
-        // Founder sees collection work
+        // Founder sees the client's collection work with the confirmed-payment path.
         $founderResponse = $this->actingAs($founder)
             ->get(route('dashboard', ['mode' => 'work', 'filter' => 'collections']))
             ->assertOk();
-        $founderResponse->assertSee('INV-2026-9901')
-            ->assertSee('Jerash Supermarket');
+        $founderResponse->assertSee('Jerash Supermarket')
+            ->assertSee('data-card-primary-action="payment"', false);
 
-        // Staff does not see collections filter chip and collection work is omitted
+        // P11 (§9.7, D-07): Staff get operational collections too — per-client amount due and the
+        // "Payment received" receipt path only; no invoice numbers or company totals.
         $staffResponse = $this->actingAs($staff)
             ->get(route('dashboard', ['mode' => 'work']))
             ->assertOk();
-        $staffResponse->assertDontSee('INV-2026-9901')
-            ->assertDontSee('filter=collections', false);
+        $staffResponse->assertSee('filter=collections', false)
+            ->assertSee('Jerash Supermarket')
+            ->assertSee('data-card-primary-action="payment_receipt"', false)
+            ->assertDontSee('data-card-primary-action="payment"', false)
+            ->assertDontSee('INV-2026-9901');
 
-        // Staff requesting filter=collections gets empty work list, zero financial leak
         $staffCollectionsResponse = $this->actingAs($staff)
             ->get(route('dashboard', ['mode' => 'work', 'filter' => 'collections']))
             ->assertOk();
-        $staffCollectionsResponse->assertDontSee('INV-2026-9901');
+        $staffCollectionsResponse->assertSee('Jerash Supermarket')
+            ->assertDontSee('INV-2026-9901');
     }
 
     public function test_completed_follow_ups_never_appear_as_open_work(): void

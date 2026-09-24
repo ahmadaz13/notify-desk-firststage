@@ -88,7 +88,8 @@ class Phase1VerificationTest extends TestCase
 
             $this->assertSame(0, substr_count($content, 'data-shell-action="add-client"'));
             $this->assertSame(1, substr_count($content, 'data-page-action="add-client"'));
-            $response->assertSee('notify-button--primary', false);
+            // P11: on Today the card actions are primary; "Add client" is a quieter page action there.
+            $response->assertSee($url === route('dashboard') ? 'notify-button--secondary' : 'notify-button--primary', false);
             $response->assertSee('href="'.route('clients.create').'"', false);
             $response->assertSee('data-lucide="plus"', false);
             $response->assertDontSee('quick-expense-fab-btn', false);

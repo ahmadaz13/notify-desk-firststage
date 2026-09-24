@@ -95,11 +95,10 @@ class MultiAttendeeAppointmentTest extends TestCase
 
         $appointment->users()->sync([$ahmad->id, $khalid->id]);
 
-        // Dashboard timeline displays attendee chips
+        // Today card lists every attendee on its responsible line (P11: names, no emoji chips).
         $dashboardResponse = $this->actingAs($ahmad)->get(route('dashboard'));
         $dashboardResponse->assertOk();
-        $dashboardResponse->assertSee('👤 Ahmad');
-        $dashboardResponse->assertSee('👤 Khalid');
+        $dashboardResponse->assertSee('Ahmad، Khalid');
 
         // Client profile appointment history displays attendee chips
         $clientResponse = $this->actingAs($ahmad)->get(route('clients.show', $client->id));

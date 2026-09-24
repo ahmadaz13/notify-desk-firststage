@@ -1,297 +1,245 @@
 @extends('layouts.app')
 
+{{--
+    Today (P11, §20): the operational home. One unified queue — Overdue → Next → Later today — built
+    from the authoritative workflow records by UnifiedOperationalWorkProjection. Cards orient; the
+    Client Workspace sheets (P10) execute. "All open" is Today's internal Work mode (§20).
+--}}
 @section('content')
-<div x-data="{
-    mode: '{{ $currentMode }}',
-    setMode(newMode) {
-        this.mode = newMode;
-        const url = new URL(window.location);
-        url.searchParams.set('mode', newMode);
-        window.history.replaceState({}, '', url);
-    }
-}">
+@php
+    $isDaily = $currentMode === 'daily';
+    $scopeParam = $scope === 'my' ? 'my' : null;
+    $modeHref = fn (string $mode) => route('dashboard', array_filter(['mode' => $mode === 'work' ? 'work' : null, 'scope' => $scopeParam]));
+    $scopeHref = fn (string $value) => route('dashboard', array_filter(['mode' => $isDaily ? null : 'work', 'filter' => $isDaily ? null : ($todayViewModel->workFilter() !== 'all' ? $todayViewModel->workFilter() : null), 'scope' => $value === 'my' ? 'my' : null]));
+@endphp
+<div class="notify-today" data-today-board data-today-mode="{{ $currentMode }}">
+    <x-notify.page-header :title="__('notify.today_board.title')" :description="\App\Support\OperationalTime::longDate($businessNow)">
+        @can('create', \App\Models\Client::class)
+            <x-slot:actions>
+                <x-notify.button :href="route('clients.create')" variant="secondary" icon="plus" :hide-label-on-mobile="true" data-page-action="add-client">{{ __('notify.actions.add_client') }}</x-notify.button>
+            </x-slot:actions>
+        @endcan
+    </x-notify.page-header>
 
-    {{-- Operational Page Header --}}
-    <div class="notify-page-head">
-        <div>
-            <div class="eyebrow">{{ now()->translatedFormat('l، d F Y') }}</div>
-            <h1 class="page-title">{{ __('notify.common.greeting_morning') }}، {{ auth()->user()->name }}</h1>
-            <p class="notify-page-lede">
-                {{ $currentMode === 'work' ? __('notify.work.subtitle') : __('notify.today.subtitle') }}
-            </p>
-        </div>
-        <div class="notify-page-actions">
-            @can('create', \App\Models\Client::class)
-                <x-notify.button :href="route('clients.create')" variant="primary" icon="plus" data-page-action="add-client">
-                    {{ __('notify.actions.add_client') }}
-                </x-notify.button>
-            @endcan
-        </div>
+    <div class="notify-today__controls">
+        <nav class="notify-switch" aria-label="{{ __('notify.today_board.mode_label') }}">
+            <a href="{{ $modeHref('daily') }}" class="notify-switch__item {{ $isDaily ? 'is-active' : '' }}" data-today-tab="today" @if($isDaily) aria-current="page" @endif>{{ __('notify.today_board.mode_today') }}</a>
+            <a href="{{ $modeHref('work') }}" class="notify-switch__item {{ $isDaily ? '' : 'is-active' }}" data-today-tab="work" @unless($isDaily) aria-current="page" @endunless>{{ __('notify.today_board.mode_open') }}</a>
+        </nav>
+        <nav class="notify-switch" aria-label="{{ __('notify.today_board.scope_label') }}" data-team-filter>
+            <a href="{{ $scopeHref('all') }}" class="notify-switch__item {{ $scope !== 'my' ? 'is-active' : '' }}" data-team-scope="all" @if($scope !== 'my') aria-current="true" @endif>
+                <x-notify.icon name="users" :size="16" /><span>{{ __('notify.today_board.scope_all') }}</span>
+            </a>
+            <a href="{{ $scopeHref('my') }}" class="notify-switch__item {{ $scope === 'my' ? 'is-active' : '' }}" data-team-scope="my" @if($scope === 'my') aria-current="true" @endif>
+                <x-notify.icon name="user" :size="16" /><span>{{ __('notify.today_board.scope_my') }}</span>
+            </a>
+        </nav>
     </div>
 
-    {{-- Operational Controls: Mode Tabs & Team Scope Filter --}}
-    <div class="notify-operational-toolbar">
-        <div class="notify-mode-tabs" role="tablist" aria-label="{{ __('notify.navigation.mobile_navigation') }}">
-            <a
-                href="{{ route('dashboard', array_filter(['mode' => 'daily', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
-                role="tab"
-                aria-selected="{{ $currentMode === 'daily' ? 'true' : 'false' }}"
-                class="notify-mode-tab {{ $currentMode === 'daily' ? 'is-active' : '' }}"
-                data-today-tab="today"
-            >
-                {{ __('notify.today.tab_today') }}
-            </a>
-            <a
-                href="{{ route('dashboard', array_filter(['mode' => 'work', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
-                role="tab"
-                aria-selected="{{ $currentMode === 'work' ? 'true' : 'false' }}"
-                class="notify-mode-tab {{ $currentMode === 'work' ? 'is-active' : '' }}"
-                data-today-tab="work"
-            >
-                {{ __('notify.work.all_work') ?: __('notify.work.title') }}
-            </a>
-        </div>
-
-        <div class="notify-team-filter" role="group" aria-label="{{ __('notify.work.team_filter') ?: 'تصفية الفريق' }}">
-            <a
-                href="{{ request()->fullUrlWithQuery(['scope' => 'all']) }}"
-                class="notify-team-filter__btn {{ ($scope ?? 'all') !== 'my' ? 'is-active' : '' }}"
-                data-team-scope="all"
-            >
-                <x-notify.icon name="users" :size="14" />
-                <span>{{ __('notify.work.all_work') ?: 'كل العمل' }}</span>
-            </a>
-            <a
-                href="{{ request()->fullUrlWithQuery(['scope' => 'my']) }}"
-                class="notify-team-filter__btn {{ ($scope ?? 'all') === 'my' ? 'is-active' : '' }}"
-                data-team-scope="my"
-            >
-                <x-notify.icon name="user" :size="14" />
-                <span>{{ __('notify.work.my_work') ?: 'عملي' }}</span>
-            </a>
-        </div>
-    </div>
-
-    @if($currentMode === 'daily')
-    {{-- ========================================================================= --}}
-    {{-- 1. PRIMARY OPERATIONAL TODAY FEED (mode === 'daily')                      --}}
-    {{-- ========================================================================= --}}
-    <section class="notify-today-board">
-        {{-- Embedded Personal Daily Notes (Asia/Amman, Autosaving) --}}
-        <x-notify.daily-notes :daily-note="$dailyNote" />
-
+    @if($isDaily)
         @php
             $overdueItems = $todayViewModel->overdueItems();
             $nextItems = $todayViewModel->nextItems();
             $laterTodayItems = $todayViewModel->laterTodayItems();
-            $hasAnyTodayWork = $overdueItems->isNotEmpty() || $nextItems->isNotEmpty() || $laterTodayItems->isNotEmpty();
+            $completed = $todayViewModel->completed();
+            $pendingConfirmations = $todayViewModel->pendingConfirmations();
+            $myPendingReceipts = $todayViewModel->myPendingReceipts();
+            $readyToContact = $todayViewModel->readyToContact();
+            $visibleOverdue = \App\ViewModels\TodayViewModel::OVERDUE_VISIBLE;
         @endphp
 
-        @if($hasAnyTodayWork)
-            {{-- 1. Overdue Section --}}
-            @if($overdueItems->isNotEmpty())
-                <section class="notify-work-section" aria-labelledby="today-overdue-title" data-today-section="overdue">
-                    <div class="notify-work-section__head">
-                        <h2 class="notify-work-section__title" id="today-overdue-title">
-                            <span class="notify-badge notify-badge--danger">{{ $overdueItems->count() }}</span>
-                            {{ __('notify.today.overdue_section_title') }}
-                        </h2>
-                    </div>
-                    <div class="notify-work-feed">
-                        @foreach($overdueItems as $item)
-                            <x-notify.work-card :item="$item" />
-                        @endforeach
-                    </div>
-                </section>
+        {{-- Compact signals: each one is actionable or orienting; no finance totals (§20, D-07). --}}
+        <ul class="notify-today__signals" aria-label="{{ __('notify.today_board.signals_label') }}" data-today-signals>
+            <li class="notify-today__signal-phone">
+                <a class="notify-status notify-status--success notify-status--link" href="#today-completed" data-today-completed-chip>
+                    <x-notify.icon name="check-circle" :size="14" />
+                    {{ __('notify.today_board.completed_title') }}: {{ trans_choice('notify.today_board.completed_count', $completed['total'], ['count' => $completed['total']]) }}
+                </a>
+            </li>
+            @if($pendingConfirmations > 0)
+                <li>
+                    <a class="notify-status notify-status--warning notify-status--link" href="{{ route('finance.collections', ['tab' => 'pending']) }}" data-today-signal="pending-confirmations">
+                        <x-notify.icon name="receipt" :size="14" />
+                        {{ trans_choice('notify.today_board.pending_confirmations', $pendingConfirmations, ['count' => $pendingConfirmations]) }}
+                    </a>
+                </li>
             @endif
+            @if($myPendingReceipts > 0)
+                <li>
+                    <a class="notify-status notify-status--neutral notify-status--link" href="{{ route('collections-due.index') }}" data-today-signal="my-pending-receipts">
+                        <x-notify.icon name="receipt" :size="14" />
+                        {{ trans_choice('notify.today_board.my_pending_receipts', $myPendingReceipts, ['count' => $myPendingReceipts]) }}
+                    </a>
+                </li>
+            @endif
+            @if($readyToContact > 0)
+                <li>
+                    <a class="notify-status notify-status--neutral notify-status--link" href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'calls', 'scope' => $scopeParam])) }}" data-today-signal="ready-to-contact">
+                        <x-notify.icon name="phone" :size="14" />
+                        {{ trans_choice('notify.today_board.ready_to_contact', $readyToContact, ['count' => $readyToContact]) }}
+                    </a>
+                </li>
+            @endif
+            <li class="notify-today__signal-phone">
+                <a class="notify-status notify-status--neutral notify-status--link" href="#daily-notes">
+                    <x-notify.icon name="book-open" :size="14" />
+                    {{ __('notify.today_board.notes_jump') }}
+                </a>
+            </li>
+        </ul>
 
-            {{-- 2. Next Section --}}
-            <section class="notify-work-section" aria-labelledby="today-next-title" data-today-section="next">
-                <div class="notify-work-section__head">
-                    <h2 class="notify-work-section__title" id="today-next-title">
-                        <span class="notify-badge notify-badge--info">{{ $nextItems->count() }}</span>
-                        {{ __('notify.today.next_section_title') }}
-                    </h2>
-                </div>
-                @if($nextItems->isNotEmpty())
-                    <div class="notify-work-feed">
-                        @foreach($nextItems as $item)
-                            <x-notify.work-card :item="$item" />
-                        @endforeach
-                    </div>
+        <div class="notify-today__layout">
+            <div class="notify-today__main">
+                @if($todayViewModel->hasTodayWork())
+                    @if($overdueItems->isNotEmpty())
+                        <section class="notify-today-section notify-today-section--overdue" aria-labelledby="today-overdue-title" data-today-section="overdue" x-data="{ expanded: false }">
+                            <h2 class="notify-today-section__title" id="today-overdue-title">
+                                <x-notify.icon name="alert-circle" :size="18" />
+                                <span>{{ __('notify.today_board.sections.overdue') }}</span>
+                                <span class="notify-today-section__count">{{ $overdueItems->count() }}</span>
+                            </h2>
+                            <div class="notify-today-section__list">
+                                @foreach($overdueItems->take($visibleOverdue) as $item)
+                                    <x-notify.work-card :item="$item" />
+                                @endforeach
+                            </div>
+                            @if($overdueItems->count() > $visibleOverdue)
+                                <div class="notify-today-section__list" id="today-overdue-more" x-show="expanded" x-cloak>
+                                    @foreach($overdueItems->slice($visibleOverdue) as $item)
+                                        <x-notify.work-card :item="$item" />
+                                    @endforeach
+                                </div>
+                                <button type="button" class="notify-button notify-button--ghost notify-today-section__more" @click="expanded = !expanded" :aria-expanded="expanded.toString()" aria-expanded="false" aria-controls="today-overdue-more" data-today-overdue-toggle>
+                                    <span x-show="!expanded">{{ __('notify.today_board.show_all_overdue', ['count' => $overdueItems->count()]) }}</span>
+                                    <span x-show="expanded" x-cloak>{{ __('notify.today_board.show_less') }}</span>
+                                </button>
+                            @endif
+                        </section>
+                    @endif
+
+                    <section class="notify-today-section notify-today-section--next" aria-labelledby="today-next-title" data-today-section="next">
+                        <h2 class="notify-today-section__title" id="today-next-title">
+                            <x-notify.icon name="activity" :size="18" />
+                            <span>{{ __('notify.today_board.sections.next') }}</span>
+                            <span class="notify-today-section__count">{{ $nextItems->count() }}</span>
+                        </h2>
+                        @if($nextItems->isNotEmpty())
+                            <div class="notify-today-section__list">
+                                @foreach($nextItems as $item)
+                                    <x-notify.work-card :item="$item" />
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="notify-today-section__empty">{{ __('notify.today_board.empty_message') }}</p>
+                        @endif
+                    </section>
+
+                    @if($laterTodayItems->isNotEmpty())
+                        <section class="notify-today-section notify-today-section--later" aria-labelledby="today-later-title" data-today-section="later_today">
+                            <h2 class="notify-today-section__title" id="today-later-title">
+                                <x-notify.icon name="calendar" :size="18" />
+                                <span>{{ __('notify.today_board.sections.later_today') }}</span>
+                                <span class="notify-today-section__count">{{ $laterTodayItems->count() }}</span>
+                            </h2>
+                            <div class="notify-today-section__list">
+                                @foreach($laterTodayItems as $item)
+                                    <x-notify.work-card :item="$item" />
+                                @endforeach
+                            </div>
+                        </section>
+                    @endif
                 @else
-                    <x-notify.empty-state
-                        title="{{ __('notify.today.no_appointments_today') }}"
-                        message="{{ __('notify.today.no_appointments_msg') }}"
-                        icon="clipboard-list"
-                    />
+                    {{-- Quiet day: calm state, the nearest real upcoming item, and a role-appropriate destination. --}}
+                    <section class="notify-card notify-today-empty" aria-labelledby="today-empty-title" data-today-empty>
+                        <span class="notify-today-empty__icon" aria-hidden="true"><x-notify.icon name="check-circle" :size="24" /></span>
+                        <h2 id="today-empty-title">{{ __('notify.today_board.empty_title') }}</h2>
+                        <p>{{ __('notify.today_board.empty_message') }}</p>
+                        @if($upcoming = $todayViewModel->nextUpcoming())
+                            <p class="notify-today-empty__next" data-today-next-upcoming>
+                                <span>{{ __('notify.today_board.next_upcoming') }}:</span>
+                                <a href="{{ route('clients.show', array_filter(['client' => $upcoming['client_id'], 'from' => 'today', 'scope' => $scopeParam])) }}">{{ $upcoming['client_name'] }}</a>
+                                <span>· {{ $upcoming['label'] }} · {{ $upcoming['timing']['exact'] ?? $upcoming['timing']['text'] }}</span>
+                            </p>
+                        @endif
+                        <x-notify.button :href="route('clients.index')" variant="secondary" icon="users">{{ __('notify.today_board.go_to_clients') }}</x-notify.button>
+                    </section>
                 @endif
-            </section>
-
-            {{-- 3. Later Today Section --}}
-            @if($laterTodayItems->isNotEmpty())
-                <section class="notify-work-section" aria-labelledby="today-later-title" data-today-section="later_today">
-                    <div class="notify-work-section__head">
-                        <h2 class="notify-work-section__title" id="today-later-title">
-                            <span class="notify-badge notify-badge--neutral">{{ $laterTodayItems->count() }}</span>
-                            {{ __('notify.today.later_today_section_title') }}
-                        </h2>
-                    </div>
-                    <div class="notify-work-feed">
-                        @foreach($laterTodayItems as $item)
-                            <x-notify.work-card :item="$item" />
-                        @endforeach
-                    </div>
-                </section>
-            @endif
-        @else
-            <div class="notify-panel" style="text-align: center; padding: 48px 24px;">
-                <x-notify.empty-state
-                    title="{{ __('notify.today.no_appointments_today') }}"
-                    message="{{ __('notify.today.all_clear') }}"
-                    icon="check-circle"
-                />
             </div>
-        @endif
-    </section>
-    @elseif($currentMode === 'work')
-    {{-- ========================================================================= --}}
-    {{-- 2. OPEN OPERATIONAL WORK (mode === 'work')                                --}}
-    {{-- ========================================================================= --}}
-    <section id="mobile-work" class="notify-work-board">
+
+            <aside class="notify-today__side" aria-label="{{ __('notify.today_board.signals_label') }}">
+                <section class="notify-card notify-today-done" id="today-completed" aria-labelledby="today-completed-title" data-today-completed>
+                    <h2 class="notify-today-done__title" id="today-completed-title">
+                        <x-notify.icon name="check-circle" :size="18" />
+                        <span>{{ __('notify.today_board.completed_title') }}</span>
+                    </h2>
+                    <p class="notify-today-done__count" data-completed-total="{{ $completed['total'] }}">{{ trans_choice('notify.today_board.completed_count', $completed['total'], ['count' => $completed['total']]) }}</p>
+                    @php $doneTypes = array_filter($completed['breakdown'] ?? []); @endphp
+                    @if($doneTypes !== [])
+                        <ul class="notify-today-done__breakdown">
+                            @foreach($doneTypes as $doneType => $doneCount)
+                                <li data-completed-type="{{ $doneType }}"><span>{{ __('notify.today_board.completed_types.'.$doneType) }}</span><strong>{{ $doneCount }}</strong></li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </section>
+
+                <x-notify.daily-notes :daily-note="$dailyNote" />
+            </aside>
+        </div>
+    @else
         @php
             $currentFilter = $todayViewModel->workFilter();
             $filterCounts = $todayViewModel->workFilterCounts();
-            $workOverdue = $todayViewModel->workOverdueItems();
-            $workToday = $todayViewModel->workTodayItems();
-            $workUpcoming = $todayViewModel->workUpcomingItems();
-            $totalFilteredWork = $workOverdue->count() + $workToday->count() + $workUpcoming->count();
-
-            $canViewCollections = \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::RECORD_PAYMENT)
-                || \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::VIEW_FINANCIAL_REPORTS);
+            $workGroups = [
+                'overdue' => [$todayViewModel->workOverdueItems(), __('notify.work.groups.overdue'), 'alert-circle'],
+                'today' => [$todayViewModel->workTodayItems(), __('notify.work.groups.today'), 'activity'],
+                'upcoming' => [$todayViewModel->workUpcomingItems(), __('notify.work.groups.upcoming'), 'calendar'],
+            ];
+            $canViewCollections = \App\Support\Permissions::allows(auth()->user(), \App\Support\Permissions::VIEW_COLLECTIONS_DUE);
+            $filters = array_values(array_filter(['all', 'calls', 'appointments', 'installations', 'follow_ups', $canViewCollections ? 'collections' : null]));
         @endphp
+        <section id="mobile-work" class="notify-work-board" aria-labelledby="open-work-title">
+            <h2 class="notify-today__mode-title" id="open-work-title">{{ __('notify.work.title') }}</h2>
 
-        {{-- Filter Chips --}}
-        <div class="notify-work-filters" role="tablist" aria-label="{{ __('notify.work.title') }}">
-            <a
-                href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'all', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
-                class="notify-work-filter-chip {{ $currentFilter === 'all' ? 'is-active' : '' }}"
-            >
-                {{ __('notify.work.filters.all') }}
-                @if(isset($filterCounts['all']))
-                    <span class="notify-work-filter-chip__count">{{ $filterCounts['all'] }}</span>
-                @endif
-            </a>
-            <a
-                href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'calls', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
-                class="notify-work-filter-chip {{ $currentFilter === 'calls' ? 'is-active' : '' }}"
-            >
-                {{ __('notify.work.filters.calls') }}
-                @if(isset($filterCounts['calls']))
-                    <span class="notify-work-filter-chip__count">{{ $filterCounts['calls'] }}</span>
-                @endif
-            </a>
-            <a
-                href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'appointments', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
-                class="notify-work-filter-chip {{ $currentFilter === 'appointments' ? 'is-active' : '' }}"
-            >
-                {{ __('notify.work.filters.appointments') }}
-                @if(isset($filterCounts['appointments']))
-                    <span class="notify-work-filter-chip__count">{{ $filterCounts['appointments'] }}</span>
-                @endif
-            </a>
-            <a
-                href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'installations', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
-                class="notify-work-filter-chip {{ $currentFilter === 'installations' ? 'is-active' : '' }}"
-            >
-                {{ __('notify.work.filters.installations') }}
-                @if(isset($filterCounts['installations']))
-                    <span class="notify-work-filter-chip__count">{{ $filterCounts['installations'] }}</span>
-                @endif
-            </a>
-            <a
-                href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'follow_ups', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
-                class="notify-work-filter-chip {{ $currentFilter === 'follow_ups' ? 'is-active' : '' }}"
-            >
-                {{ __('notify.work.filters.follow_ups') }}
-                @if(isset($filterCounts['follow_ups']))
-                    <span class="notify-work-filter-chip__count">{{ $filterCounts['follow_ups'] }}</span>
-                @endif
-            </a>
-            @if($canViewCollections)
-                <a
-                    href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => 'collections', 'scope' => ($scope ?? 'all') !== 'all' ? $scope : null])) }}"
-                    class="notify-work-filter-chip {{ $currentFilter === 'collections' ? 'is-active' : '' }}"
-                >
-                    {{ __('notify.work.filters.collections') }}
-                    @if(isset($filterCounts['collections']))
-                        <span class="notify-work-filter-chip__count">{{ $filterCounts['collections'] }}</span>
+            <nav class="notify-work-filters" aria-label="{{ __('notify.work.title') }}">
+                @foreach($filters as $filterKey)
+                    <a
+                        href="{{ route('dashboard', array_filter(['mode' => 'work', 'filter' => $filterKey, 'scope' => $scopeParam])) }}"
+                        class="notify-segments__item {{ $currentFilter === $filterKey ? 'is-active' : '' }}"
+                        @if($currentFilter === $filterKey) aria-current="page" @endif
+                    >
+                        <span>{{ __('notify.work.filters.'.$filterKey) }}</span>
+                        <span class="notify-segments__count" dir="ltr">{{ $filterCounts[$filterKey] ?? 0 }}</span>
+                    </a>
+                @endforeach
+            </nav>
+
+            @if(collect($workGroups)->sum(fn ($group) => $group[0]->count()) > 0)
+                @foreach($workGroups as $groupKey => [$groupItems, $groupLabel, $groupIcon])
+                    @if($groupItems->isNotEmpty())
+                        <section class="notify-today-section notify-today-section--{{ $groupKey }}" aria-labelledby="work-group-{{ $groupKey }}">
+                            <h2 class="notify-today-section__title" id="work-group-{{ $groupKey }}">
+                                <x-notify.icon :name="$groupIcon" :size="18" />
+                                <span>{{ $groupLabel }}</span>
+                                <span class="notify-today-section__count">{{ $groupItems->count() }}</span>
+                            </h2>
+                            <div class="notify-today-section__list notify-today-section__list--grid">
+                                @foreach($groupItems as $item)
+                                    <x-notify.work-card :item="$item" />
+                                @endforeach
+                            </div>
+                        </section>
                     @endif
-                </a>
-            @endif
-        </div>
-
-        @if($totalFilteredWork > 0)
-            {{-- Group 1: Overdue --}}
-            @if($workOverdue->isNotEmpty())
-                <section class="notify-work-section" aria-labelledby="work-group-overdue">
-                    <div class="notify-work-section__head">
-                        <h2 class="notify-work-section__title" id="work-group-overdue">
-                            <span class="notify-badge notify-badge--danger">{{ $workOverdue->count() }}</span>
-                            {{ __('notify.work.groups.overdue') }}
-                        </h2>
-                    </div>
-                    <div class="notify-work-feed">
-                        @foreach($workOverdue as $item)
-                            <x-notify.work-card :item="$item" />
-                        @endforeach
-                    </div>
-                </section>
-            @endif
-
-            {{-- Group 2: Today --}}
-            @if($workToday->isNotEmpty())
-                <section class="notify-work-section" aria-labelledby="work-group-today">
-                    <div class="notify-work-section__head">
-                        <h2 class="notify-work-section__title" id="work-group-today">
-                            <span class="notify-badge notify-badge--info">{{ $workToday->count() }}</span>
-                            {{ __('notify.work.groups.today') }}
-                        </h2>
-                    </div>
-                    <div class="notify-work-feed">
-                        @foreach($workToday as $item)
-                            <x-notify.work-card :item="$item" />
-                        @endforeach
-                    </div>
-                </section>
-            @endif
-
-            {{-- Group 3: Upcoming --}}
-            @if($workUpcoming->isNotEmpty())
-                <section class="notify-work-section" aria-labelledby="work-group-upcoming">
-                    <div class="notify-work-section__head">
-                        <h2 class="notify-work-section__title" id="work-group-upcoming">
-                            <span class="notify-badge notify-badge--neutral">{{ $workUpcoming->count() }}</span>
-                            {{ __('notify.work.groups.upcoming') }}
-                        </h2>
-                    </div>
-                    <div class="notify-work-feed">
-                        @foreach($workUpcoming as $item)
-                            <x-notify.work-card :item="$item" />
-                        @endforeach
-                    </div>
-                </section>
-            @endif
-        @else
-            <div class="notify-panel" style="text-align: center; padding: 48px 24px;">
+                @endforeach
+            @else
                 <x-notify.empty-state
-                    title="{{ __('notify.work.no_work') }}"
-                    message="{{ __('notify.work.empty_filter') }}"
+                    class="notify-card"
+                    :title="__('notify.work.no_work')"
+                    :message="__('notify.work.empty_filter')"
                     icon="check-circle"
                 />
-            </div>
-        @endif
-    </section>
+            @endif
+        </section>
     @endif
 </div>
 @endsection

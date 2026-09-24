@@ -5,11 +5,14 @@ import fs from 'node:fs';
 export const AUTH = {
     owner: 'storage/playwright/.auth/owner.json',
     staff: 'storage/playwright/.auth/staff.json',
+    quiet: 'storage/playwright/.auth/quiet.json',
 };
 
 const ACCOUNTS = {
     owner: 'ahmad@example.com',
     staff: 'staff@example.com',
+    // P11: a second demo owner-level user whose own queue (My Work) is empty.
+    quiet: 'khalid@example.com',
 };
 
 export default async function globalSetup(config) {

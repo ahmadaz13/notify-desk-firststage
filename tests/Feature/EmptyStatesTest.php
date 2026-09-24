@@ -34,8 +34,9 @@ class EmptyStatesTest extends TestCase
         $response = $this->actingAs($admin)->get(route('dashboard'));
 
         $response->assertOk();
-        $response->assertSee('لا توجد مواعيد اليوم');
-        $response->assertSee(__('notify.today.all_clear'));
+        // P11 calm empty state.
+        $response->assertSee('لا توجد مهام مستحقة الآن');
+        $response->assertSee(__('notify.today_board.empty_message'));
         $response->assertDontSee('لم تسجل مصاريف اليوم بعد');
     }
 }

@@ -200,9 +200,18 @@ class ClientController extends Controller
             ->orderBy('appointment_time')
             ->get();
 
+        // Today deep links (P11) name the exact open appointment/follow-up; the existing sheets then act
+        // on that record instead of the earliest one. Unknown or closed ids fall back to the default.
+        $targetAppointmentId = (int) $request->query('appointment');
+        if ($targetAppointmentId > 0 && $appointments->contains('id', $targetAppointmentId)) {
+            $appointments = $appointments->sortBy(fn (Appointment $appointment) => $appointment->id === $targetAppointmentId ? 0 : 1)->values();
+        }
+
+        $targetFollowUpId = (int) $request->query('follow_up');
         $followUp = DB::table('follow_ups')
             ->where('client_id', $client->id)
             ->whereNull('completed_at')
+            ->when($targetFollowUpId > 0, fn ($query) => $query->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [$targetFollowUpId]))
             ->orderBy('follow_up_date_time')
             ->first();
 

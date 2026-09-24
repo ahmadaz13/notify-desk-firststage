@@ -1469,6 +1469,103 @@ return array (
     'save_failed' => 'فشل الحفظ. المحتوى محفوظ محلياً.',
     'placeholder' => 'اكتب ملاحظاتك اليومية هنا...',
     'restored_unsaved' => 'تم استرجاع تعديلات غير محفوظة',
+    'personal' => 'خاصة بك ولا يراها غيرك',
+    'open' => 'كتابة ملاحظة',
+    'has_content' => 'لديك ملاحظات لليوم',
+  ),
+  'today_board' =>
+  array (
+    'title' => 'اليوم',
+    'mode_label' => 'طريقة العرض',
+    'mode_today' => 'مهام اليوم',
+    'mode_open' => 'كل المفتوح',
+    'scope_label' => 'نطاق العمل',
+    'scope_all' => 'الكل',
+    'scope_my' => 'عملي',
+    'signals_label' => 'ملخص اليوم',
+    'sections' =>
+    array (
+      'overdue' => 'متأخر',
+      'next' => 'التالي',
+      'later_today' => 'لاحقاً اليوم',
+    ),
+    'show_all_overdue' => 'عرض كل المتأخر (:count)',
+    'show_less' => 'عرض أقل',
+    'empty_title' => 'لا توجد مهام مستحقة الآن',
+    'empty_message' => 'لا يوجد عمل مجدول لبقية اليوم.',
+    'next_upcoming' => 'أقرب عمل قادم',
+    'go_to_clients' => 'فتح العملاء',
+    'completed_title' => 'أنجزت اليوم',
+    'completed_count' => '{0} لا شيء بعد|{1} مهمة واحدة|{2} مهمتان|[3,10] :count مهام|[11,*] :count مهمة',
+    'completed_types' =>
+    array (
+      'calls' => 'اتصالات',
+      'appointments' => 'مواعيد',
+      'installations' => 'تركيبات',
+      'follow_ups' => 'متابعات',
+      'collections' => 'تحصيلات',
+      'reviews' => 'مراجعات',
+    ),
+    'pending_confirmations' => '{1} دفعة بانتظار تأكيدك|{2} دفعتان بانتظار تأكيدك|[3,10] :count دفعات بانتظار تأكيدك|[11,*] :count دفعة بانتظار تأكيدك',
+    'my_pending_receipts' => '{1} دفعة سلّمتها بانتظار التأكيد|{2} دفعتان سلّمتهما بانتظار التأكيد|[3,10] :count دفعات سلّمتها بانتظار التأكيد|[11,*] :count دفعة سلّمتها بانتظار التأكيد',
+    'ready_to_contact' => '{1} عميل محتمل بانتظار أول تواصل|{2} عميلان محتملان بانتظار أول تواصل|[3,10] :count عملاء محتملين بانتظار أول تواصل|[11,*] :count عميلاً محتملاً بانتظار أول تواصل',
+    'pending_on_card' => 'بانتظار التأكيد',
+    'responsible' => 'المسؤول: :name',
+    'back_to_today' => 'العودة إلى اليوم',
+    'unknown_client' => 'عميل',
+    'notes_jump' => 'ملاحظاتي',
+    'types' =>
+    array (
+      'collection' => 'دفعة مستحقة',
+      'review' => 'مراجعة مطلوبة',
+      'first_contact' => 'تواصل أول',
+      'follow_up' => 'متابعة',
+      'call_follow_up' => 'متابعة هاتفية',
+      'trial_follow_up' => 'متابعة بعد التركيب',
+    ),
+    'appointment_types' =>
+    array (
+      'physical_visit' => 'زيارة ميدانية',
+      'online_demo' => 'عرض أونلاين',
+      'phone_call' => 'مكالمة هاتفية',
+      'installation' => 'تركيب مجاني',
+    ),
+    'statuses' =>
+    array (
+      'confirmed' => 'مؤكد',
+      'rescheduled' => 'أعيدت جدولته',
+    ),
+    'actions' =>
+    array (
+      'record_result' => 'تسجيل نتيجة الموعد',
+      'complete_installation' => 'إكمال التركيب',
+      'complete_follow_up' => 'إكمال المتابعة',
+      'open_review' => 'فتح المراجعة',
+      'record_call' => 'تسجيل اتصال',
+      'open_client' => 'فتح ملف العميل',
+    ),
+    'timing' =>
+    array (
+      'late' => 'متأخر :duration',
+      'now' => 'الآن',
+      'in' => 'بعد :duration',
+      'due_today' => 'مستحق اليوم',
+      'due_on' => 'مستحق :day',
+      'waiting_since' => 'منذ :duration',
+      'ready' => 'جاهز للتواصل',
+    ),
+    'duration' =>
+    array (
+      'minutes' => '{1} دقيقة|{2} دقيقتين|[3,10] :count دقائق|[11,*] :count دقيقة',
+      'hours' => '{1} ساعة|{2} ساعتين|[3,10] :count ساعات|[11,*] :count ساعة',
+      'days' => '{1} يوم|{2} يومين|[3,10] :count أيام|[11,*] :count يوماً',
+    ),
+    'days' =>
+    array (
+      'today' => 'اليوم',
+      'yesterday' => 'أمس',
+      'tomorrow' => 'غداً',
+    ),
   ),
   'shell' =>
   array (
