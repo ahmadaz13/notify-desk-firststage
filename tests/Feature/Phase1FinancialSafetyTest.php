@@ -213,10 +213,8 @@ class Phase1FinancialSafetyTest extends TestCase
             '_idempotency_key' => $idempotencyKey,
             'amount' => '35.500',
             'category_id' => $category->id,
-            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
-            'financial_account_id' => $this->cashAccount->id,
-            'incurred_on' => now()->toDateString(),
-            'paid_at' => now()->toDateString(),
+            'payment_method' => 'cash',
+            'expense_date' => now()->toDateString(),
             'description' => 'Test Idempotent Expense',
         ];
 
@@ -487,10 +485,8 @@ class Phase1FinancialSafetyTest extends TestCase
         $payload = [
             'amount' => '42.000',
             'category_id' => $category->id,
-            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
-            'financial_account_id' => $this->cashAccount->id,
-            'incurred_on' => now()->toDateString(),
-            'paid_at' => now()->toDateString(),
+            'payment_method' => 'cash',
+            'expense_date' => now()->toDateString(),
             'description' => 'Unkeyed Protected Expense',
         ];
 
@@ -527,10 +523,8 @@ class Phase1FinancialSafetyTest extends TestCase
         $payload = [
             'amount' => '65.000',
             'category_id' => $category->id,
-            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
-            'financial_account_id' => $this->cashAccount->id,
-            'incurred_on' => now()->toDateString(),
-            'paid_at' => now()->toDateString(),
+            'payment_method' => 'cash',
+            'expense_date' => now()->toDateString(),
             'description' => 'Unkeyed Initial Expense',
         ];
 
@@ -569,10 +563,8 @@ class Phase1FinancialSafetyTest extends TestCase
         $payload = [
             'amount' => '11.000',
             'category_id' => $category->id,
-            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
-            'financial_account_id' => $this->cashAccount->id,
-            'incurred_on' => now()->toDateString(),
-            'paid_at' => now()->toDateString(),
+            'payment_method' => 'cash',
+            'expense_date' => now()->toDateString(),
             'description' => 'Expired synthetic request',
         ];
 
@@ -612,10 +604,8 @@ class Phase1FinancialSafetyTest extends TestCase
             '_idempotency_key' => $key,
             'amount' => '15.000',
             'category_id' => $category->id,
-            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
-            'financial_account_id' => $this->cashAccount->id,
-            'incurred_on' => now()->toDateString(),
-            'paid_at' => now()->toDateString(),
+            'payment_method' => 'cash',
+            'expense_date' => now()->toDateString(),
             'description' => 'Crash Window Expense',
         ];
 
@@ -658,10 +648,8 @@ class Phase1FinancialSafetyTest extends TestCase
             '_idempotency_key' => $sharedKey,
             'amount' => '25.000',
             'category_id' => $category->id,
-            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
-            'financial_account_id' => $this->cashAccount->id,
-            'incurred_on' => now()->toDateString(),
-            'paid_at' => now()->toDateString(),
+            'payment_method' => 'cash',
+            'expense_date' => now()->toDateString(),
             'description' => 'Cross User Expense',
         ];
 
@@ -692,10 +680,8 @@ class Phase1FinancialSafetyTest extends TestCase
             '_idempotency_key' => $key,
             'amount' => '10.000',
             'category_id' => $category->id,
-            'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
-            'financial_account_id' => $this->cashAccount->id,
-            'incurred_on' => now()->toDateString(),
-            'paid_at' => now()->toDateString(),
+            'payment_method' => 'cash',
+            'expense_date' => now()->toDateString(),
             'description' => 'Route A Expense',
         ];
 

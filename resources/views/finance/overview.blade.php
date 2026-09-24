@@ -165,7 +165,7 @@
             @endif
 
             @if($attention['recurring_expenses']['count'] > 0)
-                <a class="notify-fin-alert notify-fin-alert--neutral" href="{{ route('finance.expenses') }}" data-attention="recurring-expenses">
+                <a class="notify-fin-alert notify-fin-alert--neutral" href="{{ route('finance.expenses', ['tab' => 'recurring']) }}" data-attention="recurring-expenses">
                     <span class="notify-fin-alert__count" dir="ltr">{{ $attention['recurring_expenses']['count'] }}</span>
                     <span class="notify-fin-alert__body">
                         <strong>{{ __('notify.finance_hub.overview.recurring_due') }}</strong>

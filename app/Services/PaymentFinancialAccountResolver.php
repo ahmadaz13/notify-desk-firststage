@@ -42,4 +42,12 @@ class PaymentFinancialAccountResolver
 
         return $account;
     }
+
+    /** Reverse of the fixed map, for display only: CASH-BOX → cash, CLIQ → cliq, anything else → null. */
+    public static function methodForAccount(?FinancialAccount $account): ?string
+    {
+        $method = array_search($account?->code, self::METHOD_ACCOUNT_CODES, true);
+
+        return $method === false ? null : $method;
+    }
 }

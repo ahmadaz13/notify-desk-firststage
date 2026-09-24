@@ -12,10 +12,13 @@ use App\Models\RecurringExpenseTemplate;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Services\FinancialAccountBalanceService;
+use App\Services\OperatingExpenseService;
+use App\Services\RecurringExpenseService;
 use App\Support\Money;
 use Database\Seeders\ExpenseCategorySeeder;
 use Database\Seeders\SettingsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class FinancePhaseD2ATest extends TestCase
@@ -37,24 +40,26 @@ class FinancePhaseD2ATest extends TestCase
         $archived = $this->createAccount('archived_cash', 'Archived Cash', '5.000');
         $archived->update(['is_active' => false, 'archived_at' => now()]);
 
-        $this->actingAs($admin)->post(route('operating-expenses.store'), [
+        // P7: arbitrary accounts, vendors and personal funding are engine-only; the V1 HTTP route
+        // accepts Cash/CliQ alone (V1P7ExpensesTest). The engine behaviour is asserted directly here.
+        $this->assertEngineRejects('financial_account_id', fn () => $this->engine()->createV2Expense([
             'amount' => '0.001',
             'category_id' => $category->id,
             'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
             'financial_account_id' => $archived->id,
             'incurred_on' => '2026-09-14',
             'paid_at' => '2026-09-14 09:30:00',
-        ])->assertSessionHasErrors('financial_account_id');
+        ], $admin));
 
-        $this->actingAs($admin)->post(route('operating-expenses.store'), [
+        $this->assertEngineRejects('financial_account_id', fn () => $this->engine()->createV2Expense([
             'amount' => '0.001',
             'category_id' => $category->id,
             'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
             'incurred_on' => '2026-09-14',
             'paid_at' => '2026-09-14 09:30:00',
-        ])->assertSessionHasErrors('financial_account_id');
+        ], $admin));
 
-        $this->actingAs($admin)->post(route('operating-expenses.store'), [
+        $this->engine()->createV2Expense([
             'amount' => '0.001',
             'category_id' => $category->id,
             'payee_name' => 'Fuel Station',
@@ -63,7 +68,7 @@ class FinancePhaseD2ATest extends TestCase
             'incurred_on' => '2026-09-14',
             'paid_at' => '2026-09-14 09:30:00',
             'reference' => 'FUEL-1',
-        ])->assertSessionHas('success');
+        ], $admin);
 
         $expense = Expense::v2()->firstOrFail();
         $this->assertSame(1, $expense->amount_minor);
@@ -80,14 +85,14 @@ class FinancePhaseD2ATest extends TestCase
         ]);
         $this->assertSame(9999, app(FinancialAccountBalanceService::class)->currentBalanceMinor($account->fresh()));
 
-        $this->actingAs($admin)->post(route('operating-expenses.store'), [
+        $this->engine()->createV2Expense([
             'amount' => '1.000',
             'category_id' => $category->id,
             'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
             'financial_account_id' => $account->id,
             'incurred_on' => '2026-09-14',
             'paid_at' => '2026-09-14 10:30:00',
-        ])->assertSessionHas('success');
+        ], $admin);
         $this->assertSame(2, CashMovement::where('event_type', CashMovement::EVENT_EXPENSE_PAID)->count());
     }
 
@@ -98,16 +103,17 @@ class FinancePhaseD2ATest extends TestCase
         $category = ExpenseCategory::where('key', 'hosting')->firstOrFail();
         $vendor = Vendor::create(['name' => 'Cloud Vendor', 'is_active' => true, 'created_by' => $admin->id]);
 
-        $this->actingAs($admin)->post(route('operating-expenses.store'), [
+        // Personal-paid expenses remain engine-only (FROZEN D-17).
+        $this->assertEngineRejects('paid_by_user_id', fn () => $this->engine()->createV2Expense([
             'amount' => '12.375',
             'category_id' => $category->id,
             'vendor_id' => $vendor->id,
             'funding_source' => Expense::FUNDING_PERSONAL,
             'incurred_on' => '2026-09-14',
             'paid_at' => '2026-09-14 11:00:00',
-        ])->assertSessionHasErrors('paid_by_user_id');
+        ], $admin));
 
-        $this->actingAs($admin)->post(route('operating-expenses.store'), [
+        $this->engine()->createV2Expense([
             'amount' => '12.375',
             'category_id' => $category->id,
             'vendor_id' => $vendor->id,
@@ -115,7 +121,7 @@ class FinancePhaseD2ATest extends TestCase
             'paid_by_user_id' => $payer->id,
             'incurred_on' => '2026-09-14',
             'paid_at' => '2026-09-14 11:00:00',
-        ])->assertSessionHas('success');
+        ], $admin);
 
         $expense = Expense::v2()->firstOrFail();
         $this->assertSame(12375, $expense->amount_minor);
@@ -200,7 +206,8 @@ class FinancePhaseD2ATest extends TestCase
         $category = ExpenseCategory::where('key', 'internet_communications')->firstOrFail();
         $account = $this->createAccount('recurring_cash', 'Recurring Cash', '100.000');
 
-        $this->actingAs($admin)->post(route('recurring-expense-templates.store'), [
+        // Template engine asserted directly with a non-V1 account; the V1 route is covered in V1P7ExpensesTest.
+        app(RecurringExpenseService::class)->createTemplate([
             'name' => 'Internet Monthly',
             'amount' => '25.000',
             'category_id' => $category->id,
@@ -210,7 +217,7 @@ class FinancePhaseD2ATest extends TestCase
             'start_date' => '2026-09-01',
             'default_funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
             'default_financial_account_id' => $account->id,
-        ])->assertSessionHas('success');
+        ], $admin);
 
         $template = RecurringExpenseTemplate::firstOrFail();
         $this->assertSame(0, Expense::count());
@@ -229,12 +236,12 @@ class FinancePhaseD2ATest extends TestCase
         $this->assertSame(25000, $obligation->fresh()->expected_amount_minor);
         $this->assertSame($category->displayName(), $obligation->fresh()->category_name_snapshot);
 
-        $this->actingAs($admin)->post(route('recurring-expense-obligations.pay', $obligation), [
+        $this->payObligation($admin, $obligation, [
             'amount' => '27.000',
             'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
             'financial_account_id' => $account->id,
             'paid_at' => '2026-09-14 15:00:00',
-        ])->assertSessionHas('success');
+        ]);
 
         $expense = Expense::v2()->firstOrFail();
         $this->assertSame(27000, $expense->amount_minor);
@@ -243,11 +250,11 @@ class FinancePhaseD2ATest extends TestCase
         $this->assertSame(2, CashMovement::count());
         $this->assertSame(73000, app(FinancialAccountBalanceService::class)->currentBalanceMinor($account->fresh()));
 
-        $this->actingAs($admin)->post(route('recurring-expense-obligations.pay', $obligation), [
+        $this->assertEngineRejects('recurring_expense_obligation_id', fn () => $this->payObligation($admin, $obligation->fresh(), [
             'amount' => '27.000',
             'funding_source' => Expense::FUNDING_COMPANY_ACCOUNT,
             'financial_account_id' => $account->id,
-        ])->assertSessionHasErrors('recurring_expense_obligation_id');
+        ]));
 
         $this->actingAs($admin)->post(route('operating-expenses.reverse', $expense), [
             'reason' => 'Recurring paid by mistake',
@@ -278,12 +285,12 @@ class FinancePhaseD2ATest extends TestCase
         $this->artisan('finance:generate-recurring-expenses', ['--date' => '2026-09-14'])->assertSuccessful();
         $personalObligation = RecurringExpenseObligation::firstOrFail();
 
-        $this->actingAs($admin)->post(route('recurring-expense-obligations.pay', $personalObligation), [
+        $this->payObligation($admin, $personalObligation, [
             'amount' => '5.000',
             'funding_source' => Expense::FUNDING_PERSONAL,
             'paid_by_user_id' => $payer->id,
             'paid_at' => '2026-09-14 16:00:00',
-        ])->assertSessionHas('success');
+        ]);
         $this->assertSame(0, CashMovement::count());
 
         $skip = RecurringExpenseObligation::create([
@@ -334,7 +341,7 @@ class FinancePhaseD2ATest extends TestCase
 
     private function createCompanyExpense(User $admin, ExpenseCategory $category, FinancialAccount $account, string $amount, ?Vendor $vendor = null): Expense
     {
-        $this->actingAs($admin)->post(route('operating-expenses.store'), [
+        return $this->engine()->createV2Expense(array_filter([
             'amount' => $amount,
             'category_id' => $category->id,
             'vendor_id' => $vendor?->id,
@@ -343,14 +350,12 @@ class FinancePhaseD2ATest extends TestCase
             'financial_account_id' => $account->id,
             'incurred_on' => '2026-09-14',
             'paid_at' => '2026-09-14 10:00:00',
-        ])->assertSessionHas('success');
-
-        return Expense::v2()->orderByDesc('id')->firstOrFail();
+        ], fn ($value) => $value !== null), $admin);
     }
 
     private function createPersonalExpense(User $admin, User $payer, ExpenseCategory $category, string $amount): Expense
     {
-        $this->actingAs($admin)->post(route('operating-expenses.store'), [
+        return $this->engine()->createV2Expense([
             'amount' => $amount,
             'category_id' => $category->id,
             'payee_name' => 'Personal Payee',
@@ -358,9 +363,36 @@ class FinancePhaseD2ATest extends TestCase
             'paid_by_user_id' => $payer->id,
             'incurred_on' => '2026-09-14',
             'paid_at' => '2026-09-14 10:00:00',
-        ])->assertSessionHas('success');
+        ], $admin);
+    }
 
-        return Expense::v2()->orderByDesc('id')->firstOrFail();
+    private function engine(): OperatingExpenseService
+    {
+        return app(OperatingExpenseService::class);
+    }
+
+    /** Engine pay path for an obligation with explicit (possibly non-V1) funding. */
+    private function payObligation(User $admin, RecurringExpenseObligation $obligation, array $data): Expense
+    {
+        return $this->engine()->createV2Expense($data + [
+            'category_id' => $obligation->category_id,
+            'incurred_on' => $obligation->due_date->toDateString(),
+            'paid_at' => now()->toDateTimeString(),
+            'recurring_expense_obligation_id' => $obligation->id,
+        ], $admin);
+    }
+
+    private function assertEngineRejects(string $key, callable $action): void
+    {
+        try {
+            $action();
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey($key, $exception->errors());
+
+            return;
+        }
+
+        $this->fail("Expected the expense engine to reject [{$key}].");
     }
 
     private function createAccount(string $code, string $name, string $openingBalance = '0.000'): FinancialAccount

@@ -104,6 +104,8 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
 
     public function test_finance_cockpit_expenses_workspace(): void
     {
+        // P7: the one-time expense form needs at least one active category (empty state otherwise).
+        $this->seed(\Database\Seeders\ExpenseCategorySeeder::class);
         $response = $this->actingAs($this->admin)->get(route('finance.expenses'));
 
         $response->assertOk();
