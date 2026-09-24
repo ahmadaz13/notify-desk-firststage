@@ -78,7 +78,7 @@
     {{-- Conditional: Call later --}}
     <div class="notify-sheet__section notify-conditional-fields" data-for-outcome="callback_later" hidden>
         <x-notify.form-field :label="__('notify.client_workspace.fields.callback_datetime')" for="call-callback-at" name="follow_up_date_time" :required="true">
-            <input id="call-callback-at" class="notify-input" type="datetime-local" name="follow_up_date_time" value="{{ $old('follow_up_date_time', now()->addDay()->setTime(10, 0)->format('Y-m-d\\TH:i')) }}" @invalid('follow_up_date_time', 'call-callback-at')>
+            <input id="call-callback-at" class="notify-input" type="datetime-local" name="follow_up_date_time" value="{{ $old('follow_up_date_time', ($operations ?? \App\Support\OperationalSettings::current())->nextWorkdayStart()->format('Y-m-d\\TH:i')) }}" @invalid('follow_up_date_time', 'call-callback-at')>
         </x-notify.form-field>
     </div>
 

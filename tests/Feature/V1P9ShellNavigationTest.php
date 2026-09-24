@@ -23,12 +23,13 @@ class V1P9ShellNavigationTest extends TestCase
     private const OWNER_SIDEBAR = [
         'today', 'clients', 'custom-projects',
         'finance-overview', 'finance-collections', 'finance-expenses', 'finance-accounts', 'finance-accounting', 'finance-reports',
-        'admin-systems', 'admin-team', 'admin-import', 'admin-settings',
+        // P13 adds Operational Reference Data (§3.1).
+        'admin-systems', 'admin-team', 'admin-reference-data', 'admin-import', 'admin-settings',
     ];
 
     private const OWNER_ONLY = [
         'finance', 'finance-overview', 'finance-collections', 'finance-expenses', 'finance-accounts', 'finance-accounting',
-        'finance-reports', 'finance-capital', 'admin-systems', 'admin-team', 'admin-import', 'admin-settings',
+        'finance-reports', 'finance-capital', 'admin-systems', 'admin-team', 'admin-reference-data', 'admin-import', 'admin-settings',
     ];
 
     private const LEGACY_PATHS = ['/collections', '/financial-accounts', '/operating-expenses', '/accounting', '/executive', '/saas-metrics', '/subscription-billing', '/capital-management', '/finance?section'];
@@ -75,6 +76,7 @@ class V1P9ShellNavigationTest extends TestCase
             'finance-reports' => route('finance.reports'),
             'admin-systems' => route('commercial-catalog.index'),
             'admin-team' => route('administration.team'),
+            'admin-reference-data' => route('administration.reference-data'),
             'admin-import' => route('clients.import'),
             'admin-settings' => route('settings.index'),
             'custom-projects' => route('custom-projects.index'),
@@ -165,7 +167,7 @@ class V1P9ShellNavigationTest extends TestCase
     {
         $ownerMore = $this->moreSheet($this->page($this->founder, route('dashboard')));
         $this->assertSame(
-            ['custom-projects', 'notifications', 'admin-systems', 'admin-team', 'admin-import', 'admin-settings', 'profile', 'change-password', 'language', 'logout'],
+            ['custom-projects', 'notifications', 'admin-systems', 'admin-team', 'admin-reference-data', 'admin-import', 'admin-settings', 'profile', 'change-password', 'language', 'logout'],
             $this->destinations($ownerMore),
         );
         foreach (['work', 'administration', 'account'] as $layer) {
@@ -196,6 +198,7 @@ class V1P9ShellNavigationTest extends TestCase
             [route('custom-projects.index'), 'custom-projects', null, true],
             [route('clients.custom-projects.index', $client), 'custom-projects', null, true],
             [route('administration.team'), 'admin-team', null, true],
+            [route('administration.reference-data'), 'admin-reference-data', null, true],
             [route('clients.import'), 'admin-import', null, true],
             [route('settings.index'), 'admin-settings', null, true],
             [route('commercial-catalog.index'), 'admin-systems', null, true],

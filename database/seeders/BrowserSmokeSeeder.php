@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Appointment;
 use App\Models\Client;
 use App\Models\ClientReviewItem;
+use App\Models\CustomProject;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\ClientCredentialService;
@@ -95,6 +96,20 @@ class BrowserSmokeSeeder extends Seeder
         }
 
         $this->todayBoard($owner, $staff);
+        $this->customProjects($owner, $subscriber);
+    }
+
+    /** P13 review: one Custom Project linked to a client (invoiceable) and one without a client. */
+    private function customProjects(User $owner, Client $client): void
+    {
+        CustomProject::query()->firstOrCreate(['name' => 'تصميم قائمة رقمية مخصصة'], [
+            'client_id' => $client->id, 'created_by' => $owner->id, 'status' => CustomProject::STATUS_ACTIVE,
+            'agreed_value_minor' => 350_000, 'start_date' => now('Asia/Amman')->subDays(10)->toDateString(),
+            'target_completion_date' => now('Asia/Amman')->addDays(20)->toDateString(),
+        ]);
+        CustomProject::query()->firstOrCreate(['name' => 'موقع تعريفي لشركة ناشئة'], [
+            'client_id' => null, 'created_by' => $owner->id, 'status' => CustomProject::STATUS_PLANNED, 'agreed_value_minor' => 0,
+        ]);
     }
 
     /**

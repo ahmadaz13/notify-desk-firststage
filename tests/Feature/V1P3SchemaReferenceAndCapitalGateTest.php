@@ -177,7 +177,9 @@ class V1P3SchemaReferenceAndCapitalGateTest extends TestCase
         app(ReferenceDataService::class)->ensureDefaults();
 
         $this->assertSame(6, ReferenceOption::where('list_key', ReferenceDataService::LEAD_SOURCE)->count());
-        $this->assertSame(0, ReferenceOption::whereIn('list_key', [ReferenceDataService::CLIENT_CATEGORY, ReferenceDataService::CITY_AREA])->count());
+        // P13 owner decision: the active business types are seeded as client_category; city_area starts empty.
+        $this->assertSame(4, ReferenceOption::where('list_key', ReferenceDataService::CLIENT_CATEGORY)->count());
+        $this->assertSame(0, ReferenceOption::where('list_key', ReferenceDataService::CITY_AREA)->count());
     }
 
     public function test_reference_options_are_localized_filter_inactive_and_keep_unknown_historical_values(): void

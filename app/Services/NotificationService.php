@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
 use App\Support\Money;
+use App\Support\OperationalSettings;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -64,9 +65,18 @@ class NotificationService
             + $this->sendPaymentReminders();
     }
 
+    /**
+     * Appointment/installation and due follow-up reminders. Outside working hours (Settings →
+     * Operations, workday_start/end) nothing is sent; due follow-ups are picked up by the first run at
+     * the next workday start (occurrence keys keep that idempotent).
+     */
     public function sendOperationalReminders(?Carbon $at = null): int
     {
         $at ??= now();
+
+        if (! OperationalSettings::current()->isWithinWorkday($at)) {
+            return 0;
+        }
 
         return $this->sendAppointmentReminders($at)
             + $this->sendDueFollowUpReminders($at);

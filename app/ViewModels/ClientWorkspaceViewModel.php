@@ -9,6 +9,7 @@ use App\Models\Contract;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\ReferenceDataService;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
 use App\Support\Permissions;
@@ -340,7 +341,7 @@ class ClientWorkspaceViewModel
 
         return [
             'name' => (string) $client->business_name,
-            'category' => $client->business_category ?: $client->business_type,
+            'category' => ClientPresenter::referenceLabel(app(ReferenceDataService::class)->labels(ReferenceDataService::CLIENT_CATEGORY), $client->business_category ?: $client->business_type),
             'area' => $client->city_area ?: $client->city,
             'phone' => $phone,
             'tel' => ClientPresenter::telUrl($phone),
@@ -492,11 +493,11 @@ class ClientWorkspaceViewModel
             'business' => [
                 'phone' => $businessPhone,
                 'tel' => ClientPresenter::telUrl($businessPhone),
-                'category' => $client->business_category ?: $client->business_type,
+                'category' => ClientPresenter::referenceLabel(app(ReferenceDataService::class)->labels(ReferenceDataService::CLIENT_CATEGORY), $client->business_category ?: $client->business_type),
                 'area' => $client->city_area ?: $client->city,
                 'location' => $client->location_text ?: null,
                 'maps_url' => filled($client->maps_url) && str_starts_with((string) $client->maps_url, 'http') ? $client->maps_url : null,
-                'lead_source' => $client->lead_source,
+                'lead_source' => ClientPresenter::referenceLabel(app(ReferenceDataService::class)->labels(ReferenceDataService::LEAD_SOURCE), $client->lead_source),
                 'phone_owner' => __('notify.clients.contact_model.phone_types.'.(in_array($client->primary_phone_type, Client::PRIMARY_PHONE_TYPES, true) ? $client->primary_phone_type : 'business')),
             ],
             'contact' => $primary ? [
@@ -568,6 +569,7 @@ class ClientWorkspaceViewModel
     private static function activityIcon(string $type): string
     {
         return match (true) {
+            str_starts_with($type, 'custom_project') => 'folder-kanban',
             str_contains($type, 'payment') || str_contains($type, 'refund') || str_contains($type, 'invoice') || str_contains($type, 'credit_note') => 'wallet',
             str_contains($type, 'subscription') || str_contains($type, 'former') => 'check-circle',
             str_contains($type, 'contract') => 'file-chart',

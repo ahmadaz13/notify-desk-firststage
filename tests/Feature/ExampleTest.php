@@ -64,7 +64,7 @@ class ExampleTest extends TestCase
         $this->actingAs($user)
             ->get(route('clients.import'))
             ->assertOk()
-            ->assertSee('استيراد الفرص عبر ملف CSV');
+            ->assertSee(__('notify.import.title')); // P13: page title is "Import clients"
 
         $this->actingAs($user)
             ->get(route('notifications.index'))

@@ -1,11 +1,24 @@
 @extends('layouts.app')
 
+{{-- Administration index (§15, P13): orientation only. Every destination is its own canonical page. --}}
 @section('content')
-<div class="p5-wrap"><header class="p5-header"><div class="p5-header-main"><div class="p5-eyebrow">{{ __('notify.navigation.administration') }}</div><h1 class="p5-title">{{ __('notify.administration.title') }}</h1><p class="p5-subtitle">{{ __('notify.administration.subtitle') }}</p></div></header>
-<div class="admin-section-grid">
-@can('manage_commercial_catalog')<article class="admin-section-card"><div class="admin-section-card__icon"><x-notify.icon name="package" :size="24" /></div><div class="admin-section-card__body"><h2 class="admin-section-card__title">{{ __('notify.administration.systems') }}</h2><p class="admin-section-card__desc">{{ __('notify.administration.systems_desc') }}</p><div class="admin-section-card__meta"><span class="p5-badge p5-badge--success">{{ __('notify.administration.active_count', ['count'=>$activeProducts]) }}</span><span class="p5-badge p5-badge--neutral">{{ __('notify.administration.total_count', ['count'=>$totalProducts]) }}</span></div></div><div class="admin-section-card__footer"><a href="{{ route('commercial-catalog.index') }}" class="p5-btn p5-btn-primary p5-btn-sm">{{ __('notify.administration.manage_systems') }}</a></div></article>@endcan
-@if($isAdmin)<article class="admin-section-card"><div class="admin-section-card__icon"><x-notify.icon name="users" :size="24" /></div><div class="admin-section-card__body"><h2 class="admin-section-card__title">{{ __('notify.administration.team_permissions') }}</h2><p class="admin-section-card__desc">{{ __('notify.administration.team_desc') }}</p><div class="admin-section-card__meta"><span class="p5-badge p5-badge--success">{{ __('notify.administration.members_count', ['count'=>$activeTeamMembers]) }}</span></div></div><div class="admin-section-card__footer"><a href="{{ route('administration.team') }}" class="p5-btn p5-btn-primary p5-btn-sm">{{ __('notify.administration.manage_team') }}</a></div></article>@endif
-@can('create', App\Models\Client::class)<article class="admin-section-card"><div class="admin-section-card__icon"><x-notify.icon name="clipboard-list" :size="24" /></div><div class="admin-section-card__body"><h2 class="admin-section-card__title">{{ __('notify.administration.import') }}</h2><p class="admin-section-card__desc">{{ __('notify.administration.import_desc') }}</p></div><div class="admin-section-card__footer"><a href="{{ route('clients.import') }}" class="p5-btn p5-btn-primary p5-btn-sm">{{ __('notify.administration.import_data') }}</a></div></article>@endcan
-@can('manage_company_settings')<article class="admin-section-card"><div class="admin-section-card__icon"><x-notify.icon name="settings" :size="24" /></div><div class="admin-section-card__body"><h2 class="admin-section-card__title">{{ __('notify.navigation.settings') }}</h2><p class="admin-section-card__desc">{{ __('notify.administration.settings_desc') }}</p></div><div class="admin-section-card__footer"><a href="{{ route('settings.index') }}" class="p5-btn p5-btn-primary p5-btn-sm">{{ __('notify.navigation.settings') }}</a></div></article>@endcan
-</div></div>
+<div class="notify-admin notify-admin--narrow" data-admin-page="index">
+    <x-notify.page-header :title="__('notify.administration.title')" :description="__('notify.administration.subtitle')" />
+
+    <nav class="notify-admin-index" aria-label="{{ __('notify.administration.title') }}">
+        @foreach($destinations as $destination)
+            <a class="notify-admin-index__item" href="{{ $destination['href'] }}" data-admin-destination="{{ $destination['key'] }}">
+                <span class="notify-admin-index__icon"><x-notify.icon :name="$destination['icon']" :size="20" /></span>
+                <span class="notify-admin-index__text">
+                    <span class="notify-admin-index__title">{{ $destination['label'] }}</span>
+                    <span class="notify-admin-index__desc">{{ __('notify.administration.descriptions.'.$destination['key']) }}</span>
+                </span>
+                @if(filled($facts[$destination['key']] ?? null))
+                    <span class="notify-admin-index__fact">{{ $facts[$destination['key']] }}</span>
+                @endif
+                <x-notify.icon name="chevron-left" :size="18" class="notify-admin-index__chevron" />
+            </a>
+        @endforeach
+    </nav>
+</div>
 @endsection

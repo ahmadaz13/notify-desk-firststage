@@ -20,9 +20,15 @@ class CsvImportController extends Controller
     {
         Gate::authorize(Permissions::IMPORT_CLIENTS);
 
+        // Normal V1 import always creates prospects (CsvImportService); `type` is a legacy hint. The
+        // production subscriber import is a separate controlled launch task (§33a).
         $request->validate([
             'csv_file' => 'required|file|mimes:csv,txt|max:5120',
             'type' => 'required|in:prospect,subscriber',
+        ], [
+            'csv_file.required' => __('notify.import.validation.file_required'),
+            'csv_file.mimes' => __('notify.import.validation.file_type'),
+            'csv_file.max' => __('notify.import.validation.file_size'),
         ]);
 
         $file = $request->file('csv_file');
@@ -47,7 +53,7 @@ class CsvImportController extends Controller
         $type = session('csv_import_type', 'prospect');
 
         if (empty($validRows) || !is_array($validRows)) {
-            return redirect()->route('clients.import')->withErrors(['error' => 'لا توجد بيانات صالحة للاستيراد أو انتهت صلاحية المعاينة. يرجى رفع الملف مجدداً.']);
+            return redirect()->route('clients.import')->withErrors(['csv_file' => __('notify.import.preview_expired')]);
         }
 
         $imported = $csvService->importValidRows($validRows, $type, auth()->id());
@@ -55,17 +61,17 @@ class CsvImportController extends Controller
         // Clear import session
         session()->forget(['csv_import_valid', 'csv_import_type']);
 
-        return redirect()->route('clients.index')->with('success', "تم استيراد {$imported} عميل بنجاح.");
+        return redirect()->route('clients.index')->with('success', trans_choice('notify.import.imported', $imported, ['count' => $imported]));
     }
 
     public function downloadTemplate(string $type)
     {
         Gate::authorize(Permissions::IMPORT_CLIENTS);
 
-        abort_unless(in_array($type, ['prospects', 'subscribers']), 404);
+        abort_unless(in_array($type, ['prospects', 'subscribers'], true), 404);
 
         $path = public_path("csv-templates/{$type}_template.csv");
-        abort_unless(file_exists($path), 404, 'نموذج CSV غير موجود');
+        abort_unless(file_exists($path), 404);
 
         return response()->download($path, "notifydesk_{$type}_template.csv", [
             'Content-Type' => 'text/csv; charset=UTF-8',

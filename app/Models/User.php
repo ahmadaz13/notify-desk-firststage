@@ -101,6 +101,25 @@ class User extends Authenticatable
         return $this->is_active !== false && ($this->isAdmin() || $this->isStaff());
     }
 
+    /** Directory of profile photos on the public disk (§17). */
+    public const AVATAR_DIRECTORY = 'avatars';
+
+    /** Public URL of the profile photo, or null to show the initial. Never a filesystem path. */
+    public function avatarUrl(): ?string
+    {
+        $path = (string) $this->avatar_path;
+        if ($path === '' || ! str_starts_with($path, self::AVATAR_DIRECTORY.'/')) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+    }
+
+    public function initial(): string
+    {
+        return mb_strtoupper(mb_substr(trim((string) $this->name), 0, 1)) ?: '?';
+    }
+
     public function roleLabelKey(): string
     {
         return match ($this->role) {

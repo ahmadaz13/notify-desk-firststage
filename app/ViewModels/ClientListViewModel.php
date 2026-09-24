@@ -9,6 +9,7 @@ use App\Models\PaymentReceiptConfirmation;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\ReceivableService;
+use App\Services\ReferenceDataService;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
 use App\Support\ClientSegments;
@@ -57,6 +58,7 @@ class ClientListViewModel
     ): self {
         $page = $clients->getCollection();
         $signals = self::loadSignals($page->pluck('id')->all(), $receivables);
+        $signals['category_labels'] = app(ReferenceDataService::class)->labels(ReferenceDataService::CLIENT_CATEGORY);
         $can = [
             'record_payment' => Permissions::allows($user, Permissions::RECORD_PAYMENT),
             'submit_receipt' => Permissions::allows($user, Permissions::SUBMIT_PAYMENT_RECEIPT),
@@ -157,7 +159,7 @@ class ClientListViewModel
             'id' => $client->id,
             'initial' => mb_substr((string) $client->business_name, 0, 1),
             'business_name' => (string) $client->business_name,
-            'category' => $client->business_category ?: $client->business_type,
+            'category' => ClientPresenter::referenceLabel($signals['category_labels'] ?? [], $client->business_category ?: $client->business_type),
             'area' => $client->city_area ?: $client->city,
             'phone' => $phone,
             'phone_href' => $phone ? 'tel:'.preg_replace('/[^0-9+]/', '', $phone) : null,

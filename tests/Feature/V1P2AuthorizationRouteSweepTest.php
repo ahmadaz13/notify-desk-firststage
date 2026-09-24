@@ -73,6 +73,9 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
         // Administration, team, catalog, settings
         'administration.index', 'administration.team', 'administration.team.create', 'administration.team.store',
         'administration.team.edit', 'administration.team.update', 'administration.team.reset-password', 'administration.team.deactivate',
+        // P13: team reactivation and Operational Reference Data (manage_reference_data)
+        'administration.team.activate',
+        'administration.reference-data', 'administration.reference-data.store', 'administration.reference-data.update', 'administration.reference-data.active',
         'commercial-catalog.index', 'commercial-catalog.products.store', 'commercial-catalog.products.update', 'commercial-catalog.products.archive',
         'settings.index', 'settings.update',
         // Company accounts and transfers

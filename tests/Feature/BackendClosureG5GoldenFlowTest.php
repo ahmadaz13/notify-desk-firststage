@@ -115,9 +115,10 @@ class BackendClosureG5GoldenFlowTest extends TestCase
             'custom_item_names' => 'Notify Desk POS',
         ]);
         $this->assertSame(ClientLifecycle::INSTALLED_FREE, $client->fresh()->stage);
+        // P13: post_install_followup_days (3) at workday_start (09:00) — no longer a hard-coded 10:00.
         $this->assertDatabaseHas('follow_ups', [
             'installation_id' => $installation->id,
-            'follow_up_date_time' => '2026-01-07 10:00:00',
+            'follow_up_date_time' => '2026-01-07 09:00:00',
         ]);
         $this->assertSame(0, Invoice::count());
 

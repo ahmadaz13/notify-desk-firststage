@@ -9,6 +9,7 @@ use App\Models\PaymentReceiptConfirmation;
 use App\Models\User;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
+use App\Support\OperationalSettings;
 use App\Support\OperationalTime;
 use App\Support\Permissions;
 use Carbon\Carbon;
@@ -39,17 +40,20 @@ class UnifiedOperationalWorkProjection
     public const FILTER_FOLLOW_UPS = 'follow_ups';
     public const FILTER_COLLECTIONS = 'collections';
 
-    /** "Next" holds work due within this window from now. */
+    /**
+     * "Next" holds work due within this window from now. Intentionally a product constant: the
+     * frozen Settings (§16) define no key for it.
+     */
     public const NEXT_WINDOW_MINUTES = 120;
 
-    /**
-     * An appointment or installation stays "now" (in progress) this long after it starts before it
-     * counts as late. Matches the 60-minute appointment_duration default; P13 wires that setting.
+    /*
+     * Settings-driven timing (§16, P13) — see OperationalSettings:
+     *  - an appointment stays "now" (in progress) for appointment_duration minutes after it starts,
+     *    an installation for free_installation_duration, before it counts as late;
+     *  - date-only work (a payment due today) is ordered at workday_end;
+     *  - an appointment without a time, or a follow-up with a date only, is placed at workday_start.
      */
-    public const IN_PROGRESS_MINUTES = 60;
-
-    /** Date-only work (a payment due today) is ordered at the end of the working day. */
-    public const DATE_ONLY_ANCHOR = '17:00:00';
+    protected ?OperationalSettings $operationalSettings = null;
 
     /** Overdue ordering: operational importance first, then oldest first. */
     private const OVERDUE_TIERS = [
@@ -79,6 +83,7 @@ class UnifiedOperationalWorkProjection
      */
     public function today(User $user, ?Carbon $now = null, string $scope = 'all'): array
     {
+        $this->operationalSettings = null;
         $now = $this->businessTime($now);
         $scope = $scope === 'my' ? 'my' : 'all';
         $this->returnContext = ['from' => 'today', 'scope' => $scope];
@@ -151,6 +156,7 @@ class UnifiedOperationalWorkProjection
      */
     public function work(User $user, ?string $filter = self::FILTER_ALL, ?Carbon $now = null, string $scope = 'all'): array
     {
+        $this->operationalSettings = null;
         $now = $this->businessTime($now);
         $scope = $scope === 'my' ? 'my' : 'all';
         $this->returnContext = ['from' => 'work', 'scope' => $scope];
@@ -306,7 +312,7 @@ class UnifiedOperationalWorkProjection
 
         $dueAt = null;
         if ($apt->appointment_date) {
-            $dueAt = Carbon::parse($apt->appointment_date->toDateString().' '.($apt->appointment_time ?: '09:00:00'), OperationalTime::TIMEZONE);
+            $dueAt = Carbon::parse($apt->appointment_date->toDateString().' '.($apt->appointment_time ?: $this->settings()->workdayStart()), OperationalTime::TIMEZONE);
         }
 
         $client = $apt->client;
@@ -391,7 +397,7 @@ class UnifiedOperationalWorkProjection
         if (! empty($fu->follow_up_date_time)) {
             $dueAt = Carbon::parse($fu->follow_up_date_time, OperationalTime::TIMEZONE);
         } elseif (! empty($fu->next_follow_up_date)) {
-            $dueAt = Carbon::parse($fu->next_follow_up_date.' 09:00:00', OperationalTime::TIMEZONE);
+            $dueAt = Carbon::parse($fu->next_follow_up_date.' '.$this->settings()->workdayStart(), OperationalTime::TIMEZONE);
         }
 
         $label = match (true) {
@@ -671,7 +677,7 @@ class UnifiedOperationalWorkProjection
                     'text' => __('notify.today_board.timing.due_today'),
                     'exact' => null,
                     'datetime' => $day->toIso8601String(),
-                    'sort_at' => Carbon::parse($day->toDateString().' '.self::DATE_ONLY_ANCHOR, OperationalTime::TIMEZONE)->getTimestamp(),
+                    'sort_at' => $this->settings()->endOf($day)->getTimestamp(),
                 ];
             }
 
@@ -683,7 +689,7 @@ class UnifiedOperationalWorkProjection
         }
 
         $minutesLate = OperationalTime::minutesBetween($dueAt, $now);
-        $grace = in_array($type, [self::TYPE_APPOINTMENT, self::TYPE_INSTALLATION], true) ? self::IN_PROGRESS_MINUTES : 0;
+        $grace = $this->inProgressMinutes($type);
         $exact = OperationalTime::dayAndClock($dueAt, $now);
 
         if ($minutesLate > $grace || ($minutesLate > 0 && ! $dueAt->isSameDay($now))) {
@@ -729,6 +735,21 @@ class UnifiedOperationalWorkProjection
         $key = 'notify.today_board.appointment_types.'.$type;
 
         return $type && trans()->has($key) ? __($key) : AppointmentTypes::label($type);
+    }
+
+    /** How long timed work stays "now" after it starts (Settings → Operations). */
+    protected function inProgressMinutes(string $type): int
+    {
+        return match ($type) {
+            self::TYPE_APPOINTMENT => $this->settings()->appointmentMinutes(),
+            self::TYPE_INSTALLATION => $this->settings()->installationMinutes(),
+            default => 0,
+        };
+    }
+
+    protected function settings(): OperationalSettings
+    {
+        return $this->operationalSettings ??= OperationalSettings::current();
     }
 
     protected function businessTime(?Carbon $time = null): Carbon

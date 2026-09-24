@@ -9,6 +9,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
+use App\Support\OperationalSettings;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -218,9 +219,12 @@ class FreeInstallationService
             app(ClientOperationalWorkflowService::class)->transition($client, ClientLifecycle::INSTALLED_FREE, $actor);
 
             $followUpId = null;
+            // Settings → Operations: post_install_followup_days after the installation, at the start
+            // of the working day, unless the user picked a follow-up date explicitly.
+            $operations = OperationalSettings::current();
             $followUpAt = !empty($data['next_follow_up_date'])
                 ? Carbon::parse($data['next_follow_up_date'])
-                : Carbon::parse($installation->installed_at)->addDays(3)->setTime(10, 0);
+                : $operations->startOf(Carbon::parse($installation->installed_at)->addDays($operations->postInstallFollowUpDays()));
 
             $followUpId = app(ClientOperationalWorkflowService::class)->scheduleFollowUp($client, $actor, [
                 'installation_id' => $installation->id,
@@ -232,7 +236,7 @@ class FreeInstallationService
                 'notes' => $data['follow_up_notes'] ?? null,
             ]);
 
-            $this->log($client->id, $actor->id, 'trial_followup_scheduled', 'تمت جدولة متابعة تجربة 3 أيام بعد التركيب المجاني', [
+            $this->log($client->id, $actor->id, 'trial_followup_scheduled', 'تمت جدولة متابعة ما بعد التركيب المجاني بتاريخ '.$followUpAt->toDateString(), [
                 'installation_id' => $installation->id,
                 'follow_up_id' => $followUpId,
                 'follow_up_date_time' => $followUpAt->toDateTimeString(),

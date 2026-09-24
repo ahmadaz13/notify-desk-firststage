@@ -11,17 +11,20 @@ class SettingsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_view_and_update_three_company_wide_settings_sections(): void
+    // P13: four sections (Company & Contracts replaces "Company & Documents"); company names are required.
+    public function test_admin_can_view_and_update_company_wide_settings_sections(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
         $this->actingAs($admin)->get(route('settings.index'))
             ->assertOk()
-            ->assertSee('الشركة والوثائق')
+            ->assertSee('الشركة والعقود')
             ->assertSee('العمليات')
             ->assertSee('الاشتراكات والعقود')
+            ->assertSee('ميزات اختيارية')
             ->assertDontSee('سجل النشاطات');
 
         $response = $this->actingAs($admin)->put(route('settings.update'), [
+            'company_name_ar'=>'نوتيفاي','company_name_en'=>'Notify',
             'contract_prefix'=>'CTR','invoice_prefix'=>'BILL','timezone'=>'Asia/Amman','appointment_duration'=>45,
             'free_installation_duration'=>60,'post_install_followup_days'=>4,'workday_start'=>'09:00','workday_end'=>'17:00',
             'currency'=>'JOD','default_billing_cycle'=>'annual','auto_contract_on_paid_subscription'=>'1','allow_monthly'=>'1','allow_annual_installments'=>'1',

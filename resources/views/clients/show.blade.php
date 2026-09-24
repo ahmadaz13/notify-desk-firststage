@@ -37,6 +37,8 @@
 
 {{-- Focused action sheets: the existing workflow forms, opened from the state card or ?open= / Today links. --}}
 @if($workspace->can['update'])
+    {{-- Settings → Operations: default times in scheduling forms start at workday_start (§16). --}}
+    @php($operations = \App\Support\OperationalSettings::current())
     @include('clients.workspace.actions.record-call', ['client' => $client, 'teamUsers' => $teamUsers, 'appointmentTypeLabels' => $appointmentTypeLabels])
     @include('clients.workspace.actions.create-appointment', ['client' => $client, 'teamUsers' => $teamUsers, 'appointmentTypeLabels' => $appointmentTypeLabels])
     @if($workspace->sheets['meeting'])

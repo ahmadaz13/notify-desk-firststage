@@ -27,7 +27,7 @@ return new class extends Migration {
             });
         }
 
-        app(ReferenceDataService::class)->ensureDefaults();
+        app(ReferenceDataService::class)->ensureDefaults([ReferenceDataService::LEAD_SOURCE]);
     }
 
     public function down(): void

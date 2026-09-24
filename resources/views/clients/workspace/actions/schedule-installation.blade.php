@@ -18,7 +18,7 @@
             <input id="installation-schedule-date" class="notify-input" type="date" name="appointment_date" required value="{{ $old('appointment_date', now()->toDateString()) }}" @invalid('appointment_date', 'installation-schedule-date')>
         </x-notify.form-field>
         <x-notify.form-field :label="__('notify.client_workspace.fields.time')" for="installation-schedule-time" name="appointment_time" :required="true">
-            <input id="installation-schedule-time" class="notify-input" type="time" name="appointment_time" required value="{{ $old('appointment_time', '10:00') }}" @invalid('appointment_time', 'installation-schedule-time')>
+            <input id="installation-schedule-time" class="notify-input" type="time" name="appointment_time" required value="{{ $old('appointment_time', ($operations ?? \App\Support\OperationalSettings::current())->workdayStart()) }}" @invalid('appointment_time', 'installation-schedule-time')>
         </x-notify.form-field>
     </div>
 

@@ -15,6 +15,21 @@ use Illuminate\Support\Str;
  */
 class ClientPresenter
 {
+    /**
+     * Localized label of a stored reference value (\15.1). Values that are unknown, historical or
+     * typed as "Other" render exactly as stored.
+     *
+     * @param  array<string, string>  $labels  ReferenceDataService::labels()
+     */
+    public static function referenceLabel(array $labels, ?string $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        return $labels[$value] ?? $value;
+    }
+
     public static function stageLabel(string $stage): string
     {
         return __('notify.clients.stages.'.ClientLifecycle::normalizeStage($stage));

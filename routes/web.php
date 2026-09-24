@@ -35,6 +35,7 @@ use App\Http\Controllers\MeetingOutcomeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OperatingExpenseController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReferenceDataController;
 use App\Http\Controllers\PwaController;
 use App\Http\Controllers\OfferController;
 use App\Http\Controllers\SettingsController;
@@ -144,11 +145,6 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/follow-ups/{followUp}/complete', [FollowUpController::class, 'complete'])->middleware('return.today')->name('follow-ups.complete');
     Route::post('/clients/{client}/offers', [OfferController::class, 'store'])->name('clients.offers.store');
 
-    // CSV Import
-    Route::get('/clients-import', [CsvImportController::class, 'index'])->name('clients.import');
-    Route::post('/clients-import/preview', [CsvImportController::class, 'preview'])->name('clients.import.preview');
-    Route::post('/clients-import/confirm', [CsvImportController::class, 'confirm'])->name('clients.import.confirm');
-    Route::get('/clients-import/template/{type}', [CsvImportController::class, 'downloadTemplate'])->name('clients.import.template');
 
     // ─── Phase 7: Custom Projects ───
     Route::get('/custom-projects', [CustomProjectController::class, 'index'])->name('custom-projects.index');
@@ -160,8 +156,23 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/custom-projects/{customProject}/archive', [CustomProjectController::class, 'archive'])->name('custom-projects.archive');
     Route::get('/clients/{client}/custom-projects', [CustomProjectController::class, 'clientIndex'])->name('clients.custom-projects.index');
 
-    // ─── Phase 6: Unified Administration Hub ───
+    // ─── Administration (§3.1, §15): canonical /administration/* destinations (P13) ───
+    // Route names are kept from earlier phases; the old GET URLs 301 to the canonical pages.
     Route::get('/administration', [AdministrationController::class, 'index'])->name('administration.index');
+    Route::get('/administration/systems', [CommercialCatalogController::class, 'index'])->name('commercial-catalog.index');
+    Route::get('/administration/reference-data', [ReferenceDataController::class, 'index'])->name('administration.reference-data');
+    Route::post('/administration/reference-data', [ReferenceDataController::class, 'store'])->name('administration.reference-data.store');
+    Route::patch('/administration/reference-data/{referenceOption}', [ReferenceDataController::class, 'update'])->name('administration.reference-data.update');
+    Route::post('/administration/reference-data/{referenceOption}/active', [ReferenceDataController::class, 'setActive'])->name('administration.reference-data.active');
+    Route::get('/administration/import', [CsvImportController::class, 'index'])->name('clients.import');
+    Route::post('/administration/import/preview', [CsvImportController::class, 'preview'])->name('clients.import.preview');
+    Route::post('/administration/import/confirm', [CsvImportController::class, 'confirm'])->name('clients.import.confirm');
+    Route::get('/administration/import/template/{type}', [CsvImportController::class, 'downloadTemplate'])->name('clients.import.template');
+    Route::get('/administration/settings', [SettingsController::class, 'index'])->name('settings.index');
+    Route::put('/administration/settings', [SettingsController::class, 'update'])->name('settings.update');
+    Route::permanentRedirect('/commercial-catalog', '/administration/systems');
+    Route::permanentRedirect('/clients-import', '/administration/import');
+    Route::permanentRedirect('/settings', '/administration/settings');
     Route::get('/administration/team', [AdministrationController::class, 'team'])->name('administration.team');
     Route::get('/administration/team/create', [AdministrationController::class, 'teamCreate'])->name('administration.team.create');
     Route::post('/administration/team', [AdministrationController::class, 'teamStore'])->name('administration.team.store');
@@ -169,9 +180,9 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::put('/administration/team/{id}', [AdministrationController::class, 'teamUpdate'])->name('administration.team.update');
     Route::post('/administration/team/{id}/reset-password', [AdministrationController::class, 'teamResetPassword'])->name('administration.team.reset-password');
     Route::post('/administration/team/{id}/deactivate', [AdministrationController::class, 'teamDeactivate'])->name('administration.team.deactivate');
+    Route::post('/administration/team/{id}/activate', [AdministrationController::class, 'teamActivate'])->name('administration.team.activate');
 
-    // Admin Settings & Control Center
-    Route::get('/commercial-catalog', [CommercialCatalogController::class, 'index'])->name('commercial-catalog.index');
+    // Systems catalog actions (page: /administration/systems)
     Route::post('/commercial-catalog/products', [CommercialCatalogController::class, 'storeProduct'])->name('commercial-catalog.products.store');
     Route::patch('/commercial-catalog/products/{product}', [CommercialCatalogController::class, 'updateProduct'])->name('commercial-catalog.products.update');
     Route::post('/commercial-catalog/products/{product}/archive', [CommercialCatalogController::class, 'archiveProduct'])->name('commercial-catalog.products.archive');
@@ -232,8 +243,6 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/accounting/revenue-schedules/backfill', [AccountingController::class, 'backfillRevenueSchedules'])->name('accounting.revenue-schedules.backfill');
     Route::post('/accounting/revenue-recognition/run', [AccountingController::class, 'recognizeRevenue'])->name('accounting.revenue-recognition.run');
     Route::post('/accounting/revenue-recognition/schedules/{schedule}/confirm', [AccountingController::class, 'confirmRevenueRecognition'])->name('accounting.revenue-recognition.confirm');
-    Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
-    Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');

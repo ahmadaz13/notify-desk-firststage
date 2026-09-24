@@ -8,6 +8,7 @@ use App\Models\ClientReviewItem;
 use App\Models\User;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
+use App\Support\OperationalSettings;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -115,7 +116,7 @@ class FollowUpService
                 if (!empty($data['follow_up_date_time'])) {
                     $followUpAt = Carbon::parse($data['follow_up_date_time']);
                 } elseif (!empty($data['next_follow_up_date'])) {
-                    $time = !empty($data['next_follow_up_time']) ? $data['next_follow_up_time'] : '10:00';
+                    $time = !empty($data['next_follow_up_time']) ? $data['next_follow_up_time'] : OperationalSettings::current()->workdayStart();
                     $followUpAt = Carbon::parse(Carbon::parse($data['next_follow_up_date'])->toDateString() . ' ' . $time);
                 }
 
@@ -203,7 +204,7 @@ class FollowUpService
                 if (!empty($data['follow_up_date_time'])) {
                     $followUpAt = Carbon::parse($data['follow_up_date_time']);
                 } elseif (!empty($data['next_follow_up_date'])) {
-                    $time = !empty($data['next_follow_up_time']) ? $data['next_follow_up_time'] : '10:00';
+                    $time = !empty($data['next_follow_up_time']) ? $data['next_follow_up_time'] : OperationalSettings::current()->workdayStart();
                     $followUpAt = Carbon::parse(Carbon::parse($data['next_follow_up_date'])->toDateString() . ' ' . $time);
                 }
 

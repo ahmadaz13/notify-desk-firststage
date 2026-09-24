@@ -40,7 +40,7 @@
             <input id="follow-up-next-date" class="notify-input" type="date" name="next_follow_up_date" value="{{ $old('next_follow_up_date', now()->addDay()->toDateString()) }}" @invalid('next_follow_up_date', 'follow-up-next-date')>
         </x-notify.form-field>
         <x-notify.form-field :label="__('notify.client_workspace.fields.time')" for="follow-up-next-time" name="next_follow_up_time" :required="true">
-            <input id="follow-up-next-time" class="notify-input" type="time" name="next_follow_up_time" value="{{ $old('next_follow_up_time', '10:00') }}" @invalid('next_follow_up_time', 'follow-up-next-time')>
+            <input id="follow-up-next-time" class="notify-input" type="time" name="next_follow_up_time" value="{{ $old('next_follow_up_time', ($operations ?? \App\Support\OperationalSettings::current())->workdayStart()) }}" @invalid('next_follow_up_time', 'follow-up-next-time')>
         </x-notify.form-field>
     </div>
 
@@ -64,7 +64,7 @@
     {{-- No answer: when to call again --}}
     <div class="notify-conditional-fields" data-for-followup-outcome="no_answer" hidden>
         <x-notify.form-field :label="__('notify.client_workspace.fields.callback_datetime')" for="follow-up-callback-at" name="follow_up_date_time" :required="true">
-            <input id="follow-up-callback-at" class="notify-input" type="datetime-local" name="follow_up_date_time" value="{{ $old('follow_up_date_time', now()->addDay()->setTime(10, 0)->format('Y-m-d\\TH:i')) }}" @invalid('follow_up_date_time', 'follow-up-callback-at')>
+            <input id="follow-up-callback-at" class="notify-input" type="datetime-local" name="follow_up_date_time" value="{{ $old('follow_up_date_time', ($operations ?? \App\Support\OperationalSettings::current())->nextWorkdayStart()->format('Y-m-d\\TH:i')) }}" @invalid('follow_up_date_time', 'follow-up-callback-at')>
         </x-notify.form-field>
     </div>
 

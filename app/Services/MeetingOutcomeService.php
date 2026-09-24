@@ -7,6 +7,7 @@ use App\Models\Appointment;
 use App\Models\Client;
 use App\Support\AppointmentTypes;
 use App\Support\ClientLifecycle;
+use App\Support\OperationalSettings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -70,7 +71,7 @@ class MeetingOutcomeService
                     'result' => $data['customer_response'] ?? null,
                     'next_action' => $data['next_action'],
                     'next_follow_up_date' => Carbon::parse($data['next_follow_up_date'])->toDateString(),
-                    'follow_up_date_time' => Carbon::parse($data['next_follow_up_date'])->setTime(10, 0)->toDateTimeString(),
+                    'follow_up_date_time' => OperationalSettings::current()->startOf(Carbon::parse($data['next_follow_up_date']))->toDateTimeString(),
                     'notes' => $data['meeting_notes'] ?? null,
                     'created_at' => now(),
                     'updated_at' => now(),

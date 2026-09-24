@@ -27,13 +27,11 @@ class ShellNavigation
         'capital' => ['route' => 'finance.capital', 'patterns' => ['finance.capital'], 'icon' => 'trending-up', 'permission' => Permissions::VIEW_CAPITAL_MANAGEMENT, 'feature' => Features::CAPITAL],
     ];
 
-    /**
-     * Administration destinations (§3.1, §15). Operational Reference Data has no page until P13,
-     * so it is not linked yet.
-     */
+    /** Administration destinations in §3.1 order (P13 adds Operational Reference Data). */
     private const ADMINISTRATION_ITEMS = [
         'systems' => ['route' => 'commercial-catalog.index', 'patterns' => ['commercial-catalog.*'], 'icon' => 'package', 'permission' => Permissions::MANAGE_COMMERCIAL_CATALOG],
         'team' => ['route' => 'administration.team', 'patterns' => ['administration.team', 'administration.team.*'], 'icon' => 'user-cog', 'permission' => Permissions::MANAGE_TEAM],
+        'reference-data' => ['route' => 'administration.reference-data', 'patterns' => ['administration.reference-data', 'administration.reference-data.*'], 'icon' => 'clipboard-list', 'permission' => Permissions::MANAGE_REFERENCE_DATA],
         'import' => ['route' => 'clients.import', 'patterns' => ['clients.import', 'clients.import.*'], 'icon' => 'upload', 'permission' => Permissions::IMPORT_CLIENTS],
         'settings' => ['route' => 'settings.index', 'patterns' => ['settings.*'], 'icon' => 'settings', 'permission' => Permissions::MANAGE_COMPANY_SETTINGS],
     ];
@@ -201,9 +199,20 @@ class ShellNavigation
     /** @return array<int, array<string, mixed>> */
     private function administrationItems(): array
     {
+        return self::administrationDestinations($this->user, $this->routeName);
+    }
+
+    /**
+     * Administration destinations the user may open (sidebar group, More sheet and the
+     * /administration index share this list).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function administrationDestinations(User $user, ?string $routeName = null): array
+    {
         $items = [];
         foreach (self::ADMINISTRATION_ITEMS as $key => $definition) {
-            if (! Permissions::allows($this->user, $definition['permission'])) {
+            if (! Permissions::allows($user, $definition['permission'])) {
                 continue;
             }
             $items[] = [
@@ -212,7 +221,7 @@ class ShellNavigation
                 'label' => __('notify.shell_nav.administration.'.$key),
                 'icon' => $definition['icon'],
                 'href' => route($definition['route']),
-                'active' => self::matches($this->routeName, $definition['patterns']),
+                'active' => self::matches($routeName, $definition['patterns']),
                 'badge' => null,
             ];
         }
