@@ -246,7 +246,7 @@ class ClientWorkspaceViewModel
             'can_record_payment' => $canRecordPayment,
             'can_submit_receipt' => ! $canRecordPayment && ($actor ? Permissions::allows($actor, Permissions::SUBMIT_PAYMENT_RECEIPT) : Gate::allows(Permissions::SUBMIT_PAYMENT_RECEIPT)),
             'latest_payment' => $latestPayment,
-            'view_financial_details_url' => route('collections.index', ['client_id' => $client->id]),
+            'view_financial_details_url' => route('finance.collections', ['client_id' => $client->id]),
             'can_view_financial_details' => $canViewFinancialReports,
         ];
 
@@ -608,7 +608,7 @@ class ClientWorkspaceViewModel
                         'variant' => 'primary',
                     ],
                     'secondary' => array_values(array_filter([
-                        ['label' => __('notify.client_workspace.view_financial_details'), 'href' => route('collections.index', ['client_id' => $client->id]), 'type' => 'link'],
+                        ['label' => __('notify.client_workspace.view_financial_details'), 'href' => route('finance.collections', ['client_id' => $client->id]), 'type' => 'link'],
                         ['label' => __('notify.client_workspace.view_subscription'), 'target' => '#sec-subscriptions', 'type' => 'anchor'],
                         ['label' => __('notify.client_workspace.view_contracts'), 'target' => '#sec-contracts', 'type' => 'anchor'],
                         ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],
@@ -627,7 +627,7 @@ class ClientWorkspaceViewModel
                     'variant' => 'primary',
                 ],
                 'secondary' => array_values(array_filter([
-                    ['label' => __('notify.client_workspace.view_financial_details'), 'href' => route('collections.index', ['client_id' => $client->id]), 'type' => 'link'],
+                    ['label' => __('notify.client_workspace.view_financial_details'), 'href' => route('finance.collections', ['client_id' => $client->id]), 'type' => 'link'],
                     ['label' => __('notify.client_workspace.view_contracts'), 'target' => '#sec-contracts', 'type' => 'anchor'],
                     $canStartSubscription ? ['label' => __('notify.client_workspace.action_start_subscription'), 'target' => '#sec-start-subscription', 'type' => 'start_subscription'] : null,
                     ['label' => __('notify.client_workspace.action_close_client'), 'target' => '#sec-close-client', 'type' => 'close_client'],

@@ -189,7 +189,7 @@ class SaasMetricEventService
     {
         $asOf = Carbon::parse($asOf);
 
-        if ($subscription->billing_engine_version !== 'v2') {
+        if (! in_array($subscription->billing_engine_version, Subscription::RECURRING_BILLING_ENGINES, true)) {
             return null;
         }
         if ($subscription->ended_at !== null && $subscription->ended_at->lte($asOf)) {

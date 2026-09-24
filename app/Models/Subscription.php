@@ -13,6 +13,13 @@ class Subscription extends Model
 {
     use HasFactory;
 
+    /**
+     * Billing engines whose subscriptions are recurring and carry billing periods + SaaS metric events:
+     * `v2` (plan-price engine) and `v1_simple` (V1 agreed-value subscriptions, §7). Both use the same
+     * period-based ARR normalization (SaasMetricEventService::normalizedArrMinorForPeriod).
+     */
+    public const RECURRING_BILLING_ENGINES = ['v2', 'v1_simple'];
+
     protected $fillable = [
         'client_id',
         'plan_id',

@@ -78,7 +78,7 @@ class SaasMetricsService
             ->whereDate('period_start', '<=', $date->toDateString())
             ->whereDate('period_end', '>=', $date->toDateString())
             ->whereHas('subscription', function ($query) use ($date) {
-                $query->where('billing_engine_version', 'v2')
+                $query->whereIn('billing_engine_version', Subscription::RECURRING_BILLING_ENGINES)
                     ->whereDate('start_date', '<=', $date->toDateString())
                     ->where(function ($query) use ($date) {
                         $query->whereNull('ended_at')->orWhere('ended_at', '>', $date);

@@ -4,6 +4,8 @@
     'canViewFinance' => false,
     'canViewAdministration' => false,
     'isStaff' => false,
+    'canViewCollectionsDue' => false,
+    'isCollectionsDue' => false,
     'isToday' => false,
     'isClients' => false,
     'isFinance' => false,
@@ -119,8 +121,8 @@
         </div>
     </section>
 
-    {{-- Bottom Nav Grid: Staff has 3 items, Admin/Finance has 4 items --}}
-    <div class="notify-mobile-nav__grid {{ $isStaff ? 'notify-mobile-nav__grid--3' : 'notify-mobile-nav__grid--4' }}">
+    {{-- Bottom Nav Grid: Staff = Today · Clients · Collections · More (§3.4); Owner-level = Today · Clients · Finance · More --}}
+    <div class="notify-mobile-nav__grid {{ $isStaff && ! $canViewCollectionsDue ? 'notify-mobile-nav__grid--3' : 'notify-mobile-nav__grid--4' }}">
         {{-- Item 1: Today --}}
         <a class="notify-mobile-nav__item {{ $isToday ? 'is-active' : '' }}" data-nav-destination="today" href="{{ route('dashboard', ['mode' => 'daily']) }}" @if($isToday) aria-current="page" @endif>
             <x-notify.icon name="home" />
@@ -138,6 +140,14 @@
                 <x-notify.icon name="users" />
                 <span class="notify-mobile-nav__label">{{ $labels['clients'] }}</span>
             </span>
+        @endif
+
+        {{-- Item 3 (Staff): Collections due --}}
+        @if($isStaff && $canViewCollectionsDue)
+            <a class="notify-mobile-nav__item {{ $isCollectionsDue ? 'is-active' : '' }}" data-nav-destination="collections-due" href="{{ route('collections-due.index') }}" @if($isCollectionsDue) aria-current="page" @endif>
+                <x-notify.icon name="wallet" />
+                <span class="notify-mobile-nav__label">{{ $labels['collections_due'] }}</span>
+            </a>
         @endif
 
         {{-- Item 3: Finance (Only for non-staff with finance access) --}}

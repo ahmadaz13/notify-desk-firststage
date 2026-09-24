@@ -2,186 +2,164 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AccountingPeriod;
-use App\Models\AssetCategory;
-use App\Models\CapitalFundingTransaction;
-use App\Models\Client;
-use App\Models\Expense;
-use App\Models\ExpenseCategory;
-use App\Models\FinancialAccount;
-use App\Models\FixedAsset;
-use App\Models\FundingSource;
-use App\Models\RecurringExpenseObligation;
-use App\Models\User;
-use App\Models\Vendor;
-use App\Services\CapitalManagementService;
-use App\Services\FinancialReportingReconciliationService;
+use App\Models\Payment;
 use App\Services\FinancialStatementService;
-use App\Services\OperatingExpenseService;
-use App\Services\ReceivableService;
 use App\Services\SaasMetricsService;
-use App\Support\Permissions;
 use App\Support\Money;
+use App\Support\Permissions;
 use App\Support\ReportingPeriod;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Financial Reports (§14, D-19): one page, one selected report computed per request, CSV (UTF-8 BOM)
+ * export only from here.
+ */
 class FinanceReportController extends Controller
 {
-    public function index(
-        Request $request,
-        FinancialStatementService $statements,
-        FinancialReportingReconciliationService $reconciliation,
-        SaasMetricsService $saas,
-        ReceivableService $receivables,
-        OperatingExpenseService $expenseService,
-        CapitalManagementService $capitalService
-    ) {
+    public const REPORTS = [
+        'profit-and-loss',
+        'financial-position',
+        'cash-flow',
+        'revenue',
+        'expenses',
+        'receivables',
+        'subscription-metrics',
+    ];
+
+    public const SAAS_DATASETS = ['summary', 'monthly-movement', 'active-subscriptions', 'churned-subscriptions', 'mrr-by-plan'];
+
+    /** Pre-P6 `/finance/export/{report}` keys → canonical report (+ dataset). */
+    public const LEGACY_EXPORTS = [
+        'profit-and-loss' => ['profit-and-loss', null],
+        'balance-sheet' => ['financial-position', null],
+        'cash-flow' => ['cash-flow', null],
+        'ar-aging' => ['receivables', null],
+        'deferred-revenue' => ['revenue', 'deferred'],
+        'recognized-revenue' => ['revenue', null],
+        'expense-breakdown' => ['expenses', null],
+    ];
+
+    public function show(Request $request, FinancialStatementService $statements, SaasMetricsService $saas, ?string $report = null): View
+    {
         Gate::authorize(Permissions::VIEW_FINANCIAL_STATEMENTS);
 
-        $section = $request->query('section', 'overview');
-        if (! in_array($section, ['overview', 'collections', 'expenses', 'capital_assets', 'reports', 'advanced'], true)) {
-            $section = 'overview';
-        }
-        if ($section === 'advanced') {
-            Gate::authorize(Permissions::VIEW_ACCOUNTING);
+        $report ??= 'profit-and-loss';
+        abort_unless(in_array($report, self::REPORTS, true), 404);
+        if ($report === 'subscription-metrics') {
+            Gate::authorize(Permissions::VIEW_SAAS_METRICS);
         }
 
         $period = ReportingPeriod::fromRequest($request);
-        $reports = [
-            'dashboard' => $statements->dashboard($period),
-            'profit_and_loss' => $statements->profitAndLoss($period),
-            'balance_sheet' => $statements->balanceSheet($period->end),
-            'cash_flow' => $statements->cashFlow($period),
-            'ar_aging' => $statements->arAging($period->end),
-            'deferred_revenue' => $statements->deferredRevenueReport($period),
-            'recognized_revenue' => $statements->recognizedRevenueReport($period),
-            'customer_credits' => $statements->customerCredits(),
-            'sales_tax' => $statements->salesTaxReport(),
+        $revenueView = $request->query('view') === 'deferred' ? 'deferred' : 'recognized';
+
+        // Only the selected report is computed.
+        $data = match ($report) {
+            'profit-and-loss' => $statements->profitAndLoss($period),
+            'financial-position' => [
+                'current' => $statements->balanceSheet($period->end),
+                'comparison' => $period->previousComparison() ? $statements->balanceSheet($period->previousComparison()->end) : null,
+            ],
+            'cash-flow' => $statements->cashFlow($period),
+            'revenue' => $revenueView === 'deferred'
+                ? $statements->deferredRevenueReport($period)
+                : $statements->recognizedRevenueReport($period),
             'expenses' => $statements->expenseReport($period),
-            'capital_assets' => $statements->capitalAssetReport($period),
-            'reconciliation' => $reconciliation->run($period),
-        ];
+            'receivables' => [
+                'aging' => $statements->arAging($period->end),
+                'collected_minor' => $saas->cashCollectedMinor($period),
+                'payments' => $this->paymentsReceived($period)->limit(50)->get(),
+            ],
+            'subscription-metrics' => $saas->dashboard($period),
+        };
 
-        $saasReport = $saas->dashboard($period);
-
-        // Collections Section Data
-        $filters = $request->only(['client_id', 'due_state', 'settlement_state', 'date_from', 'date_to']);
-        $filters['due_state'] = ($filters['due_state'] ?? 'all') === 'all' ? null : $filters['due_state'];
-        $outstandingInvoices = $receivables->outstandingInvoices($filters);
-        $overdueInvoices = $receivables->outstandingInvoices(array_merge($filters, ['due_state' => 'overdue']));
-        $partiallyPaidInvoices = $receivables->outstandingInvoices(array_merge($filters, ['settlement_state' => 'partially_paid']));
-        $unallocatedCredits = $receivables->unallocatedCredits($filters);
-        $availableCustomerCredits = $receivables->availableCustomerCredits($filters);
-        $clients = Client::orderBy('business_name')->get(['id', 'business_name']);
-
-        // Expenses Section Data
-        $expenseTotals = $expenseService->activeTotals();
-        $recentExpenses = Expense::with(['categoryModel', 'vendor', 'financialAccount', 'personalPayer', 'reversal', 'recurringObligation'])
-            ->v2()
-            ->orderByDesc('paid_at')
-            ->orderByDesc('id')
-            ->limit(20)
-            ->get();
-        $activeCategories = ExpenseCategory::active()->orderBy('name_ar')->get();
-        $activeVendors = Vendor::active()->orderBy('name')->get();
-        $activeFinancialAccounts = FinancialAccount::where('is_active', true)->whereNull('archived_at')->orderBy('name_ar')->get();
-        $internalUsers = User::query()
-            ->where('is_active', true)
-            ->where(fn ($query) => $query->whereNull('role')->orWhereIn('role', User::activeInternalRoles()))
-            ->orderBy('name')
-            ->get();
-        $upcomingObligations = RecurringExpenseObligation::with(['template', 'vendor'])
-            ->pending()
-            ->whereDate('due_date', '>=', today())
-            ->orderBy('due_date')
-            ->limit(10)
-            ->get();
-        $overdueObligations = RecurringExpenseObligation::with(['template', 'vendor'])
-            ->pending()
-            ->whereDate('due_date', '<', today())
-            ->orderBy('due_date')
-            ->limit(10)
-            ->get();
-
-        // Capital & Assets Section Data
-        $capitalTotals = $capitalService->activeTotals();
-        $fundingSources = FundingSource::orderByDesc('is_active')->orderBy('name')->get();
-        $activeFundingSources = FundingSource::active()->get();
-        $fundingTransactions = CapitalFundingTransaction::with(['fundingSource', 'financialAccount', 'reversal'])
-            ->orderByDesc('received_at')
-            ->limit(20)
-            ->get();
-        $assetCategories = AssetCategory::orderByDesc('is_active')->orderBy('sort_order')->orderBy('name_ar')->get();
-        $activeAssetCategories = AssetCategory::active()->get();
-        $fixedAssets = FixedAsset::with(['category', 'vendor', 'financialAccount', 'personalPayer', 'acquisitionReversal'])
-            ->orderByDesc('acquired_at')
-            ->orderByDesc('id')
-            ->limit(30)
-            ->get();
-
-        // Advanced Section Data
-        $accountingPeriods = AccountingPeriod::orderByDesc('period_key')->limit(12)->get();
-
-        return view('finance.index', compact(
-            'section',
-            'period',
-            'reports',
-            'saasReport',
-            'filters',
-            'outstandingInvoices',
-            'overdueInvoices',
-            'partiallyPaidInvoices',
-            'unallocatedCredits',
-            'availableCustomerCredits',
-            'clients',
-            'expenseTotals',
-            'recentExpenses',
-            'activeCategories',
-            'activeVendors',
-            'activeFinancialAccounts',
-            'internalUsers',
-            'upcomingObligations',
-            'overdueObligations',
-            'capitalTotals',
-            'fundingSources',
-            'activeFundingSources',
-            'fundingTransactions',
-            'assetCategories',
-            'activeAssetCategories',
-            'fixedAssets',
-            'accountingPeriods'
-        ));
+        return view('finance.reports', [
+            'report' => $report,
+            'reports' => $this->availableReports($request),
+            'period' => $period,
+            'data' => $data,
+            'revenueView' => $revenueView,
+            'canExport' => Gate::allows(Permissions::EXPORT_FINANCIAL_REPORTS)
+                && ($report !== 'subscription-metrics' || Gate::allows(Permissions::EXPORT_SAAS_METRICS)),
+        ]);
     }
 
-    public function export(Request $request, string $report, FinancialStatementService $statements): StreamedResponse
+    public function export(Request $request, string $report, FinancialStatementService $statements, SaasMetricsService $saas): StreamedResponse
     {
         Gate::authorize(Permissions::EXPORT_FINANCIAL_REPORTS);
+        abort_unless(in_array($report, self::REPORTS, true), 404);
+        if ($report === 'subscription-metrics') {
+            Gate::authorize(Permissions::EXPORT_SAAS_METRICS);
+        }
 
         $period = ReportingPeriod::fromRequest($request);
-        [$filename, $rows] = $this->exportRows($report, $period, $statements);
+        $dataset = (string) $request->query('dataset', '');
+        [$suffix, $rows] = $this->exportRows($report, $dataset, $period, $statements, $saas);
 
         return response()->streamDownload(function () use ($rows) {
             $handle = fopen('php://output', 'w');
+            // UTF-8 BOM so Excel opens Arabic text correctly (D-19).
+            fwrite($handle, "\xEF\xBB\xBF");
             foreach ($rows as $row) {
                 fputcsv($handle, $row);
             }
             fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, 'notify-'.$report.$suffix.'-'.$period->start->toDateString().'_'.$period->end->toDateString().'.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
-    private function exportRows(string $report, ReportingPeriod $period, FinancialStatementService $statements): array
+    /** Legacy `/finance/export/{report}` → canonical report export (same permission). */
+    public function legacyExport(Request $request, string $report): RedirectResponse
+    {
+        Gate::authorize(Permissions::EXPORT_FINANCIAL_REPORTS);
+        [$target, $dataset] = self::LEGACY_EXPORTS[$report] ?? abort(404);
+
+        return redirect()->route('finance.reports.export', ['report' => $target] + array_filter(['dataset' => $dataset]) + $request->query(), 301);
+    }
+
+    private function availableReports(Request $request): array
+    {
+        return collect(self::REPORTS)
+            ->reject(fn (string $key) => $key === 'subscription-metrics' && ! Gate::allows(Permissions::VIEW_SAAS_METRICS))
+            ->values()
+            ->all();
+    }
+
+    private function paymentsReceived(ReportingPeriod $period)
+    {
+        return Payment::with('client:id,business_name')
+            ->where('payment_engine_version', Payment::ENGINE_V2)
+            ->whereBetween('received_at', [$period->start, $period->end])
+            ->orderByDesc('received_at')
+            ->orderByDesc('id');
+    }
+
+    /**
+     * @return array{0: string, 1: array<int, array<int, mixed>>}
+     */
+    private function exportRows(string $report, string $dataset, ReportingPeriod $period, FinancialStatementService $statements, SaasMetricsService $saas): array
     {
         return match ($report) {
-            'profit-and-loss' => ['profit-and-loss.csv', $this->profitAndLossRows($statements->profitAndLoss($period))],
-            'balance-sheet' => ['management-balance-sheet.csv', $this->balanceSheetRows($statements->balanceSheet($period->end))],
-            'cash-flow' => ['cash-flow.csv', $this->cashFlowRows($statements->cashFlow($period))],
-            'ar-aging' => ['ar-aging.csv', $this->arAgingRows($statements->arAging($period->end))],
-            'deferred-revenue' => ['deferred-revenue.csv', $this->deferredRows($statements->deferredRevenueReport($period))],
-            'recognized-revenue' => ['recognized-revenue.csv', $this->recognizedRows($statements->recognizedRevenueReport($period))],
-            'expense-breakdown' => ['expense-breakdown.csv', $this->expenseRows($statements->expenseReport($period))],
-            default => abort(404),
+            'profit-and-loss' => ['', $this->profitAndLossRows($statements->profitAndLoss($period))],
+            'financial-position' => ['', $this->balanceSheetRows($statements->balanceSheet($period->end))],
+            'cash-flow' => ['', $this->cashFlowRows($statements->cashFlow($period))],
+            'revenue' => $dataset === 'deferred'
+                ? ['-deferred', $this->deferredRows($statements->deferredRevenueReport($period))]
+                : ['', $this->recognizedRows($statements->recognizedRevenueReport($period))],
+            'expenses' => ['', $this->expenseRows($statements->expenseReport($period))],
+            'receivables' => ['', $this->receivablesRows($statements->arAging($period->end), $this->paymentsReceived($period)->get())],
+            'subscription-metrics' => (function () use ($dataset, $period, $saas) {
+                $dataset = in_array($dataset, self::SAAS_DATASETS, true) ? $dataset : 'summary';
+
+                return ['-'.$dataset, array_merge(
+                    [['Subscription metrics - not accounting revenue']],
+                    $saas->exportRows($dataset, $period)
+                )];
+            })(),
         };
     }
 
@@ -231,10 +209,10 @@ class FinanceReportController extends Controller
         return $rows;
     }
 
-    private function arAgingRows(array $report): array
+    private function receivablesRows(array $aging, $payments): array
     {
         $rows = [['Client', 'Invoice', 'Due Date', 'Original Total JOD', 'Payment Allocated JOD', 'Credit Applied JOD', 'Outstanding JOD', 'Days Overdue', 'Bucket']];
-        foreach ($report['items'] as $item) {
+        foreach ($aging['items'] as $item) {
             $rows[] = [
                 $item['client']?->business_name,
                 $item['invoice']->invoice_number,
@@ -245,6 +223,17 @@ class FinanceReportController extends Controller
                 $this->jod($item['outstanding_minor']),
                 $item['days_overdue'],
                 $item['bucket'],
+            ];
+        }
+        $rows[] = [];
+        $rows[] = ['Payments received', 'Reference', 'Received At', 'Method', 'Amount JOD'];
+        foreach ($payments as $payment) {
+            $rows[] = [
+                $payment->client?->business_name,
+                $payment->reference,
+                $payment->received_at?->toDateTimeString(),
+                $payment->payment_method,
+                $this->jod((int) $payment->amount_minor),
             ];
         }
 

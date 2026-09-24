@@ -83,23 +83,22 @@ class FinancePhaseD2BTest extends TestCase
     public function test_capital_funding_exact_cash_behavior_and_reversal(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
-        $account = $this->createAccount('funding_cash', 'Funding Cash');
-        $archived = $this->createAccount('funding_archived', 'Funding Archived');
-        $archived->update(['is_active' => false, 'archived_at' => now()]);
+        // P6 (§10.2, §13): funding is received by Cash or CliQ and resolved to the V1 company account.
+        $account = FinancialAccount::where('code', 'CASH-BOX')->firstOrFail();
         $source = FundingSource::create(['name' => 'Owner', 'type' => FundingSource::TYPE_OWNER, 'is_active' => true, 'created_by' => $admin->id]);
 
         $this->actingAs($admin)->post(route('capital-funding-transactions.store'), [
             'funding_source_id' => $source->id,
             'funding_type' => CapitalFundingTransaction::TYPE_OWNER_CONTRIBUTION,
-            'financial_account_id' => $archived->id,
+            'payment_method' => 'bank_transfer',
             'amount' => '0.001',
             'received_at' => '2026-09-14 10:00:00',
-        ])->assertSessionHasErrors('financial_account_id');
+        ])->assertSessionHasErrors('payment_method');
 
         $this->actingAs($admin)->post(route('capital-funding-transactions.store'), [
             'funding_source_id' => $source->id,
             'funding_type' => CapitalFundingTransaction::TYPE_OWNER_CONTRIBUTION,
-            'financial_account_id' => $account->id,
+            'payment_method' => 'cash',
             'amount' => '0.001',
             'received_at' => '2026-09-14 10:00:00',
         ])->assertSessionHas('success');

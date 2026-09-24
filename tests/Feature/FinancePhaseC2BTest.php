@@ -342,7 +342,7 @@ class FinancePhaseC2BTest extends TestCase
         $this->assertSame(20000, $summary['available_credit_note_minor']);
         $this->assertSame(35000, $summary['total_customer_credit_minor']);
         $this->assertSame(['credit_note', 'payment'], $credits->pluck('source_type')->sort()->values()->all());
-        $this->actingAs($admin)->get(route('collections.index', ['client_id' => $client->id]))
+        $this->actingAs($admin)->get(route('finance.collections', ['client_id' => $client->id, 'tab' => 'credits']))
             ->assertOk()
             ->assertSee(__('notify.client_workspace.payment_credit'))
             ->assertSee(__('notify.client_workspace.credit_note_balance'));

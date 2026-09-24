@@ -124,17 +124,17 @@ class FounderAccountsGate3Test extends TestCase
         $this->actingAs($founder)->get(route('dashboard'))->assertOk();
         $this->actingAs($founder)->get(route('clients.index'))->assertOk();
         $this->actingAs($founder)->get(route('commercial-catalog.index'))->assertOk();
-        $this->actingAs($founder)->get(route('collections.index'))->assertOk();
-        $this->actingAs($founder)->get(route('financial-accounts.index'))->assertOk();
-        $this->actingAs($founder)->get(route('operating-expenses.index'))->assertOk();
+        $this->actingAs($founder)->get(route('finance.collections'))->assertOk();
+        $this->actingAs($founder)->get(route('finance.accounts'))->assertOk();
+        $this->actingAs($founder)->get(route('finance.expenses'))->assertOk();
         // P3 / FROZEN D-05: Capital & Financing is feature-gated (404 while OFF); check owner access with it ON.
         \App\Models\Setting::set('feature_capital_financing', '1');
-        $this->actingAs($founder)->get(route('capital-management.index'))->assertOk();
+        $this->actingAs($founder)->get(route('finance.capital'))->assertOk();
         $this->actingAs($founder)->get(route('finance.index'))->assertOk();
-        $this->actingAs($founder)->get(route('saas-metrics.index'))->assertOk();
-        $this->actingAs($founder)->get(route('executive.index'))->assertOk();
-        $this->actingAs($founder)->get(route('subscription-billing.index'))->assertOk();
-        $this->actingAs($founder)->get(route('accounting.index'))->assertOk();
+        $this->actingAs($founder)->get(route('finance.reports', ['report' => 'subscription-metrics']))->assertOk();
+        $this->actingAs($founder)->get(route('executive.index'))->assertRedirect(route('finance.index'));
+        $this->actingAs($founder)->get(route('subscription-billing.index'))->assertRedirect(route('finance.accounting', ['tools' => 1]));
+        $this->actingAs($founder)->get(route('finance.accounting'))->assertOk();
         $this->actingAs($founder)->get(route('settings.index'))->assertOk();
     }
 

@@ -226,6 +226,11 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// Collections links (?open=record-payment) open the existing payment sheet instead of duplicating the form.
+if (new URLSearchParams(window.location.search).get('open') === 'record-payment' && document.getElementById('modal-record-payment')) {
+    openModal('modal-record-payment');
+}
+
 // Escape key closes modals
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {

@@ -28,6 +28,16 @@ class PaymentMethods
             ->all();
     }
 
+    /** Display label for any stored method: localized for V1 methods, historical label otherwise. */
+    public static function label(?string $method): string
+    {
+        if (in_array($method, self::v1(), true)) {
+            return __('notify.client_workspace.payment_methods.'.$method);
+        }
+
+        return self::labels()[$method] ?? (string) $method;
+    }
+
     public static function labels(): array
     {
         return [

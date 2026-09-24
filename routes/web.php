@@ -15,15 +15,17 @@ use App\Http\Controllers\ClientStageController;
 use App\Http\Controllers\ClientSystemAccessController;
 use App\Http\Controllers\CommercialCatalogController;
 use App\Http\Controllers\CollectionsController;
+use App\Http\Controllers\CollectionsDueController;
 use App\Http\Controllers\PaymentReceiptController;
 use App\Http\Controllers\ContactAttemptController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\CsvImportController;
 use App\Http\Controllers\DailyNoteController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ExecutiveDashboardController;
+use App\Http\Controllers\FinanceOverviewController;
 use App\Http\Controllers\FinancialAccountController;
 use App\Http\Controllers\FinanceReportController;
+use App\Http\Controllers\LegacyFinanceRedirectController;
 use App\Http\Controllers\FreeInstallationController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\GuidedSubscriptionController;
@@ -35,7 +37,6 @@ use App\Http\Controllers\OperatingExpenseController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OfferController;
 use App\Http\Controllers\SettingsController;
-use App\Http\Controllers\SaasMetricsController;
 use App\Http\Controllers\SubscriptionBillingController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Middleware\EnsureActiveInternalUser;
@@ -170,15 +171,36 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/commercial-catalog/products', [CommercialCatalogController::class, 'storeProduct'])->name('commercial-catalog.products.store');
     Route::patch('/commercial-catalog/products/{product}', [CommercialCatalogController::class, 'updateProduct'])->name('commercial-catalog.products.update');
     Route::post('/commercial-catalog/products/{product}/archive', [CommercialCatalogController::class, 'archiveProduct'])->name('commercial-catalog.products.archive');
-    Route::get('/collections', [CollectionsController::class, 'index'])->name('collections.index');
-    Route::get('/financial-accounts', [FinancialAccountController::class, 'index'])->name('financial-accounts.index');
+    // Finance (§12, D-24): one real route per function. Old GET pages 301-redirect below.
+    Route::get('/finance', [FinanceOverviewController::class, 'index'])->name('finance.index');
+    Route::get('/finance/collections', [CollectionsController::class, 'index'])->name('finance.collections');
+    Route::get('/finance/expenses', [OperatingExpenseController::class, 'index'])->name('finance.expenses');
+    Route::get('/finance/accounts', [FinancialAccountController::class, 'index'])->name('finance.accounts');
+    Route::get('/finance/accounting', [AccountingController::class, 'index'])->name('finance.accounting');
+    Route::get('/finance/reports/{report}/export', [FinanceReportController::class, 'export'])->name('finance.reports.export');
+    Route::get('/finance/reports/{report?}', [FinanceReportController::class, 'show'])->name('finance.reports');
+    Route::get('/finance/capital', [CapitalManagementController::class, 'index'])->middleware('feature:capital')->name('finance.capital');
+    // Staff operational list (§9.7).
+    Route::get('/collections-due', [CollectionsDueController::class, 'index'])->name('collections-due.index');
+
+    // Legacy Finance GET URLs (one release): permission-checked 301 redirects to the canonical pages.
+    Route::get('/collections', [LegacyFinanceRedirectController::class, 'collections'])->name('collections.index');
+    Route::get('/financial-accounts', [LegacyFinanceRedirectController::class, 'financialAccounts'])->name('financial-accounts.index');
+    Route::get('/operating-expenses', [LegacyFinanceRedirectController::class, 'operatingExpenses'])->name('operating-expenses.index');
+    Route::get('/accounting', [LegacyFinanceRedirectController::class, 'accounting'])->name('accounting.index');
+    Route::get('/executive', [LegacyFinanceRedirectController::class, 'executive'])->name('executive.index');
+    Route::get('/saas-metrics', [LegacyFinanceRedirectController::class, 'saasMetrics'])->name('saas-metrics.index');
+    Route::get('/saas-metrics/export/{report}', [LegacyFinanceRedirectController::class, 'saasMetricsExport'])->name('saas-metrics.export');
+    Route::get('/finance/export/{report}', [FinanceReportController::class, 'legacyExport'])->name('finance.export');
+    Route::get('/subscription-billing', [LegacyFinanceRedirectController::class, 'subscriptionBilling'])->name('subscription-billing.index');
+    Route::get('/capital-management', [LegacyFinanceRedirectController::class, 'capitalManagement'])->middleware('feature:capital')->name('capital-management.index');
+
     Route::post('/financial-accounts', [FinancialAccountController::class, 'store'])->name('financial-accounts.store');
     Route::post('/financial-accounts/{financialAccount}/archive', [FinancialAccountController::class, 'archive'])->name('financial-accounts.archive');
     Route::post('/financial-transfers', [FinancialAccountController::class, 'storeTransfer'])->middleware('financial.idempotency')->name('financial-transfers.store');
     Route::post('/financial-transfers/{financialTransfer}/reverse', [FinancialAccountController::class, 'reverseTransfer'])->middleware('financial.idempotency')->name('financial-transfers.reverse');
     Route::post('/cash-events/assign-account', [FinancialAccountController::class, 'assignCashEvent'])->name('cash-events.assign-account');
-    Route::get('/operating-expenses', [OperatingExpenseController::class, 'index'])->name('operating-expenses.index');
-    Route::post('/operating-expenses', [OperatingExpenseController::class, 'storeExpense'])->middleware('financial.idempotency')->name('operating-expenses.store');
+    Route::post('/operating-expenses',[OperatingExpenseController::class, 'storeExpense'])->middleware('financial.idempotency')->name('operating-expenses.store');
     Route::post('/operating-expenses/{expense}/reverse', [OperatingExpenseController::class, 'reverseExpense'])->middleware('financial.idempotency')->name('operating-expenses.reverse');
     Route::post('/expense-categories', [OperatingExpenseController::class, 'storeCategory'])->name('expense-categories.store');
     Route::patch('/expense-categories/{category}', [OperatingExpenseController::class, 'updateCategory'])->name('expense-categories.update');
@@ -191,13 +213,6 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/recurring-expense-obligations/{obligation}/pay', [OperatingExpenseController::class, 'payObligation'])->middleware('financial.idempotency')->name('recurring-expense-obligations.pay');
     Route::post('/recurring-expense-obligations/{obligation}/skip', [OperatingExpenseController::class, 'skipObligation'])->name('recurring-expense-obligations.skip');
     Route::post('/recurring-expense-obligations/{obligation}/cancel', [OperatingExpenseController::class, 'cancelObligation'])->name('recurring-expense-obligations.cancel');
-    Route::get('/capital-management', [CapitalManagementController::class, 'index'])->middleware('feature:capital')->name('capital-management.index');
-    Route::get('/executive', [ExecutiveDashboardController::class, 'index'])->name('executive.index');
-    Route::get('/saas-metrics', [SaasMetricsController::class, 'index'])->name('saas-metrics.index');
-    Route::get('/saas-metrics/export/{report}', [SaasMetricsController::class, 'export'])->name('saas-metrics.export');
-    Route::get('/finance', [FinanceReportController::class, 'index'])->name('finance.index');
-    Route::get('/finance/export/{report}', [FinanceReportController::class, 'export'])->name('finance.export');
-    Route::get('/subscription-billing', [SubscriptionBillingController::class, 'index'])->name('subscription-billing.index');
     Route::post('/subscription-billing/generate-renewals', [SubscriptionBillingController::class, 'generateRenewals'])->name('subscription-billing.generate-renewals');
     Route::post('/subscription-billing/backfill-periods', [SubscriptionBillingController::class, 'backfillPeriods'])->name('subscription-billing.backfill-periods');
     // Capital & Financing (§13): 404 unless feature_capital_financing is ON. Fixed assets and asset
@@ -206,7 +221,6 @@ Route::middleware(['auth', EnsureActiveInternalUser::class])->group(function () 
     Route::post('/funding-sources/{fundingSource}/archive', [CapitalManagementController::class, 'archiveFundingSource'])->middleware('feature:capital')->name('funding-sources.archive');
     Route::post('/capital-funding-transactions', [CapitalManagementController::class, 'storeFunding'])->middleware(['feature:capital', 'financial.idempotency'])->name('capital-funding-transactions.store');
     Route::post('/capital-funding-transactions/{transaction}/reverse', [CapitalManagementController::class, 'reverseFunding'])->middleware(['feature:capital', 'financial.idempotency'])->name('capital-funding-transactions.reverse');
-    Route::get('/accounting', [AccountingController::class, 'index'])->name('accounting.index');
     Route::post('/accounting/chart-accounts/{chartAccount}/archive', [AccountingController::class, 'archiveAccount'])->name('accounting.chart-accounts.archive');
     Route::post('/accounting/periods/{period}/close', [AccountingController::class, 'closePeriod'])->name('accounting.periods.close');
     Route::post('/accounting/periods/{period}/reopen', [AccountingController::class, 'reopenPeriod'])->name('accounting.periods.reopen');

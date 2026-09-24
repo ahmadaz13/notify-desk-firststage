@@ -145,19 +145,23 @@ class FinancePhaseF1Test extends TestCase
             'date_to' => '2026-01-31',
         ];
 
-        $this->actingAs($admin)
-            ->get(route('finance.index', $query))
+        // P6 (§12, §14): the overview is a dashboard; statements live under Financial Reports.
+        $this->actingAs($admin)->get(route('finance.index'))
             ->assertOk()
-            ->assertSee(__('notify.finance.title'))
-            ->assertSee(__('notify.finance.profit_loss'))
-            ->assertSee(__('notify.finance.balance_sheet'))
-            ->assertSee(__('notify.finance.cash_flow'))
-            ->assertSee('ليست قوائم مالية نظامية مدققة')
-            ->assertSee('لا توجد مقاييس اشتراكات تجارية (MRR/ARR)');
+            ->assertSee(__('notify.finance_hub.sections.overview'))
+            ->assertSee(__('notify.finance_hub.overview.saas_title'));
+        $this->actingAs($admin)->get(route('finance.reports', ['report' => 'profit-and-loss'] + $query))
+            ->assertOk()
+            ->assertSee(__('notify.finance_hub.reports.names.profit-and-loss'))
+            ->assertSee(__('notify.finance_hub.reports.names.financial-position'))
+            ->assertSee(__('notify.finance_hub.reports.names.cash-flow'));
+        $this->actingAs($admin)->get(route('finance.reports', ['report' => 'financial-position'] + $query))
+            ->assertOk()
+            ->assertSee(__('notify.finance_hub.reports.position_note'));
 
-        $export = $this->actingAs($admin)->get(route('finance.export', ['report' => 'profit-and-loss'] + $query));
+        $export = $this->actingAs($admin)->get(route('finance.reports.export', ['report' => 'profit-and-loss'] + $query));
         $export->assertOk();
-        $export->assertDownload('profit-and-loss.csv');
+        $export->assertDownload('notify-profit-and-loss-2026-01-01_2026-01-31.csv');
         $this->assertStringContainsString('text/csv', (string) $export->headers->get('content-type'));
         $csv = $export->streamedContent();
         $this->assertStringContainsString('Total Recognized Revenue', $csv);
@@ -166,7 +170,7 @@ class FinancePhaseF1Test extends TestCase
         $this->assertStringContainsString('78.000', $csv);
 
         $this->actingAs($partnerUser)->get(route('finance.index', $query))->assertForbidden();
-        $this->actingAs($partnerUser)->get(route('finance.export', ['report' => 'profit-and-loss'] + $query))->assertForbidden();
+        $this->actingAs($partnerUser)->get(route('finance.reports.export', ['report' => 'profit-and-loss'] + $query))->assertForbidden();
     }
 
     private function buildReportingScenario(User $admin): void

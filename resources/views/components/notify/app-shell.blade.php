@@ -38,6 +38,7 @@
         'products_pricing' => __('notify.navigation.products_pricing'),
         'collections' => __('notify.navigation.collections'),
         'finance' => __('notify.navigation.finance'),
+        'collections_due' => __('notify.finance_hub.collections_due.nav'),
         'expenses' => __('notify.navigation.expenses'),
         'capital_management' => __('notify.navigation.capital_management'),
         'executive' => __('notify.navigation.executive'),
@@ -85,12 +86,16 @@
         || request()->routeIs('financial-accounts.*')
         || request()->routeIs('accounting.*');
 
+    // P6: Staff operational collections list (§3.2, §9.7).
+    $isCollectionsDue = request()->routeIs('collections-due.*');
+
     $isAdministration = request()->routeIs('commercial-catalog.*')
         || request()->routeIs('administration.*')
         || request()->routeIs('settings.*')
         || request()->routeIs('clients.import*');
 
     $canViewFinance = auth()->check() && ! $isStaff && ($allows(Permissions::VIEW_FINANCIAL_STATEMENTS) || $allows(Permissions::VIEW_FINANCIAL_REPORTS) || $admin);
+    $canViewCollectionsDue = $isStaff && $allows(Permissions::VIEW_COLLECTIONS_DUE);
     $canViewAdministration = auth()->check() && ! $isStaff && ($admin || $allows(Permissions::MANAGE_COMMERCIAL_CATALOG) || $allows(Permissions::MANAGE_COMPANY_SETTINGS));
 
     // Determine page context & title
@@ -170,7 +175,12 @@
                             <x-notify.nav-item data-nav-destination="clients" :href="route('clients.index')" :label="$labels['clients']" icon="users" :active="$isClients" />
                         @endif
 
-                        {{-- Staff desktop shows ONLY Today and Clients --}}
+                        {{-- Staff: Collections due (operational list only) --}}
+                        @if($canViewCollectionsDue)
+                            <x-notify.nav-item data-nav-destination="collections-due" :href="route('collections-due.index')" :label="$labels['collections_due']" icon="wallet" :active="$isCollectionsDue" />
+                        @endif
+
+                        {{-- Owner-level areas --}}
                         @if(!$isStaff)
                             {{-- Area 3: Finance --}}
                             @if($canViewFinance)
@@ -278,6 +288,8 @@
             :can-view-clients="$canViewClients"
             :can-view-finance="$canViewFinance"
             :can-view-administration="$canViewAdministration"
+            :can-view-collections-due="$canViewCollectionsDue"
+            :is-collections-due="$isCollectionsDue"
             :is-staff="$isStaff"
             :is-today="$isTodayArea"
             :is-clients="$isClients"

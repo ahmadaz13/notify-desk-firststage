@@ -508,9 +508,9 @@ class V1P1PaymentReceiptApprovalTest extends TestCase
         $receipt = $this->submitAsStaff('6.500', 'cliq');
 
         $this->actingAs($this->admin)
-            ->get(route('collections.index'))
+            ->get(route('finance.collections'))
             ->assertOk()
-            ->assertSee('sec-pending-receipts', false)
+            ->assertSee('data-collections-panel="pending"', false)
             ->assertSee('P1 Receipt Client')
             ->assertSee('6.500')
             ->assertSee(route('payment-receipts.approve', $receipt), false)

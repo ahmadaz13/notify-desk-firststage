@@ -20,7 +20,7 @@
                         </form>
                     @endif
                     @if($canApproveReceipts)
-                        <a href="{{ route('collections.index', ['client_id' => $receipt->client_id]) }}#sec-pending-receipts" class="notify-button notify-button--soft notify-button--sm">{{ __('notify.payment_receipts.action_review') }}</a>
+                        <a href="{{ route('finance.collections', ['tab' => 'pending', 'client_id' => $receipt->client_id]) }}" class="notify-button notify-button--soft notify-button--sm">{{ __('notify.payment_receipts.action_review') }}</a>
                     @endif
                 </div>
             </div>

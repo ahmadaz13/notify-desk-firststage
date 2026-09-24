@@ -34,26 +34,24 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
 
         $response->assertOk();
 
-        // 6 Consolidated sections exist in navigation
-        $response->assertSee('data-finance-tab="overview"', false);
-        $response->assertSee('data-finance-tab="collections"', false);
-        $response->assertSee('data-finance-tab="expenses"', false);
-        $response->assertSee('data-finance-tab="capital_assets"', false);
-        $response->assertSee('data-finance-tab="reports"', false);
-        $response->assertSee('data-finance-tab="advanced"', false);
+        // P6: one real route per Finance section (§12); capital is hidden while its feature is OFF.
+        foreach (['overview', 'collections', 'expenses', 'accounts', 'accounting', 'reports'] as $section) {
+            $response->assertSee('data-finance-section="'.$section.'"', false);
+        }
+        $response->assertDontSee('data-finance-section="capital"', false);
 
-        // Core Accounting KPIs
-        foreach (['cash_available','accounts_receivable','overdue_receivables','recognized_revenue','operating_expenses','net_income'] as $key) $response->assertSee(__('notify.finance.'.$key));
+        // Four primary KPIs + compact accounting result (§12.1)
+        foreach (['available-cash', 'receivables', 'collections', 'expenses'] as $kpi) {
+            $response->assertSee('data-kpi="'.$kpi.'"', false);
+        }
+        $response->assertSee(__('notify.finance_hub.overview.recognized_revenue'));
+        $response->assertSee(__('notify.finance_hub.overview.net_result'));
 
-        // Separate Commercial SaaS block
-        $response->assertSee(__('notify.finance.saas_block_title'));
-        $response->assertSee(__('notify.finance.mrr'));
-        $response->assertSee(__('notify.finance.arr'));
-        $response->assertSee(__('notify.finance.active_subscriptions'));
-        $response->assertSee(__('notify.finance.upcoming_renewals'));
-
-        // Executive Statements Summary
-        $response->assertSee(__('notify.finance.view_reports'));
+        // Separate subscription-metrics strip, never presented as revenue
+        $response->assertSee(__('notify.finance_hub.overview.saas_title'));
+        $response->assertSee(__('notify.finance_hub.overview.mrr'));
+        $response->assertSee(__('notify.finance_hub.overview.arr'));
+        $response->assertSee(__('notify.finance_hub.overview.active_subscriptions'));
     }
 
     public function test_finance_cockpit_collections_workspace(): void
@@ -76,13 +74,14 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
             'issued_at' => now()->subDays(10),
         ]);
 
-        $response = $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'collections']));
+        $response = $this->actingAs($this->admin)->get(route('finance.collections', ['tab' => 'due']));
 
         $response->assertOk();
-        $response->assertSee(__('notify.finance.collections_workspace'));
+        $response->assertSee('data-collections-panel="due"', false);
         $response->assertSee('Al-Amal Medical Center');
         $response->assertSee('INV-AMAL-001');
-        $response->assertSee(__('notify.finance.open_client_collections'));
+        $response->assertSee(route('clients.show', $client), false);
+        $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'collections']))->assertRedirect(route('finance.collections'));
     }
 
     private function createClient(array $overrides = []): Client
@@ -105,49 +104,50 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
 
     public function test_finance_cockpit_expenses_workspace(): void
     {
-        $response = $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'expenses']));
+        $response = $this->actingAs($this->admin)->get(route('finance.expenses'));
 
         $response->assertOk();
-        $response->assertSee(__('notify.finance.expenses_workspace'));
-        $response->assertSee(__('notify.finance.open_expenses'));
+        $response->assertSee('data-finance-page="expenses"', false);
+        $response->assertSee(route('operating-expenses.store'), false);
     }
 
     public function test_finance_cockpit_capital_and_assets_workspace(): void
     {
-        $response = $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'capital_assets']));
-
-        $response->assertOk();
-        $response->assertSee(__('notify.finance.capital_assets_workspace'));
-        $response->assertSee(__('notify.finance.capital_invariants_note'));
-        // P3 / FROZEN D-05: the Capital & Financing link is hidden while the feature is OFF (default).
-        $response->assertDontSee(__('notify.finance.open_capital_assets'));
+        // P3 / FROZEN D-05: Capital & Financing is hidden and 404 while the feature is OFF (default).
+        $this->actingAs($this->admin)->get(route('finance.capital'))->assertNotFound();
+        $this->actingAs($this->admin)->get(route('finance.index'))->assertDontSee(route('finance.capital'), false);
 
         \App\Models\Setting::set('feature_capital_financing', '1');
-        $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'capital_assets']))
+        $this->actingAs($this->admin)->get(route('finance.index'))->assertSee(route('finance.capital'), false);
+        $this->actingAs($this->admin)->get(route('finance.capital'))
             ->assertOk()
-            ->assertSee(__('notify.finance.open_capital_assets'));
+            ->assertSee(__('notify.finance_hub.capital.not_revenue'));
     }
 
     public function test_finance_cockpit_reports_workspace(): void
     {
-        $response = $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'reports']));
+        $response = $this->actingAs($this->admin)->get(route('finance.reports'));
 
         $response->assertOk();
-        $response->assertSee(__('notify.finance.reports_title'));
-        $response->assertSee(__('notify.finance.profit_loss'));
-        $response->assertSee(__('notify.finance.balance_sheet'));
-        $response->assertSee(__('notify.finance.cash_flow'));
-        $response->assertSee(__('notify.finance.export_csv'));
+        $response->assertSee(__('notify.finance_hub.reports.names.profit-and-loss'));
+        $response->assertSee(__('notify.finance_hub.reports.names.financial-position'));
+        $response->assertSee(__('notify.finance_hub.reports.names.cash-flow'));
+        $response->assertSee(__('notify.finance_hub.reports.export_csv'));
+        $response->assertSee(route('finance.reports.export', ['report' => 'profit-and-loss']), false);
     }
 
     public function test_finance_cockpit_advanced_workspace(): void
     {
-        $response = $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'advanced']));
+        $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'advanced']))->assertRedirect(route('finance.accounts'));
 
-        $response->assertOk();
-        $response->assertSee(__('notify.finance.advanced_console'));
-        $response->assertSee(__('notify.finance.cash_accounts'));
-        $response->assertSee(__('notify.finance.general_ledger'));
+        $this->actingAs($this->admin)->get(route('finance.accounts'))
+            ->assertOk()
+            ->assertSee('data-company-account="CASH-BOX"', false)
+            ->assertSee('data-company-account="CLIQ"', false);
+        $this->actingAs($this->admin)->get(route('finance.accounting'))
+            ->assertOk()
+            ->assertSee('data-advanced-tools', false)
+            ->assertSee(__('notify.finance_hub.accounting.tools_title'));
     }
 
     public function test_staff_cannot_access_finance_cockpit(): void

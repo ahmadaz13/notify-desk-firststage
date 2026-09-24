@@ -67,7 +67,7 @@ class SaasMetricsReconciliationService
             $failures[] = ['check' => 'scheduled_plan_change_not_movement', 'count' => $scheduledPlanMovements];
         }
 
-        $cancelledActive = Subscription::where('billing_engine_version', 'v2')
+        $cancelledActive = Subscription::whereIn('billing_engine_version', Subscription::RECURRING_BILLING_ENGINES)
             ->whereNotNull('ended_at')
             ->get()
             ->filter(fn (Subscription $subscription) => $this->events->activePeriodForSubscription($subscription, Carbon::parse($subscription->ended_at)->addDay()) !== null)

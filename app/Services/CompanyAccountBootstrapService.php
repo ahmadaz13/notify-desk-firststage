@@ -17,6 +17,9 @@ class CompanyAccountBootstrapService
     public const CASH_BOX_CODE = 'CASH-BOX';
     public const CLIQ_CODE = 'CLIQ';
 
+    /** Mandatory V1 company accounts, in display order; they can never be archived (§10.4). */
+    public const V1_CODES = [self::CASH_BOX_CODE, self::CLIQ_CODE];
+
     public const DEFAULT_ACCOUNTS = [
         [
             'code' => self::CASH_BOX_CODE,

@@ -127,17 +127,18 @@ class Phase2FinalShellTodayBoardTest extends TestCase
             'is_active' => true,
         ]);
 
-        // Staff has 3 items
+        // Staff has 4 items (§3.4, P6): Today, Clients, Collections, More
         $staffResponse = $this->actingAs($staff)
             ->withSession(['locale' => 'en'])
             ->get(route('dashboard'))
             ->assertOk();
 
         $staffHtml = $staffResponse->getContent();
-        $this->assertSame(1, substr_count($staffHtml, 'notify-mobile-nav__grid--3'));
-        $this->assertSame(0, substr_count($staffHtml, 'notify-mobile-nav__grid--4'));
+        $this->assertSame(1, substr_count($staffHtml, 'notify-mobile-nav__grid--4'));
+        $this->assertSame(0, substr_count($staffHtml, 'notify-mobile-nav__grid--3'));
 
-        $staffGrid = str($staffHtml)->between('class="notify-mobile-nav__grid notify-mobile-nav__grid--3"', '</nav>')->toString();
+        $staffGrid = str($staffHtml)->between('class="notify-mobile-nav__grid notify-mobile-nav__grid--4"', '</nav>')->toString();
+        $this->assertSame(1, substr_count($staffGrid, 'data-nav-destination="collections-due"'));
         $this->assertSame(1, substr_count($staffGrid, 'data-nav-destination="today"'));
         $this->assertSame(1, substr_count($staffGrid, 'data-nav-destination="clients"'));
         $this->assertSame(1, substr_count($staffGrid, 'data-nav-destination="more"'));

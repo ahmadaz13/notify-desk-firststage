@@ -287,7 +287,7 @@ class NotificationService
                 'renewal_due',
                 'تجديد اشتراك مستحق: '.$clientName,
                 "اشتراك {$clientName} مستحق للتجديد بتاريخ {$dueDate}.",
-                route('subscription-billing.index', [], false),
+                route('finance.accounting', ['tools' => 1], false),
                 'subscription',
                 $subscription->id,
                 'renewal:'.$dueDate
@@ -314,7 +314,7 @@ class NotificationService
                 'invoice_overdue',
                 'فاتورة متأخرة: '.$clientName,
                 'فاتورة '.$invoice->invoice_number.' متأخرة وباقيها '.Money::fromMinorUnits((int) $projection['outstanding_minor'])->format().' د.أ.',
-                route('collections.index', [], false),
+                route('finance.collections', [], false),
                 'invoice',
                 $invoice->id,
                 'overdue:'.($invoice->due_date?->toDateString() ?? 'none')
@@ -340,7 +340,7 @@ class NotificationService
                 'billing_review_required',
                 'مراجعة فوترة مطلوبة: '.$clientName,
                 $item['message'],
-                route('subscription-billing.index', [], false),
+                route('finance.accounting', ['tools' => 1], false),
                 'subscription',
                 $subscription->id,
                 'billing-review:'.$reason.':'.$at->toDateString()
@@ -371,7 +371,7 @@ class NotificationService
                 'revenue_recognition_review_required',
                 'مراجعة تحقق إيراد مطلوبة',
                 "جدول تحقق الإيراد للفاتورة {$invoiceNumber} يحتاج مراجعة قبل الأتمتة.",
-                route('accounting.index', [], false),
+                route('finance.accounting', [], false),
                 'revenue_recognition_schedule',
                 $schedule->id,
                 'revenue-review:'.$schedule->status.':'.$at->toDateString()

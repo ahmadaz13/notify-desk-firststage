@@ -78,7 +78,7 @@
                     <h3 class="notify-workspace-card__title">{{ __('notify.client_workspace.management_finance') }}</h3>
                     <p style="font-size:13px;color:var(--nd-muted);margin:4px 0 0">{{ __('notify.client_workspace.financial_details_hint') }}</p>
                 </div>
-                <a href="{{ route('collections.index', ['client_id' => $client->id]) }}" class="notify-button notify-button--primary notify-button--sm">
+                <a href="{{ route('finance.collections', ['client_id' => $client->id]) }}" class="notify-button notify-button--primary notify-button--sm">
                     <span>{{ __('notify.client_workspace.view_financial_details') }} →</span>
                 </a>
             </div>

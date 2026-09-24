@@ -89,7 +89,7 @@ class Phase3ClientWorkspaceTest extends TestCase
             ->assertSee('CNT-2026-0088')
             ->assertSee('150.000 د.أ')
             ->assertSee('REC-99881')
-            ->assertSee(route('collections.index', ['client_id' => $client->id]), false)
+            ->assertSee(route('finance.collections', ['client_id' => $client->id]), false)
             ->assertSee('notify-workspace-command-card', false)
             ->assertSee('notify-latest-payment-box', false);
     }
@@ -104,7 +104,7 @@ class Phase3ClientWorkspaceTest extends TestCase
         // Normal operational view does not render full-width raw invoices / credit allocations
         $response->assertDontSee('notify-management-finance-dense-table', false);
         // Clean View Financial Details link is present instead
-        $response->assertSee(route('collections.index', ['client_id' => $client->id]), false);
+        $response->assertSee(route('finance.collections', ['client_id' => $client->id]), false);
     }
 
     public function test_valid_path_prospect_to_record_call(): void

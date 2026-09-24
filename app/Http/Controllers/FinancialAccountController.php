@@ -8,28 +8,87 @@ use App\Models\FinancialTransfer;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Services\CashMovementService;
+use App\Services\CompanyAccountBootstrapService;
 use App\Services\FinancialAccountBalanceService;
 use App\Services\FinancialAccountService;
 use App\Support\Permissions;
+use App\Support\ReportingPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class FinancialAccountController extends Controller
 {
-    public function index(FinancialAccountBalanceService $balances): View
+    public const TRANSFER_DIRECTIONS = [
+        'cash_to_cliq' => [CompanyAccountBootstrapService::CASH_BOX_CODE, CompanyAccountBootstrapService::CLIQ_CODE],
+        'cliq_to_cash' => [CompanyAccountBootstrapService::CLIQ_CODE, CompanyAccountBootstrapService::CASH_BOX_CODE],
+    ];
+
+    /**
+     * Company Accounts (§10.4): Cash Box and CliQ with derived balances, a per-account movement list
+     * with running balance for the selected period, internal transfers, and historical unassigned
+     * cash events only when any exist. No account creation or archiving in the V1 UI.
+     */
+    public function index(Request $request, FinancialAccountBalanceService $balances): View
     {
         Gate::authorize(Permissions::VIEW_CASH_MANAGEMENT);
 
-        $accountCards = $balances->accountCards();
-        $activeAccounts = FinancialAccount::where('is_active', true)->whereNull('archived_at')->orderBy('name_ar')->get();
-        $recentMovements = $balances->recentMovements();
+        $period = ReportingPeriod::fromRequest($request);
+        $v1Accounts = FinancialAccount::query()
+            ->whereIn('code', CompanyAccountBootstrapService::V1_CODES)
+            ->get()
+            ->sortBy(fn (FinancialAccount $account) => array_search($account->code, CompanyAccountBootstrapService::V1_CODES, true))
+            ->values();
+        $accountCards = $v1Accounts->map(fn (FinancialAccount $account) => [
+            'account' => $account,
+            'balance_minor' => $balances->currentBalanceMinor($account),
+            'last_movement_at' => CashMovement::where('financial_account_id', $account->id)->max('occurred_at'),
+        ]);
+        $selected = $v1Accounts->firstWhere('code', $request->query('account')) ?? $v1Accounts->first();
+
+        $movements = collect();
+        $openingMinor = 0;
+        if ($selected) {
+            $openingMinor = $balances->balanceAsOfMinor($selected, $period->start->copy()->subSecond());
+            $running = $openingMinor;
+            $movements = CashMovement::query()
+                ->where('financial_account_id', $selected->id)
+                ->whereBetween('occurred_at', [$period->start, $period->end])
+                ->orderBy('occurred_at')
+                ->orderBy('id')
+                ->get()
+                ->map(function (CashMovement $movement) use (&$running) {
+                    $signed = $movement->direction === CashMovement::DIRECTION_INFLOW ? (int) $movement->amount_minor : -(int) $movement->amount_minor;
+                    $running += $signed;
+
+                    return ['movement' => $movement, 'signed_minor' => $signed, 'running_minor' => $running];
+                })
+                ->reverse()
+                ->values();
+        }
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $movementPage = new LengthAwarePaginator(
+            $movements->forPage($page, 25)->values(),
+            $movements->count(),
+            25,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        $otherAccounts = FinancialAccount::query()
+            ->whereNotIn('code', CompanyAccountBootstrapService::V1_CODES)
+            ->orderBy('name_ar')
+            ->get()
+            ->map(fn (FinancialAccount $account) => ['account' => $account, 'balance_minor' => $balances->currentBalanceMinor($account)])
+            ->filter(fn (array $row) => $row['balance_minor'] !== 0 || $row['account']->is_active)
+            ->values();
         $transfers = FinancialTransfer::with(['fromAccount', 'toAccount', 'reversal'])
             ->orderByDesc('transferred_at')
             ->orderByDesc('id')
-            ->limit(20)
+            ->limit(10)
             ->get();
         $unassignedPayments = Payment::with('client')
             ->where('payment_engine_version', Payment::ENGINE_V2)
@@ -61,22 +120,22 @@ class FinancialAccountController extends Controller
             ->orderBy('id')
             ->get();
         $unassignedCount = $unassignedPayments->count() + $unassignedRefunds->count();
-        $totalOperationalCashMinor = $balances->companyCashMinor();
-        $todayInflowsMinor = $accountCards->sum('today_inflows_minor');
-        $todayOutflowsMinor = $accountCards->sum('today_outflows_minor');
 
-        return view('financial-accounts.index', compact(
-            'accountCards',
-            'activeAccounts',
-            'recentMovements',
-            'transfers',
-            'unassignedPayments',
-            'unassignedRefunds',
-            'unassignedCount',
-            'totalOperationalCashMinor',
-            'todayInflowsMinor',
-            'todayOutflowsMinor'
-        ));
+        return view('finance.accounts', [
+            'period' => $period,
+            'accountCards' => $accountCards,
+            'selected' => $selected,
+            'openingMinor' => $openingMinor,
+            'movements' => $movementPage,
+            'otherAccounts' => $otherAccounts,
+            'transfers' => $transfers,
+            'unassignedPayments' => $unassignedPayments,
+            'unassignedRefunds' => $unassignedRefunds,
+            'unassignedCount' => $unassignedCount,
+            'v1Accounts' => $v1Accounts,
+            'canTransfer' => Gate::allows(Permissions::MANAGE_CASH_TRANSFERS),
+            'canAssignHistorical' => Gate::allows(Permissions::ASSIGN_HISTORICAL_CASH_ACCOUNTS),
+        ]);
     }
 
     public function store(Request $request, FinancialAccountService $accounts): RedirectResponse
@@ -112,14 +171,22 @@ class FinancialAccountController extends Controller
     {
         Gate::authorize(Permissions::MANAGE_CASH_TRANSFERS);
 
+        // V1 UI sends a direction (Cash Box ↔ CliQ); explicit account ids remain accepted for the engine.
         $validated = $request->validate([
-            'from_financial_account_id' => 'required|integer|exists:financial_accounts,id',
-            'to_financial_account_id' => 'required|integer|exists:financial_accounts,id',
+            'direction' => ['nullable', Rule::in(array_keys(self::TRANSFER_DIRECTIONS))],
+            'from_financial_account_id' => 'required_without:direction|nullable|integer|exists:financial_accounts,id',
+            'to_financial_account_id' => 'required_without:direction|nullable|integer|exists:financial_accounts,id',
             'amount' => ['required', 'string', 'regex:/^\d+(\.\d{1,3})?$/', 'not_regex:/^0+(\.0{1,3})?$/'],
             'transferred_at' => 'required|date',
             'reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:1000',
         ]);
+
+        if (! empty($validated['direction'])) {
+            [$fromCode, $toCode] = self::TRANSFER_DIRECTIONS[$validated['direction']];
+            $validated['from_financial_account_id'] = FinancialAccount::where('code', $fromCode)->valueOrFail('id');
+            $validated['to_financial_account_id'] = FinancialAccount::where('code', $toCode)->valueOrFail('id');
+        }
 
         $accounts->createTransfer($validated, $request->user()->id);
 

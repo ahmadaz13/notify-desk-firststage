@@ -217,11 +217,12 @@ class V1P3SchemaReferenceAndCapitalGateTest extends TestCase
         $this->assertFalse(Features::capitalEnabled());
 
         $this->actingAs($this->admin)->get(route('capital-management.index'))->assertNotFound();
+        $this->actingAs($this->admin)->get(route('finance.capital'))->assertNotFound();
         $this->actingAs($this->admin)->post(route('funding-sources.store'), ['name' => 'X', 'type' => 'founder'])->assertNotFound();
         $this->actingAs($this->admin)->post(route('capital-funding-transactions.store'), [])->assertNotFound();
         $this->assertSame(0, DB::table('funding_sources')->count());
 
-        $this->actingAs($this->admin)->get(route('financial-accounts.index'))->assertOk()->assertDontSee(route('capital-management.index'), false);
+        $this->actingAs($this->admin)->get(route('finance.accounts'))->assertOk()->assertDontSee(route('finance.capital'), false);
     }
 
     public function test_capital_on_exposes_funding_but_never_fixed_assets(): void
@@ -229,13 +230,13 @@ class V1P3SchemaReferenceAndCapitalGateTest extends TestCase
         Setting::set('feature_capital_financing', '1');
         $this->assertTrue(Features::capitalEnabled());
 
-        $this->actingAs($this->admin)->get(route('capital-management.index'))
+        $this->actingAs($this->admin)->get(route('finance.capital'))
             ->assertOk()
             ->assertSee(route('capital-funding-transactions.store'), false)
             ->assertDontSee('/fixed-assets', false)
             ->assertDontSee('/asset-categories', false);
-        $this->actingAs($this->staff)->get(route('capital-management.index'))->assertForbidden();
-        $this->actingAs($this->admin)->get(route('financial-accounts.index'))->assertOk()->assertSee(route('capital-management.index'), false);
+        $this->actingAs($this->staff)->get(route('finance.capital'))->assertForbidden();
+        $this->actingAs($this->admin)->get(route('finance.accounts'))->assertOk()->assertSee(route('finance.capital'), false);
 
         foreach (['asset-categories.store', 'asset-categories.archive', 'fixed-assets.store', 'fixed-assets.reverse', 'fixed-assets.status'] as $name) {
             $this->assertFalse(Route::has($name), "{$name} must not be registered in V1.");
@@ -262,7 +263,7 @@ class V1P3SchemaReferenceAndCapitalGateTest extends TestCase
         $this->assertSame($off, $on);
 
         Setting::set('feature_capital_financing', '0');
-        $this->actingAs($this->admin)->get(route('finance.index', ['section' => 'capital_assets']))->assertOk();
+        $this->actingAs($this->admin)->get(route('finance.reports', ['report' => 'financial-position']))->assertOk();
     }
 
     public function test_settings_toggle_controls_the_capital_flag(): void

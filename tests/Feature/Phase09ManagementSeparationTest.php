@@ -80,15 +80,16 @@ class Phase09ManagementSeparationTest extends TestCase
             'is_active' => true,
         ]);
 
-        // Staff mobile navigation: Exactly 3 items (Today, Clients, More)
+        // Staff mobile navigation (§3.4, P6): exactly 4 items (Today, Clients, Collections, More)
         $staffResponse = $this->actingAs($staff)
             ->withSession(['locale' => 'en'])
             ->get(route('dashboard'))
             ->assertOk();
 
         $staffHtml = $staffResponse->getContent();
-        $this->assertSame(1, substr_count($staffHtml, 'class="notify-mobile-nav__grid notify-mobile-nav__grid--3"'));
-        $staffMobileGrid = str($staffHtml)->between('class="notify-mobile-nav__grid notify-mobile-nav__grid--3"', '</nav>')->toString();
+        $this->assertSame(1, substr_count($staffHtml, 'class="notify-mobile-nav__grid notify-mobile-nav__grid--4"'));
+        $staffMobileGrid = str($staffHtml)->between('class="notify-mobile-nav__grid notify-mobile-nav__grid--4"', '</nav>')->toString();
+        $this->assertSame(1, substr_count($staffMobileGrid, 'data-nav-destination="collections-due"'));
         $this->assertSame(1, substr_count($staffMobileGrid, 'data-nav-destination="today"'));
         $this->assertSame(1, substr_count($staffMobileGrid, 'data-nav-destination="clients"'));
         $this->assertSame(1, substr_count($staffMobileGrid, 'data-nav-destination="more"'));

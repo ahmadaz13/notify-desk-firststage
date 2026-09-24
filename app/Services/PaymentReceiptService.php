@@ -295,7 +295,7 @@ class PaymentReceiptService
                     'method' => $receipt->methodLabel(),
                     'client' => $client->business_name,
                 ]),
-                route('collections.index', [], false).'#sec-pending-receipts',
+                route('finance.collections', ['tab' => 'pending'], false),
                 self::NOTIFICATION_SOURCE,
                 $receipt->id,
                 'submitted'

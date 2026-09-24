@@ -8,19 +8,10 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\View\View;
 
 class SubscriptionBillingController extends Controller
 {
-    public function index(SubscriptionBillingService $billing): View
-    {
-        Gate::authorize(Permissions::RUN_SUBSCRIPTION_BILLING);
-
-        $snapshot = $billing->operationsSnapshot();
-
-        return view('subscription-billing.index', compact('snapshot'));
-    }
-
+    /** Maintenance actions only; they are launched from Finance → Accounting & Entries → Advanced tools (§12.5). */
     public function generateRenewals(Request $request, SubscriptionBillingService $billing): RedirectResponse
     {
         Gate::authorize(Permissions::RUN_SUBSCRIPTION_BILLING);

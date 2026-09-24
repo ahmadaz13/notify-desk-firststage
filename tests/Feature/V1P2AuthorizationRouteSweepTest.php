@@ -50,6 +50,8 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
         'contracts.preview', 'contracts.print', 'contracts.download', 'contracts.download-pdf',
         'clients.payment-receipts.store', 'payment-receipts.cancel',
         'custom-projects.index', 'custom-projects.show', 'clients.custom-projects.index',
+        // P6 Staff operational collections list (§9.7)
+        'collections-due.index',
         'notifications.index', 'notifications.read', 'notifications.read-all',
     ];
 
@@ -88,6 +90,9 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
         'accounting.index', 'accounting.chart-accounts.archive', 'accounting.periods.close', 'accounting.periods.reopen',
         'accounting.backfill', 'accounting.revenue-schedules.backfill', 'accounting.revenue-recognition.run', 'accounting.revenue-recognition.confirm',
         'finance.index', 'finance.export', 'executive.index', 'saas-metrics.index', 'saas-metrics.export',
+        // P6 canonical Finance destinations (§12); the legacy names above are permission-checked redirects
+        'finance.collections', 'finance.expenses', 'finance.accounts', 'finance.accounting',
+        'finance.reports', 'finance.reports.export', 'finance.capital',
         'subscription-billing.index', 'subscription-billing.generate-renewals', 'subscription-billing.backfill-periods',
     ];
 

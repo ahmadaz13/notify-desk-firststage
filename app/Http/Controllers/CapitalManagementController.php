@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\CapitalFundingTransaction;
-use App\Models\FinancialAccount;
 use App\Models\FundingSource;
 use App\Services\CapitalManagementService;
+use App\Services\PaymentFinancialAccountResolver;
+use App\Support\PaymentMethods;
 use App\Support\Permissions;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -23,12 +24,12 @@ class CapitalManagementController extends Controller
     {
         Gate::authorize(Permissions::VIEW_CAPITAL_MANAGEMENT);
 
-        return view('capital-management.index', [
+        return view('finance.capital', [
             'totals' => $this->capital->activeTotals(),
             'fundingSources' => FundingSource::orderByDesc('is_active')->orderBy('name')->get(),
             'activeFundingSources' => FundingSource::active()->get(),
             'fundingTransactions' => CapitalFundingTransaction::with(['fundingSource', 'financialAccount', 'reversal'])->orderByDesc('received_at')->limit(20)->get(),
-            'activeFinancialAccounts' => FinancialAccount::where('is_active', true)->whereNull('archived_at')->orderBy('name_ar')->get(),
+            'paymentMethodOptions' => PaymentMethods::v1Labels(),
         ]);
     }
 
@@ -56,19 +57,22 @@ class CapitalManagementController extends Controller
         return back()->with('success', 'تم أرشفة مصدر التمويل.');
     }
 
-    public function storeFunding(Request $request): RedirectResponse
+    public function storeFunding(Request $request, PaymentFinancialAccountResolver $accounts): RedirectResponse
     {
         Gate::authorize(Permissions::MANAGE_CAPITAL_FUNDING);
+        // V1 (§10.2, §13): the user picks Cash or CliQ; the company account is resolved internally.
         $validated = $request->validate([
             'funding_source_id' => 'nullable|exists:funding_sources,id',
             'source_name' => 'nullable|string|max:255',
             'funding_type' => ['required', Rule::in(CapitalFundingTransaction::TYPES)],
-            'financial_account_id' => 'required|exists:financial_accounts,id',
+            'payment_method' => ['required', 'string', Rule::in(PaymentMethods::v1())],
             'amount' => ['required', 'regex:/^\d+(?:\.\d{1,3})?$/'],
             'received_at' => 'required|date',
             'reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:2000',
         ]);
+        $validated['financial_account_id'] = $accounts->resolve($validated['payment_method'])->id;
+        unset($validated['payment_method']);
         $this->capital->recordCapitalFunding($validated, $request->user());
 
         return back()->with('success', 'تم تسجيل التمويل الرأسمالي.');

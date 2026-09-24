@@ -24,44 +24,72 @@ use Illuminate\Validation\Rule;
 
 class CollectionsController extends Controller
 {
+    public const TABS = ['pending', 'due', 'partial', 'credits', 'payments'];
+
+    /**
+     * Collections & Receivables (§9.6): Owner tabs. Only the active tab's list is loaded; badge counts
+     * come from the pending query and one receivables projection.
+     */
     public function index(Request $request, ReceivableService $receivables)
     {
         Gate::authorize(Permissions::VIEW_FINANCIAL_REPORTS);
 
         $filters = $request->validate([
             'client_id' => 'nullable|integer|exists:clients,id',
-            'due_state' => ['nullable', Rule::in(['all', 'overdue', 'not_due'])],
-            'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date|after_or_equal:date_from',
-            'settlement_state' => ['nullable', Rule::in(['unpaid', 'partially_paid', 'paid'])],
+            'tab' => ['nullable', Rule::in(self::TABS)],
         ]);
-        $filters['due_state'] = ($filters['due_state'] ?? 'all') === 'all' ? null : $filters['due_state'];
+        $clientId = $filters['client_id'] ?? null;
 
-        $outstandingInvoices = $receivables->outstandingInvoices($filters);
-        $overdueInvoices = $receivables->outstandingInvoices(array_merge($filters, ['due_state' => 'overdue']));
-        $partiallyPaidInvoices = $receivables->outstandingInvoices(array_merge($filters, ['settlement_state' => 'partially_paid']));
-        $unallocatedCredits = $receivables->unallocatedCredits($filters);
-        $availableCustomerCredits = $receivables->availableCustomerCredits($filters);
-        $clients = Client::orderBy('business_name')->get(['id', 'business_name']);
-        $pendingReceipts = PaymentReceiptConfirmation::with(['client:id,business_name', 'submitter:id,name'])
+        $pendingQuery = PaymentReceiptConfirmation::query()
             ->pending()
-            ->when($filters['client_id'] ?? null, fn ($query, $clientId) => $query->where('client_id', $clientId))
-            ->orderBy('received_at')
-            ->orderBy('id')
-            ->get();
-        $canApproveReceipts = Gate::allows(Permissions::APPROVE_PAYMENT_RECEIPTS);
+            ->when($clientId, fn ($query) => $query->where('client_id', $clientId));
+        $pendingCount = (clone $pendingQuery)->count();
 
-        return view('collections.index', compact(
-            'pendingReceipts',
-            'canApproveReceipts',
-            'filters',
-            'outstandingInvoices',
-            'overdueInvoices',
-            'partiallyPaidInvoices',
-            'unallocatedCredits',
-            'availableCustomerCredits',
-            'clients'
-        ));
+        $outstanding = $receivables->outstandingInvoices(array_filter(['client_id' => $clientId]));
+        $partial = $outstanding->filter(fn (array $item) => $item['projection']['settlement_status'] === 'partially_paid')->values();
+
+        $tab = $filters['tab'] ?? ($pendingCount > 0 ? 'pending' : 'due');
+
+        $pendingReceipts = $tab === 'pending'
+            ? (clone $pendingQuery)->with(['client:id,business_name', 'submitter:id,name'])->orderBy('created_at')->orderBy('id')->get()
+            : collect();
+        $credits = $tab === 'credits' ? $receivables->availableCustomerCredits(array_filter(['client_id' => $clientId])) : collect();
+        $payments = null;
+        $paymentProjections = collect();
+        if ($tab === 'payments') {
+            $payments = Payment::with(['client:id,business_name', 'reversal'])
+                ->where('payment_engine_version', Payment::ENGINE_V2)
+                ->when($clientId, fn ($query) => $query->where('client_id', $clientId))
+                ->orderByDesc('received_at')
+                ->orderByDesc('id')
+                ->paginate(20)
+                ->withQueryString();
+            $paymentProjections = $receivables->paymentProjections($payments->getCollection());
+        }
+
+        return view('finance.collections', [
+            'tab' => $tab,
+            'clientId' => $clientId,
+            'client' => $clientId ? Client::find($clientId, ['id', 'business_name']) : null,
+            'counts' => [
+                'pending' => $pendingCount,
+                'due' => $outstanding->count(),
+                'partial' => $partial->count(),
+            ],
+            'pendingReceipts' => $pendingReceipts,
+            'dueItems' => $tab === 'due'
+                ? $outstanding->sortBy([
+                    fn (array $a, array $b) => $b['projection']['is_overdue'] <=> $a['projection']['is_overdue'],
+                    fn (array $a, array $b) => $a['invoice']->due_date <=> $b['invoice']->due_date,
+                ])->values()
+                : collect(),
+            'partialItems' => $tab === 'partial' ? $partial : collect(),
+            'credits' => $credits,
+            'payments' => $payments,
+            'paymentProjections' => $paymentProjections,
+            'canApproveReceipts' => Gate::allows(Permissions::APPROVE_PAYMENT_RECEIPTS),
+            'canRecordPayment' => Gate::allows(Permissions::RECORD_PAYMENT),
+        ]);
     }
 
     public function storePayment(

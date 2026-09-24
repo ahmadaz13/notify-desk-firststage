@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AccountingPeriod;
 use App\Models\ChartAccount;
+use App\Models\JournalEntry;
 use App\Models\RevenueRecognitionSchedule;
 use App\Services\AccountingReconciliationService;
 use App\Services\AccountingReportService;
@@ -20,6 +21,12 @@ use Illuminate\View\View;
 
 class AccountingController extends Controller
 {
+    public const TABS = ['accounts', 'journal', 'reconciliation', 'periods', 'recognition'];
+
+    /**
+     * Accounting & Entries (§12.5). Each tab computes only its own data; reconciliation runs only on
+     * its tab. Maintenance operations live in the collapsed Advanced tools panel.
+     */
     public function index(
         AccountingSetupService $setup,
         AccountingReportService $reports,
@@ -30,27 +37,41 @@ class AccountingController extends Controller
         Gate::authorize(Permissions::VIEW_ACCOUNTING);
 
         $setup->ensureSeeded();
-        $accounts = ChartAccount::with('parent')->orderBy('code')->get();
-        $trialBalance = $reports->trialBalance();
-        $journalRegister = $reports->journalRegister();
-        $selectedAccount = $request->integer('account_id')
-            ? ChartAccount::find($request->integer('account_id'))
-            : $accounts->firstWhere('allow_direct_posting', true);
-        $ledger = $selectedAccount ? $reports->ledger($selectedAccount) : collect();
-        $periods = AccountingPeriod::orderByDesc('period_key')->limit(18)->get();
-        $reconciliationResult = $reconciliation->run();
-        $revenueRecognitionDashboard = $revenueRecognition->dashboard();
+        $tab = in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : 'accounts';
+        $data = [];
 
-        return view('accounting.index', compact(
-            'accounts',
-            'trialBalance',
-            'journalRegister',
-            'selectedAccount',
-            'ledger',
-            'periods',
-            'reconciliationResult',
-            'revenueRecognitionDashboard'
-        ));
+        switch ($tab) {
+            case 'accounts':
+                $data['trialBalance'] = $reports->trialBalance();
+                $data['selectedAccount'] = $request->integer('account_id') ? ChartAccount::find($request->integer('account_id')) : null;
+                $data['ledger'] = $data['selectedAccount'] ? $reports->ledger($data['selectedAccount']) : collect();
+                break;
+            case 'journal':
+                $data['entries'] = JournalEntry::query()
+                    ->withSum('lines as total_debit_minor', 'debit_minor')
+                    ->orderByDesc('entry_date')
+                    ->orderByDesc('id')
+                    ->paginate(25)
+                    ->withQueryString();
+                $data['selectedEntry'] = $request->integer('entry')
+                    ? JournalEntry::with(['lines.chartAccount', 'lines.client:id,business_name', 'reversalOf'])->find($request->integer('entry'))
+                    : null;
+                break;
+            case 'reconciliation':
+                $data['reconciliationResult'] = $reconciliation->run();
+                break;
+            case 'periods':
+                $data['periods'] = AccountingPeriod::orderByDesc('period_key')->limit(24)->get();
+                break;
+            case 'recognition':
+                $data['revenueRecognitionDashboard'] = $revenueRecognition->dashboard();
+                break;
+        }
+
+        return view('finance.accounting', $data + [
+            'tab' => $tab,
+            'toolsOpen' => $request->boolean('tools'),
+        ]);
     }
 
     public function archiveAccount(ChartAccount $chartAccount, Request $request): RedirectResponse

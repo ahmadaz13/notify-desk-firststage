@@ -5,20 +5,18 @@
 @endphp
 
 @section('content')
+{{-- P6: canonical /finance/expenses shell; the simplified expense UX is P7. --}}
+<div class="notify-fin notify-fin--legacy-body" data-finance-page="expenses">
+    @include('finance.partials.header', [
+        'active' => 'expenses',
+        'title' => __('notify.finance_hub.sections.expenses'),
+        'subtitle' => __('notify.expenses.subtitle'),
+    ])
+</div>
 <div class="p4-wrap">
     {{-- Header --}}
     <header class="p4-header">
-        <div class="p4-header-main">
-            <div class="p4-eyebrow">{{ __('notify.navigation.finance') }} / {{ __('notify.expenses.title') }}</div>
-            <h1 class="p4-title">{{ __('notify.expenses.title') }}</h1>
-            <p class="p4-subtitle">{{ __('notify.expenses.subtitle') }}</p>
-            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-                <a href="{{ route('finance.index') }}" class="p4-btn p4-btn-soft p4-btn-sm">تقارير الإدارة المالية</a>
-                @if(\App\Support\Features::capitalEnabled())
-                <a href="{{ route('capital-management.index') }}" class="p4-btn p4-btn-soft p4-btn-sm">التمويل والأصول</a>
-                @endif
-            </div>
-        </div>
+        <div class="p4-header-main"></div>
         <div class="p4-header-actions">
             <form method="POST" action="{{ route('recurring-expense-obligations.generate') }}" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
                 @csrf

@@ -241,7 +241,7 @@ class FinancePhaseD1Test extends TestCase
             'created_by' => $admin->id,
         ]);
 
-        $this->actingAs($admin)->get(route('financial-accounts.index'))
+        $this->actingAs($admin)->get(route('finance.accounts'))
             ->assertOk()
             ->assertSee('12.000')
             ->assertSee('3.000')

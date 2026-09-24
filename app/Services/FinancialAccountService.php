@@ -54,6 +54,13 @@ class FinancialAccountService
 
     public function archiveAccount(FinancialAccount $account, ?int $userId): FinancialAccount
     {
+        // Cash Box and CliQ are the mandatory V1 company accounts [FROZEN D-01] and are never archived.
+        if (in_array($account->code, CompanyAccountBootstrapService::V1_CODES, true)) {
+            throw ValidationException::withMessages([
+                'financial_account_id' => __('notify.finance_hub.accounts.cannot_archive_v1'),
+            ]);
+        }
+
         return DB::transaction(function () use ($account, $userId) {
             $account->update([
                 'is_active' => false,

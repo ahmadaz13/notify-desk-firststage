@@ -251,7 +251,8 @@ class Phase1FinancialSafetyTest extends TestCase
             '_idempotency_key' => $idempotencyKey,
             'funding_type' => 'founder_contribution',
             'funding_source_id' => $fundingSource->id,
-            'financial_account_id' => $this->cashAccount->id,
+            // P6 (§10.2, §13): Cash or CliQ; the company account is resolved internally.
+            'payment_method' => 'cash',
             'amount' => '1000.000',
             'received_at' => now()->toDateString(),
             'notes' => 'Test Capital Funding',

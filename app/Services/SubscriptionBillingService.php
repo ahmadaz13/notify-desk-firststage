@@ -592,6 +592,22 @@ class SubscriptionBillingService
         });
     }
 
+    /**
+     * Active subscriptions (any billing engine, including V1 agreed-value ones) whose next billing
+     * (renewal) date falls on or before $through, including ones already due. Read-only; used by the
+     * Finance Overview attention queue.
+     */
+    public function renewalsDueBy(Carbon|string $through): Collection
+    {
+        return Subscription::with('client')
+            ->where('status', 'active')
+            ->whereNotNull('next_billing_date')
+            ->whereDate('next_billing_date', '<=', Carbon::parse($through)->toDateString())
+            ->orderBy('next_billing_date')
+            ->orderBy('id')
+            ->get();
+    }
+
     public function operationsSnapshot(Carbon|string|null $through = null): array
     {
         $today = Carbon::today();

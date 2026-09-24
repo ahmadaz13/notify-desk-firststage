@@ -188,11 +188,14 @@ class FinancePhaseF2Test extends TestCase
         $this->artisan('finance:backfill-saas-metrics')->assertExitCode(0);
         $this->assertSame(1, SubscriptionMetricEvent::count());
 
-        $this->actingAs($admin)->get(route('saas-metrics.index'))->assertOk()->assertSee('مقاييس الاشتراكات والاحتفاظ (SaaS Metrics)');
-        $this->actingAs($admin)->get(route('executive.index'))->assertOk()->assertSee('لوحة القيادة التنفيذية');
-        $export = $this->actingAs($admin)->get(route('saas-metrics.export', ['report' => 'summary']));
+        // P6 (§12, D-16): SaaS metrics live in Financial Reports; old pages redirect there / to the Overview.
+        $this->actingAs($admin)->get(route('saas-metrics.index'))->assertRedirect(route('finance.reports', ['report' => 'subscription-metrics']));
+        $this->actingAs($admin)->get(route('finance.reports', ['report' => 'subscription-metrics']))
+            ->assertOk()
+            ->assertSee(__('notify.finance_hub.overview.saas_title'));
+        $this->actingAs($admin)->get(route('executive.index'))->assertRedirect(route('finance.index'));
+        $export = $this->actingAs($admin)->get(route('finance.reports.export', ['report' => 'subscription-metrics', 'dataset' => 'summary']));
         $export->assertOk();
-        $export->assertDownload('saas-summary.csv');
         $this->assertStringContainsString('MRR', $export->streamedContent());
 
         $this->actingAs($partnerUser)->get(route('saas-metrics.index'))->assertForbidden();
