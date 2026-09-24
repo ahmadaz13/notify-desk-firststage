@@ -14,7 +14,7 @@ class DailyNoteTest extends TestCase
 
     public function test_daily_note_auto_save_creates_record(): void
     {
-        $admin = User::factory()->create(['role' => 'admin', 'name' => 'Ahmad']);
+        $admin = User::factory()->create(['role' => 'founder', 'name' => 'Ahmad']);
 
         $response = $this->actingAs($admin)
             ->putJson(route('daily-notes.save'), [
@@ -39,7 +39,7 @@ class DailyNoteTest extends TestCase
 
     public function test_daily_note_auto_save_updates_existing(): void
     {
-        $admin = User::factory()->create(['role' => 'admin', 'name' => 'Ahmad']);
+        $admin = User::factory()->create(['role' => 'founder', 'name' => 'Ahmad']);
         $today = Carbon::today()->toDateString();
 
         DailyNote::create([
@@ -67,8 +67,8 @@ class DailyNoteTest extends TestCase
 
     public function test_daily_note_is_per_user(): void
     {
-        $ahmad = User::factory()->create(['role' => 'admin', 'name' => 'Ahmad']);
-        $khalid = User::factory()->create(['role' => 'admin', 'name' => 'Khalid']);
+        $ahmad = User::factory()->create(['role' => 'founder', 'name' => 'Ahmad']);
+        $khalid = User::factory()->create(['role' => 'founder', 'name' => 'Khalid']);
         $today = Carbon::today()->toDateString();
 
         $this->actingAs($ahmad)

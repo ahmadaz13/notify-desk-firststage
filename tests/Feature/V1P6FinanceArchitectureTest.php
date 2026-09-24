@@ -57,7 +57,7 @@ class V1P6FinanceArchitectureTest extends TestCase
         app(AccountingSetupService::class)->ensureSeeded();
 
         $this->founder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
-        $this->admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+        $this->admin = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
         $this->staff = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true]);
         $this->client = $this->makeClient('P6 Bakery');
         $this->cashBox = FinancialAccount::where('code', 'CASH-BOX')->firstOrFail();

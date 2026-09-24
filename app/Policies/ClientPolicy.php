@@ -56,7 +56,7 @@ class ClientPolicy
      */
     public function restore(User $user, Client $client): bool
     {
-        return $user->isAdmin();
+        return $user->isOwnerLevelInternalUser();
     }
 
     /**
@@ -64,6 +64,6 @@ class ClientPolicy
      */
     public function forceDelete(User $user, Client $client): bool
     {
-        return $user->isAdmin();
+        return $user->isOwnerLevelInternalUser();
     }
 }

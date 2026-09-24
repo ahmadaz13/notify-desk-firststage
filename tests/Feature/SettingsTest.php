@@ -14,7 +14,7 @@ class SettingsTest extends TestCase
     // P13: four sections (Company & Contracts replaces "Company & Documents"); company names are required.
     public function test_admin_can_view_and_update_company_wide_settings_sections(): void
     {
-        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $admin = User::factory()->create(['role' => User::ROLE_FOUNDER]);
         $this->actingAs($admin)->get(route('settings.index'))
             ->assertOk()
             ->assertSee('الشركة والعقود')

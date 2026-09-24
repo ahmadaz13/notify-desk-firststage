@@ -19,7 +19,7 @@ class Phase01CrmCoreTest extends TestCase
 
     public function test_new_client_defaults_to_prospect_and_keeps_business_fields_separate(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
 
         $response = $this->actingAs($admin)->post(route('clients.store'), [
             'business_name' => 'صيدلية النور',
@@ -62,7 +62,7 @@ class Phase01CrmCoreTest extends TestCase
 
     public function test_all_canonical_lifecycle_stages_are_accepted_and_logged(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->makeClient();
 
         // P3: subscriber and former_subscriber are system-managed (paid-subscription lifecycle only).
@@ -103,7 +103,7 @@ class Phase01CrmCoreTest extends TestCase
 
     public function test_legacy_archived_status_maps_to_closed_and_remains_accessible(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->makeClient([
             'status' => 'archived',
             'stage' => ClientLifecycle::CLOSED,
@@ -126,7 +126,7 @@ class Phase01CrmCoreTest extends TestCase
 
     public function test_client_can_have_multiple_contacts_with_one_primary_contact(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->makeClient();
 
         $this->actingAs($admin)
@@ -158,7 +158,7 @@ class Phase01CrmCoreTest extends TestCase
 
     public function test_contact_outcome_preserves_stage_and_can_create_follow_up(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->makeClient(['stage' => ClientLifecycle::CONTACTING]);
 
         $this->actingAs($admin)
@@ -185,7 +185,7 @@ class Phase01CrmCoreTest extends TestCase
 
     public function test_not_interested_creates_review_without_deleting_or_closing_history(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->makeClient();
 
         Appointment::create([

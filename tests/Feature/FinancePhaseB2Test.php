@@ -54,7 +54,7 @@ class FinancePhaseB2Test extends TestCase
 
     public function test_monthly_v2_subscription_generates_one_next_period_invoice_idempotently_through_invoice_service(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $subscription = $this->startSubscription($admin, $this->createClient(), $this->createPlanWithPrice('b2_monthly', '10.000', PlanPrice::MONTHLY), '2026-01-01');
 
         Carbon::setTestNow('2026-02-01 09:00:00');
@@ -77,7 +77,7 @@ class FinancePhaseB2Test extends TestCase
 
     public function test_annual_renewal_creates_one_annual_invoice_not_twelve(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $subscription = $this->startSubscription($admin, $this->createClient(), $this->createPlanWithPrice('b2_annual', '120.000', PlanPrice::ANNUAL), '2026-01-01');
 
         Carbon::setTestNow('2027-01-01 09:00:00');
@@ -93,7 +93,7 @@ class FinancePhaseB2Test extends TestCase
 
     public function test_future_price_resolution_and_scheduled_plan_change_preserve_current_period_snapshot(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $oldPrice = $this->createPlanWithPrice('b2_price', '10.000', PlanPrice::MONTHLY);
         $subscription = $this->startSubscription($admin, $client, $oldPrice, '2026-01-01');
@@ -131,7 +131,7 @@ class FinancePhaseB2Test extends TestCase
 
     public function test_cancellation_undo_and_reactivation_do_not_rewrite_history(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $price = $this->createPlanWithPrice('b2_cancel', '10.000', PlanPrice::MONTHLY);
         $subscription = $this->startSubscription($admin, $this->createClient(), $price, '2026-01-01');
 
@@ -159,7 +159,7 @@ class FinancePhaseB2Test extends TestCase
 
     public function test_backfill_review_legacy_skip_partner_denial_and_reconciliations(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         [, $partnerUser] = $this->createPartnerUser();
         $subscription = $this->startSubscription($admin, $this->createClient(), $this->createPlanWithPrice('b2_backfill', '10.000', PlanPrice::MONTHLY), '2026-01-01');
         SubscriptionBillingPeriod::where('subscription_id', $subscription->id)->delete();

@@ -44,7 +44,7 @@ class FinancePhaseE2ATest extends TestCase
 
     public function test_invoice_issue_posts_ar_deferred_tax_no_revenue_and_void_reverses(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $invoice = $this->createInvoice($admin, $this->createClient(), 100000, 16000);
         $setup = app(AccountingSetupService::class);
 
@@ -67,7 +67,7 @@ class FinancePhaseE2ATest extends TestCase
 
     public function test_payment_allocation_posts_without_cash_and_reversal_is_exact(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($admin, $client, 100000, 0);
         $account = $this->createFinancialAccount($admin);
@@ -94,7 +94,7 @@ class FinancePhaseE2ATest extends TestCase
 
     public function test_credit_note_issue_application_refund_and_void_accounting(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($admin, $client, 100000, 16000);
         $credit = app(CreditNoteService::class)->createIssued($client, [
@@ -135,7 +135,7 @@ class FinancePhaseE2ATest extends TestCase
 
     public function test_credit_note_void_reverses_and_payment_funded_refund_uses_billing_clearing(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($admin, $client, 50000, 8000);
         $credit = app(CreditNoteService::class)->createIssued($client, [
@@ -175,7 +175,7 @@ class FinancePhaseE2ATest extends TestCase
 
     public function test_historical_credit_note_refund_reclassification_preserves_e1_journal(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $credit = CreditNote::create([
             'credit_note_number' => 'CN-HIST-1',
@@ -224,7 +224,7 @@ class FinancePhaseE2ATest extends TestCase
 
     public function test_billing_reconciliation_backfill_idempotency_and_partner_access(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         [, $partnerUser] = $this->createPartnerUser();
         $client = $this->createClient();
         $invoice = $this->createInvoice($admin, $client, 100000, 16000);

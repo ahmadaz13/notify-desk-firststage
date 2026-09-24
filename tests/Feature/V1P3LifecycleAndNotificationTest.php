@@ -35,7 +35,7 @@ class V1P3LifecycleAndNotificationTest extends TestCase
         Carbon::setTestNow('2026-09-24 10:00:00');
         $this->seed(SettingsSeeder::class);
         $this->founder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
-        $this->admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+        $this->admin = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
         $this->staff = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true]);
     }
 
@@ -227,7 +227,7 @@ class V1P3LifecycleAndNotificationTest extends TestCase
 
     public function test_staff_started_paid_subscription_notifies_active_owner_level_users_once(): void
     {
-        $inactiveAdmin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => false]);
+        $inactiveAdmin = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => false]);
         $client = $this->client(['business_name' => 'Staff Sale Cafe']);
         $system = Product::sellable()->firstOrFail();
         $payload = [

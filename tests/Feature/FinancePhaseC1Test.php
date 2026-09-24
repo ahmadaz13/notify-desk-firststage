@@ -30,7 +30,7 @@ class FinancePhaseC1Test extends TestCase
 
     public function test_v2_payment_stores_exact_fils_and_does_not_create_subscription_or_change_client(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient(['status' => 'prospect', 'stage' => ClientLifecycle::INSTALLED_FREE]);
 
         $this->actingAs($admin)->post(route('clients.collections.payments.store', $client), [
@@ -57,7 +57,7 @@ class FinancePhaseC1Test extends TestCase
 
     public function test_v2_payment_stores_exact_twelve_point_three_seven_five_jod(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
 
         $this->actingAs($admin)->post(route('clients.collections.payments.store', $client), [
@@ -72,7 +72,7 @@ class FinancePhaseC1Test extends TestCase
 
     public function test_payment_can_be_allocated_partially_fully_and_across_invoices(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoiceA = $this->createInvoice($client, 100000, '2026-09-01');
         $invoiceB = $this->createInvoice($client, 50000, '2026-09-02');
@@ -101,7 +101,7 @@ class FinancePhaseC1Test extends TestCase
 
     public function test_allocation_invariants_reject_over_allocation_cross_client_draft_and_voided_invoices(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $clientA = $this->createClient(['business_name' => 'A']);
         $clientB = $this->createClient(['business_name' => 'B', 'phone' => '0791111111']);
         $invoiceA = $this->createInvoice($clientA, 10000, '2026-09-14');
@@ -150,7 +150,7 @@ class FinancePhaseC1Test extends TestCase
 
     public function test_overpayment_remains_unallocated_and_can_later_settle_new_invoice(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoiceA = $this->createInvoice($client, 10000, '2026-09-14');
 
@@ -181,7 +181,7 @@ class FinancePhaseC1Test extends TestCase
 
     public function test_auto_allocation_uses_oldest_due_invoice_and_leaves_remainder_unallocated(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $newer = $this->createInvoice($client, 10000, '2026-09-20');
         $older = $this->createInvoice($client, 10000, '2026-09-01');
@@ -204,7 +204,7 @@ class FinancePhaseC1Test extends TestCase
     public function test_aging_excludes_paid_and_voided_and_ages_remaining_partial_balance(): void
     {
         Carbon::setTestNow('2026-09-14 12:00:00');
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $partial = $this->createInvoice($client, 10000, '2026-08-20');
         $paid = $this->createInvoice($client, 10000, '2026-08-01');
@@ -229,7 +229,7 @@ class FinancePhaseC1Test extends TestCase
 
     public function test_invoice_with_allocation_cannot_be_voided_in_c1(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 10000, '2026-09-14');
 
@@ -253,7 +253,7 @@ class FinancePhaseC1Test extends TestCase
     public function test_partner_cannot_record_allocate_or_view_collections_queue(): void
     {
         [, $partnerUser] = $this->createPartnerUser();
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 10000, '2026-09-14');
 
@@ -281,7 +281,7 @@ class FinancePhaseC1Test extends TestCase
 
     public function test_legacy_payments_remain_readable(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient(['status' => 'subscriber', 'stage' => ClientLifecycle::SUBSCRIBER]);
         $subscriptionId = DB::table('subscriptions')->insertGetId([
             'client_id' => $client->id,

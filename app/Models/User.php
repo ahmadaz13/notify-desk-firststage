@@ -12,19 +12,32 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
+    /*
+     * V1 active roles (owner decision P13.1): Founder and Staff only.
+     *
+     * ROLE_ADMIN is a deferred post-V1 value kept for forward compatibility. In V1 it is not an active
+     * role: it cannot be created or assigned, it is not owner-level, and a user that still carries it is
+     * not an active application user (no sign-in, every application route 403). It never inherits
+     * Founder rights.
+     */
     public const ROLE_FOUNDER = 'founder';
     public const ROLE_ADMIN = 'admin';
     public const ROLE_STAFF = 'staff';
     public const ROLE_EMPLOYEE = 'employee';
 
+    /** New users default to the least-privileged active role (the DB column default is legacy). */
+    protected $attributes = [
+        'role' => self::ROLE_STAFF,
+    ];
+
     public static function ownerLevelRoles(): array
     {
-        return [self::ROLE_FOUNDER, self::ROLE_ADMIN];
+        return [self::ROLE_FOUNDER];
     }
 
     public static function activeInternalRoles(): array
     {
-        return [self::ROLE_FOUNDER, self::ROLE_ADMIN, self::ROLE_STAFF];
+        return [self::ROLE_FOUNDER, self::ROLE_STAFF];
     }
 
     /**
@@ -76,11 +89,16 @@ class User extends Authenticatable
         return $this->role === self::ROLE_FOUNDER;
     }
 
+    /** Owner-level access: the Founder role only in V1. */
     public function isOwnerLevelInternalUser(): bool
     {
-        return in_array($this->role, [self::ROLE_FOUNDER, self::ROLE_ADMIN], true);
+        return in_array($this->role, self::ownerLevelRoles(), true);
     }
 
+    /**
+     * @deprecated Legacy name for "owner-level" (Founder in V1); it does NOT mean role=admin.
+     *             Use isOwnerLevelInternalUser().
+     */
     public function isAdmin(): bool
     {
         return $this->isOwnerLevelInternalUser();
@@ -98,7 +116,7 @@ class User extends Authenticatable
 
     public function isActiveApplicationUser(): bool
     {
-        return $this->is_active !== false && ($this->isAdmin() || $this->isStaff());
+        return $this->is_active !== false && in_array($this->role, self::activeInternalRoles(), true);
     }
 
     /** Directory of profile photos on the public disk (§17). */
@@ -125,7 +143,6 @@ class User extends Authenticatable
         return match ($this->role) {
             self::ROLE_FOUNDER => 'notify.common.role_founder',
             self::ROLE_STAFF => 'notify.common.role_staff',
-            self::ROLE_ADMIN => 'notify.common.role_admin',
             default => 'notify.common.role_guest',
         };
     }

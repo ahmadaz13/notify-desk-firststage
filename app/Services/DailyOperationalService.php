@@ -32,7 +32,7 @@ class DailyOperationalService
         return Cache::remember($cacheKey, 60, function () use ($user, $today, $todayString) {
             // Appointments count: all for admin, or user-attended for non-admin
             $appointmentQuery = Appointment::whereDate('appointment_date', $today);
-            if (!$user->isAdmin()) {
+            if (!$user->isOwnerLevelInternalUser()) {
                 $appointmentQuery->whereHas('users', fn ($q) => $q->where('users.id', $user->id));
             }
             $appointmentsCount = $appointmentQuery->count();

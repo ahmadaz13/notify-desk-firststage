@@ -47,7 +47,7 @@ class FinancePhaseE2BTest extends TestCase
 
     public function test_annual_subscription_creates_twelve_exact_periods_and_uneven_residual_distribution(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         [, $invoice] = $this->startSubscription($admin, 384000, PlanPrice::ANNUAL, 0, '2026-01-01');
         $schedule = RevenueRecognitionSchedule::where('invoice_id', $invoice->id)
             ->where('policy', RevenueRecognitionSchedule::POLICY_SUBSCRIPTION_ANNUAL)
@@ -71,7 +71,7 @@ class FinancePhaseE2BTest extends TestCase
 
     public function test_monthly_recognition_posts_deferred_to_saas_revenue_without_cash_or_ar_and_is_idempotent(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         [, $invoice] = $this->startSubscription($admin, 100000, PlanPrice::MONTHLY, 0, '2026-01-01');
         $setup = app(AccountingSetupService::class);
         $cashBefore = CashMovement::count();
@@ -100,7 +100,7 @@ class FinancePhaseE2BTest extends TestCase
 
     public function test_setup_fee_recognizes_to_one_time_revenue_but_one_time_invoice_requires_confirmation(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         [, $subscriptionInvoice] = $this->startSubscription($admin, 100000, PlanPrice::MONTHLY, 5000, '2026-02-01', $client);
 
@@ -140,7 +140,7 @@ class FinancePhaseE2BTest extends TestCase
 
     public function test_recognition_aware_credit_note_splits_future_deferred_and_recognized_revenue(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         [, $invoice] = $this->startSubscription($admin, 120000, PlanPrice::ANNUAL, 0, '2026-01-01');
         $line = $invoice->lines()->where('line_type', InvoiceLine::TYPE_SUBSCRIPTION)->firstOrFail();
         $this->artisan('finance:recognize-revenue --through=2026-01-31')->assertExitCode(0);
@@ -172,7 +172,7 @@ class FinancePhaseE2BTest extends TestCase
 
     public function test_schedule_backfill_is_idempotent_and_partner_cannot_manage_recognition(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         [, $partnerUser] = $this->createPartnerUser();
         $invoice = $this->directIssuedInvoice($admin, 33333, '2026-03-01', '2026-03-31');
 
@@ -193,7 +193,7 @@ class FinancePhaseE2BTest extends TestCase
     public function test_closed_period_recognition_posts_in_current_open_period_with_original_period_metadata(): void
     {
         Carbon::setTestNow('2026-02-15 10:00:00');
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $this->startSubscription($admin, 50000, PlanPrice::MONTHLY, 0, '2026-01-01');
         $period = AccountingPeriod::firstOrCreate([
             'period_key' => '2026-01',

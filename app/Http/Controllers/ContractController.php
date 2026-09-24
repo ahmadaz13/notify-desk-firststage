@@ -18,7 +18,7 @@ use Throwable;
 
 /**
  * Contract actions (§8.3): Preview and Download PDF for every active user; Issue (plus void/supersede)
- * for Owner/Admin only. No print page, no HTML download, no e-signature.
+ * for Founder (owner-level) only. No print page, no HTML download, no e-signature.
  */
 class ContractController extends Controller
 {

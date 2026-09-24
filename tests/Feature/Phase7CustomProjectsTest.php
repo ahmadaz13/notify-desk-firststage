@@ -37,7 +37,7 @@ class Phase7CustomProjectsTest extends TestCase
 
     public function test_project_lifecycle_uses_exact_minor_units_and_preserves_history(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->client();
 
         $this->actingAs($admin)->post(route('custom-projects.store'), [
@@ -89,7 +89,7 @@ class Phase7CustomProjectsTest extends TestCase
 
     public function test_project_invoice_uses_existing_engine_and_does_not_change_saas_metrics(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->client();
         $otherClient = $this->client('Other Client');
         $project = CustomProject::create([

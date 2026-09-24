@@ -8483,7 +8483,7 @@ form[aria-busy="true"] button[disabled] {
 .notify-admin-roles div { display: grid; gap: 2px; }
 .notify-admin-roles dt { font-weight: 800; color: var(--notify-text); }
 .notify-admin-roles dd { margin: 0; color: var(--notify-muted); font-size: 13.5px; }
-@media (min-width: 768px) { .notify-admin-roles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
+@media (min-width: 768px) { .notify-admin-roles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; } }
 
 /* Administration index: one calm row per destination. */
 .notify-admin-index { display: grid; overflow: hidden; border: 1px solid var(--notify-border); border-radius: var(--radius-md); background: var(--notify-surface); }

@@ -103,7 +103,8 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
     private const OWNERSHIP_SCOPED = ['payment-receipts.cancel'];
 
     private User $founder;
-    private User $admin;
+    /** Second owner-level user: V1 owner-level is Founder only (D-25). */
+    private User $cofounder;
     private User $staff;
     private User $teamTarget;
 
@@ -118,7 +119,7 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
         parent::setUp();
 
         $this->founder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
-        $this->admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+        $this->cofounder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
         $this->staff = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true]);
         $this->teamTarget = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true]);
         // Exercise role gates on capital routes; the OFF-state 404 is covered by the P3 capital gate tests.
@@ -163,7 +164,7 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
 
     public function test_owner_level_users_are_never_forbidden(): void
     {
-        foreach ([$this->founder, $this->admin] as $owner) {
+        foreach ([$this->founder, $this->cofounder] as $owner) {
             $forbidden = [];
             foreach ($this->authenticatedRoutes()->keys()->diff(self::OWNERSHIP_SCOPED) as $name) {
                 if ($this->hit($owner, $name)->baseResponse->getStatusCode() === 403) {
@@ -175,12 +176,28 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
         }
     }
 
+    /** D-25: a user still carrying the deferred Admin role has no access to any application route. */
+    public function test_legacy_admin_role_is_forbidden_on_every_route(): void
+    {
+        $legacyAdmin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+
+        $allowed = [];
+        foreach ($this->authenticatedRoutes()->keys() as $name) {
+            $status = $this->hit($legacyAdmin, $name)->baseResponse->getStatusCode();
+            if ($status !== 403) {
+                $allowed[$name] = $status;
+            }
+        }
+
+        $this->assertSame([], $allowed, 'role=admin reached application routes (route => status).');
+    }
+
     public function test_inactive_owner_is_forbidden_everywhere(): void
     {
-        $this->admin->update(['is_active' => false]);
+        $this->cofounder->update(['is_active' => false]);
 
         foreach (['dashboard', 'collections.index', 'settings.index', 'administration.team'] as $name) {
-            $this->assertSame(403, $this->hit($this->admin, $name)->baseResponse->getStatusCode(), $name);
+            $this->assertSame(403, $this->hit($this->cofounder, $name)->baseResponse->getStatusCode(), $name);
         }
     }
 
@@ -302,7 +319,7 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
         ]);
 
         $subscriptionId = DB::table('subscriptions')->insertGetId([
-            'client_id' => $client->id, 'user_id' => $this->admin->id, 'billing_type' => 'monthly', 'total_price' => 10,
+            'client_id' => $client->id, 'user_id' => $this->cofounder->id, 'billing_type' => 'monthly', 'total_price' => 10,
             'start_date' => $now->toDateString(), 'renewal_date' => $now->copy()->addMonth()->toDateString(),
             'status' => 'active', 'created_at' => $now, 'updated_at' => $now,
         ]);
@@ -314,7 +331,7 @@ class V1P2AuthorizationRouteSweepTest extends TestCase
 
         $project = CustomProject::create([
             'client_id' => $client->id, 'name' => 'Sweep project', 'agreed_value_minor' => 1000,
-            'status' => CustomProject::STATUSES[0], 'created_by' => $this->admin->id,
+            'status' => CustomProject::STATUSES[0], 'created_by' => $this->cofounder->id,
         ]);
         $this->fixtures[CustomProject::class] = $project->id;
 

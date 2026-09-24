@@ -74,7 +74,7 @@ class FinancePhaseE1Test extends TestCase
 
     public function test_journal_posts_exact_minor_units_and_blocks_edit_delete(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $account = $this->createAccount($admin, 'cash_e1_exact', 'Cash E1 Exact', '0.001');
         $journal = JournalEntry::where('event_type', 'opening_balance')->firstOrFail();
 
@@ -89,7 +89,7 @@ class FinancePhaseE1Test extends TestCase
 
     public function test_payment_receipt_refund_and_allocation_e1_billing_clearing_policy(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $account = $this->createAccount($admin, 'cash_billing_clear', 'Cash Billing Clear');
 
@@ -117,7 +117,7 @@ class FinancePhaseE1Test extends TestCase
 
     public function test_transfer_posts_one_journal_and_reversal_is_exact(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $from = $this->createAccount($admin, 'cash_transfer_e1', 'Cash Transfer E1', '100.000');
         $to = $this->createAccount($admin, 'wallet_transfer_e1', 'Wallet Transfer E1', '10.000');
         $openingCount = JournalEntry::count();
@@ -146,8 +146,8 @@ class FinancePhaseE1Test extends TestCase
 
     public function test_company_and_personal_expenses_post_to_cash_or_related_party_and_reverse_exactly(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $payer = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
+        $payer = User::factory()->create(['role' => 'founder']);
         $account = $this->createAccount($admin, 'expense_cash_e1', 'Expense Cash E1', '100.000');
         $category = ExpenseCategory::firstOrFail();
 
@@ -186,7 +186,7 @@ class FinancePhaseE1Test extends TestCase
 
     public function test_trial_balance_reconciliation_backfill_closed_period_and_partner_access(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         [, $partnerUser] = $this->createPartnerUser();
         $account = $this->createAccount($admin, 'reconcile_cash_e1', 'Reconcile Cash E1', '10.000');
 

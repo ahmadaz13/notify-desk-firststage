@@ -30,7 +30,7 @@ class DailyOperationalServiceTest extends TestCase
 
     public function test_today_snapshot_returns_correct_counts(): void
     {
-        $admin = User::factory()->create(['role' => 'admin', 'name' => 'Ahmad']);
+        $admin = User::factory()->create(['role' => 'founder', 'name' => 'Ahmad']);
         $client = Client::create([
             'business_name' => 'مطعم القدس',
             'contact_person' => 'خالد',
@@ -109,8 +109,8 @@ class DailyOperationalServiceTest extends TestCase
 
     public function test_today_snapshot_respects_visibility(): void
     {
-        $ahmad = User::factory()->create(['role' => 'admin', 'name' => 'Ahmad']);
-        $khalid = User::factory()->create(['role' => 'admin', 'name' => 'Khalid']);
+        $ahmad = User::factory()->create(['role' => 'founder', 'name' => 'Ahmad']);
+        $khalid = User::factory()->create(['role' => 'founder', 'name' => 'Khalid']);
         $cat = ExpenseCategory::first();
 
         // Ahmad personal expense: 20
@@ -166,7 +166,7 @@ class DailyOperationalServiceTest extends TestCase
 
     public function test_today_snapshot_accepts_clients_with_referral_metadata(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         Client::create([
             'business_name' => 'عميل إحالة',
             'contact_person' => 'سالم',
@@ -185,7 +185,7 @@ class DailyOperationalServiceTest extends TestCase
 
     public function test_pending_follow_ups_includes_overdue(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = Client::create([
             'business_name' => 'شركة الأفق',
             'contact_person' => 'رامي',

@@ -33,7 +33,7 @@ class DailyOperationsPhase05Test extends TestCase
         parent::setUp();
 
         $this->admin = User::factory()->create([
-            'role' => 'admin',
+            'role' => 'founder',
             'is_active' => true,
         ]);
 

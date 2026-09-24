@@ -59,7 +59,7 @@ class ExampleTest extends TestCase
 
     public function test_authenticated_user_can_view_import_and_notifications(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => User::ROLE_FOUNDER]); // import is Founder-only (D-25)
 
         $this->actingAs($user)
             ->get(route('clients.import'))

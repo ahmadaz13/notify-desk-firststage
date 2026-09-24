@@ -11,8 +11,10 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $now = now();
-        $ahmad = DB::table('users')->insertGetId(['name' => 'Ahmad', 'email' => 'ahmad@example.com', 'password' => Hash::make('password'), 'created_at' => $now, 'updated_at' => $now]);
-        $khalid = DB::table('users')->insertGetId(['name' => 'Khalid', 'email' => 'khalid@example.com', 'password' => Hash::make('password'), 'created_at' => $now, 'updated_at' => $now]);
+        // Demo Founders Ahmad and Khalid (the two Founders of config/founder_accounts.php). V1 roles are
+        // Founder and Staff only (P13.1); the role is explicit so the legacy DB default is never used.
+        $ahmad = DB::table('users')->insertGetId(['name' => 'Ahmad', 'email' => 'ahmad@example.com', 'password' => Hash::make('password'), 'role' => 'founder', 'is_active' => true, 'created_at' => $now, 'updated_at' => $now]);
+        $khalid = DB::table('users')->insertGetId(['name' => 'Khalid', 'email' => 'khalid@example.com', 'password' => Hash::make('password'), 'role' => 'founder', 'is_active' => true, 'created_at' => $now, 'updated_at' => $now]);
         $clients = [
             ['business_name' => 'مخبز السنابل', 'phone' => '079 550 2410', 'contact_person' => 'سامي', 'city_area' => 'عبدون', 'business_category' => 'مخبز', 'lead_source' => 'Google Maps', 'primary_owner_id' => $ahmad, 'status' => 'prospect', 'notes' => 'مهتم بعرض المتجر.'],
             ['business_name' => 'عيادة نبض', 'phone' => '079 331 8922', 'contact_person' => 'د. ليان', 'city_area' => 'الشميساني', 'business_category' => 'عيادة', 'lead_source' => 'Referral', 'primary_owner_id' => $khalid, 'status' => 'subscriber', 'notes' => 'اشتراك شهري فعال.'],

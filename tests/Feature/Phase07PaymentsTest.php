@@ -39,7 +39,7 @@ class Phase07PaymentsTest extends TestCase
         $this->seed(SettingsSeeder::class);
         app(AccountingSetupService::class)->ensureSeeded();
 
-        $this->admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $this->admin = User::factory()->create(['role' => 'founder', 'is_active' => true]);
         $this->staff = User::factory()->create(['role' => 'staff', 'is_active' => true]);
         $this->client = $this->createClient();
     }

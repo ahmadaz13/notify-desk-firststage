@@ -4,6 +4,7 @@
 > **Authority:** This document is the single authoritative V1 implementation contract. Where any other document, comment, test name or prior phase report conflicts with it, this document wins.
 > **Baseline:** branch `codex/human-operations-simplification`, commit `bbcb6cadf3824d33aa491cb5d4a1773b15e0974e`. Audited 2026-09-23. Owner decisions frozen 2026-09-23.
 > **Implementation:** not started. Authorization to implement is given separately.
+> **Owner amendment D-25 (2026-09-25, P13.1) — supersedes the earlier Founder/Admin/Staff active-role model:** V1 has exactly **two active roles: Founder and Staff**. **Admin is a deferred post‑V1 role**: not creatable, not assignable, not owner‑level, and a user still carrying `admin` has no access. Wherever this document says *Owner‑level*, *Owner/Admin*, *Founder/Admin* or lists `admin`, read **Founder**. Staff permissions are unchanged. Do not reintroduce Admin in V1.
 > **Superseded documents (reference only, never implementation sources):** `NOTIFY_DESK_FINAL_ARCHITECTURE_FREEZE_V2.md`, `docs/backend/V1_FINAL_ARCHITECTURE.md`, `docs/architecture/V1_HUMAN_OPERATIONS_*.md`, `docs/PARTNER_ONBOARDING_AR.md`.
 
 **Product principle.** *The human confirms real-world events. Notify Desk automatically performs the resulting operational, financial and accounting consequences.*
@@ -82,6 +83,7 @@ Verified by reading code at the baseline commit.
 | D-22 | Production launches on a fresh database. Real clients are imported only on production after deployment; never into dev/local; not part of seed data. | §31, §33a |
 | D-23 | Minimal Playwright smoke tests for overflow/navigation at critical viewports. | §32 |
 | D-24 | Finance split approved as specified in §12. | §12 |
+| D-25 | **V1 active roles are Founder and Staff only** (owner decision 2026‑09‑25, P13.1; supersedes the Founder/Admin/Staff model). Owner‑level = Founder. Admin is deferred post‑V1: never creatable/assignable, never owner‑level, no access if still present; existing `admin` rows become Staff unless the repository proves an intentional Founder account. Team creation creates Staff only; promotion to Founder is Founder‑only. | §2, §3, §15 |
 
 **Owner decisions remaining: 0.**
 
@@ -100,7 +102,7 @@ Verified by reading code at the baseline commit.
 ## 2. User roles and permissions
 
 ### 2.1 Roles
-`founder`, `admin` (together **Owner‑level**), `staff`. `employee` constant unused. No partner role. Founder and Admin are equal except: only a Founder may change a Founder's role or deactivate a Founder.
+`founder` (**Owner‑level**) and `staff` — the only active V1 roles [D-25]. `admin` is a deferred post‑V1 value: not active, not owner‑level, not creatable or assignable. `employee` constant unused. No partner role. Only a Founder may promote to Founder, change a Founder's role, deactivate/reactivate a Founder or reset a Founder's password. Ordinary team creation creates Staff only.
 
 **Principle:** Staff operates the company; Staff cannot change the company's rules or create authoritative money records.
 

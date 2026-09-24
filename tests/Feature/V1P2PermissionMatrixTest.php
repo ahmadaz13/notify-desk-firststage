@@ -33,7 +33,10 @@ class V1P2PermissionMatrixTest extends TestCase
     ];
 
     private User $founder;
-    private User $admin;
+    /** A second Founder: V1 has two owner-level people, both Founders (D-25). */
+    private User $cofounder;
+    /** Dormant post-V1 role value (D-25): must never receive owner-level or any access. */
+    private User $legacyAdmin;
     private User $staff;
 
     protected function setUp(): void
@@ -42,7 +45,8 @@ class V1P2PermissionMatrixTest extends TestCase
 
         $this->seed(SettingsSeeder::class);
         $this->founder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
-        $this->admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+        $this->cofounder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
+        $this->legacyAdmin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
         $this->staff = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true]);
     }
 
@@ -64,17 +68,40 @@ class V1P2PermissionMatrixTest extends TestCase
         }
     }
 
-    public function test_founder_and_admin_hold_every_permission_and_matrix_covers_all(): void
+    public function test_founder_holds_every_permission_and_matrix_covers_all(): void
     {
         $this->assertEqualsCanonicalizing(Permissions::ALL, array_keys(Permissions::ROLE_MATRIX));
         $this->assertSame(count(Permissions::ALL), count(array_unique(Permissions::ALL)));
 
-        foreach ([$this->founder, $this->admin] as $owner) {
+        foreach ([$this->founder, $this->cofounder] as $owner) {
             $this->assertEqualsCanonicalizing(Permissions::ALL, Permissions::forRole($owner->role));
             foreach (Permissions::ALL as $permission) {
                 $this->assertTrue(Gate::forUser($owner)->allows($permission), "{$owner->role}: {$permission}");
             }
         }
+    }
+
+    public function test_legacy_admin_role_holds_no_permission_and_no_access(): void
+    {
+        // D-25: Admin is deferred post-V1. It is not owner-level and not an active role.
+        $this->assertSame([User::ROLE_FOUNDER], User::ownerLevelRoles());
+        $this->assertSame([User::ROLE_FOUNDER, User::ROLE_STAFF], User::activeInternalRoles());
+        $this->assertSame([], Permissions::forRole(User::ROLE_ADMIN));
+        foreach (Permissions::ROLE_MATRIX as $permission => $roles) {
+            $this->assertNotContains(User::ROLE_ADMIN, $roles, $permission);
+            $this->assertFalse(Gate::forUser($this->legacyAdmin)->allows($permission), $permission);
+        }
+        $this->assertFalse($this->legacyAdmin->isOwnerLevelInternalUser());
+        $this->assertFalse($this->legacyAdmin->isAdmin(), 'isAdmin() is the legacy owner-level check and is false for role=admin.');
+        $this->assertFalse($this->legacyAdmin->isActiveApplicationUser());
+
+        foreach (['dashboard', 'clients.index', 'finance.index', 'settings.index', 'administration.team', 'profile.edit'] as $route) {
+            $this->actingAs($this->legacyAdmin)->get(route($route))->assertForbidden();
+        }
+
+        $this->app['auth']->forgetGuards();
+        $this->post(route('login.store'), ['email' => $this->legacyAdmin->email, 'password' => 'password']);
+        $this->assertGuest();
     }
 
     public function test_gate_registration_mirrors_the_matrix_for_staff(): void
@@ -188,7 +215,7 @@ class V1P2PermissionMatrixTest extends TestCase
         $this->assertSame(500, (int) $client->fresh()->referral_commission_bps);
         $this->assertSame('Sami', $client->fresh()->referred_by_name);
 
-        $this->actingAs($this->admin)->put(route('clients.update', $client->id), $payload)->assertRedirect();
+        $this->actingAs($this->founder)->put(route('clients.update', $client->id), $payload)->assertRedirect();
         $this->assertSame(2500, (int) $client->fresh()->referral_commission_bps);
     }
 
@@ -197,7 +224,7 @@ class V1P2PermissionMatrixTest extends TestCase
         $client = $this->client();
         $project = CustomProject::create([
             'client_id' => $client->id, 'name' => 'Menu redesign', 'agreed_value_minor' => 50000,
-            'status' => CustomProject::STATUSES[0], 'created_by' => $this->admin->id,
+            'status' => CustomProject::STATUSES[0], 'created_by' => $this->founder->id,
         ]);
 
         $this->actingAs($this->staff)->get(route('custom-projects.index'))
@@ -215,7 +242,7 @@ class V1P2PermissionMatrixTest extends TestCase
         $this->actingAs($this->staff)->put(route('custom-projects.update', $project), ['name' => 'Hijack'])->assertForbidden();
         $this->assertSame('Menu redesign', $project->fresh()->name);
 
-        $this->actingAs($this->admin)->get(route('custom-projects.show', $project))
+        $this->actingAs($this->founder)->get(route('custom-projects.show', $project))
             ->assertOk()
             ->assertSee(route('custom-projects.edit', $project), false);
     }
@@ -228,12 +255,13 @@ class V1P2PermissionMatrixTest extends TestCase
         $this->actingAs($this->staff)->post(route('clients.import.confirm'))->assertForbidden();
         $this->actingAs($this->staff)->get(route('clients.import.template', 'prospects'))->assertForbidden();
 
-        $this->actingAs($this->admin)->get(route('clients.import'))->assertOk();
+        $this->actingAs($this->legacyAdmin)->get(route('clients.import'))->assertForbidden();
+        $this->actingAs($this->founder)->get(route('clients.import'))->assertOk();
     }
 
     public function test_only_a_founder_may_change_a_founders_role_or_deactivate_a_founder(): void
     {
-        $otherFounder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
+        $otherFounder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true, 'name' => 'Other Founder']);
         $update = fn (User $member, array $overrides = []) => array_merge([
             'name' => $member->name,
             'email' => $member->email,
@@ -241,48 +269,64 @@ class V1P2PermissionMatrixTest extends TestCase
             'is_active' => '1',
         ], $overrides);
 
-        // Admin: cannot demote, cannot deactivate via edit form, cannot deactivate via action.
-        $this->actingAs($this->admin)->put(route('administration.team.update', $otherFounder->id), $update($otherFounder, ['role' => 'staff']))->assertForbidden();
-        $withoutActive = $update($otherFounder);
-        unset($withoutActive['is_active']);
-        $this->actingAs($this->admin)->put(route('administration.team.update', $otherFounder->id), $withoutActive)->assertForbidden();
-        $this->actingAs($this->admin)->post(route('administration.team.deactivate', $otherFounder->id))->assertForbidden();
+        // Nobody but a Founder reaches a Founder account: Staff and the dormant Admin value are refused.
+        foreach ([$this->staff, $this->legacyAdmin] as $nonFounder) {
+            $this->actingAs($nonFounder)->put(route('administration.team.update', $otherFounder->id), $update($otherFounder, ['role' => 'staff']))->assertForbidden();
+            $withoutActive = $update($otherFounder);
+            unset($withoutActive['is_active']);
+            $this->actingAs($nonFounder)->put(route('administration.team.update', $otherFounder->id), $withoutActive)->assertForbidden();
+            $this->actingAs($nonFounder)->post(route('administration.team.deactivate', $otherFounder->id))->assertForbidden();
+            $this->actingAs($nonFounder)->post(route('administration.team.activate', $otherFounder->id))->assertForbidden();
+            $this->actingAs($nonFounder)->put(route('administration.team.update', $otherFounder->id), $update($otherFounder, ['name' => 'Renamed']))->assertForbidden();
+        }
         $this->assertSame(User::ROLE_FOUNDER, $otherFounder->fresh()->role);
         $this->assertTrue($otherFounder->fresh()->is_active);
+        $this->assertSame('Other Founder', $otherFounder->fresh()->name);
 
-        // Admin may still edit a Founder's non-protected details.
-        $this->actingAs($this->admin)->put(route('administration.team.update', $otherFounder->id), $update($otherFounder, ['name' => 'Renamed']))->assertRedirect(route('administration.team'));
+        // A Founder may edit another Founder's details and manage Staff.
+        $this->actingAs($this->founder)->put(route('administration.team.update', $otherFounder->id), $update($otherFounder, ['name' => 'Renamed']))->assertRedirect(route('administration.team'));
         $this->assertSame('Renamed', $otherFounder->fresh()->name);
-
-        // Admin manages Staff normally.
-        $this->actingAs($this->admin)->post(route('administration.team.deactivate', $this->staff->id))->assertRedirect(route('administration.team'));
+        $this->actingAs($this->founder)->post(route('administration.team.deactivate', $this->staff->id))->assertRedirect(route('administration.team'));
         $this->assertFalse($this->staff->fresh()->is_active);
 
-        // A Founder may deactivate another Founder.
+        // A Founder may deactivate and reactivate another Founder.
         $this->actingAs($this->founder)->post(route('administration.team.deactivate', $otherFounder->id))->assertRedirect(route('administration.team'));
         $this->assertFalse($otherFounder->fresh()->is_active);
+        $this->actingAs($this->founder)->post(route('administration.team.activate', $otherFounder->id))->assertRedirect(route('administration.team'));
+        $this->assertTrue($otherFounder->fresh()->is_active);
     }
 
-    public function test_only_a_founder_may_promote_to_founder(): void
+    public function test_only_a_founder_may_promote_to_founder_and_admin_is_never_assignable(): void
     {
         $payload = fn (User $member, string $role) => [
             'name' => $member->name, 'email' => $member->email, 'role' => $role, 'is_active' => '1',
         ];
-        $anotherAdmin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+        $otherStaff = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true]);
 
-        $this->actingAs($this->admin)->put(route('administration.team.update', $this->staff->id), $payload($this->staff, 'founder'))->assertForbidden();
-        $this->actingAs($this->admin)->put(route('administration.team.update', $anotherAdmin->id), $payload($anotherAdmin, 'founder'))->assertForbidden();
-        $this->assertSame(User::ROLE_STAFF, $this->staff->fresh()->role);
-        $this->assertSame(User::ROLE_ADMIN, $anotherAdmin->fresh()->role);
+        // Non-Founders cannot promote (the dormant Admin value included).
+        $this->actingAs($this->staff)->put(route('administration.team.update', $otherStaff->id), $payload($otherStaff, 'founder'))->assertForbidden();
+        $this->actingAs($this->legacyAdmin)->put(route('administration.team.update', $otherStaff->id), $payload($otherStaff, 'founder'))->assertForbidden();
+        $this->assertSame(User::ROLE_STAFF, $otherStaff->fresh()->role);
 
-        // Team creation never creates a Founder, even for a Founder actor.
-        $this->actingAs($this->admin)->post(route('administration.team.store'), [
-            'name' => 'Z', 'email' => 'z@example.com', 'role' => 'founder', 'password' => 'secret123', 'password_confirmation' => 'secret123',
-        ])->assertSessionHasErrors('role');
-        $this->assertDatabaseMissing('users', ['email' => 'z@example.com']);
+        // Ordinary creation creates Staff only: never a Founder, never Admin (request tampering refused).
+        foreach (['founder', 'admin'] as $tampered) {
+            $this->actingAs($this->founder)->post(route('administration.team.store'), [
+                'name' => 'Z', 'email' => "z-{$tampered}@example.com", 'role' => $tampered, 'password' => 'secret123', 'password_confirmation' => 'secret123',
+            ])->assertSessionHasErrors('role');
+            $this->assertDatabaseMissing('users', ['email' => "z-{$tampered}@example.com"]);
+        }
+        $this->actingAs($this->founder)->post(route('administration.team.store'), [
+            'name' => 'New', 'email' => 'new@example.com', 'password' => 'secret123', 'password_confirmation' => 'secret123',
+        ])->assertRedirect(route('administration.team'));
+        $this->assertSame(User::ROLE_STAFF, User::where('email', 'new@example.com')->sole()->role);
 
-        $this->actingAs($this->founder)->put(route('administration.team.update', $this->staff->id), $payload($this->staff, 'founder'))->assertRedirect(route('administration.team'));
-        $this->assertSame(User::ROLE_FOUNDER, $this->staff->fresh()->role);
+        // Admin cannot be assigned on edit either.
+        $this->actingAs($this->founder)->put(route('administration.team.update', $otherStaff->id), $payload($otherStaff, 'admin'))->assertSessionHasErrors('role');
+        $this->assertSame(User::ROLE_STAFF, $otherStaff->fresh()->role);
+
+        // The Founder promotion workflow: a Founder promotes an existing member through edit.
+        $this->actingAs($this->founder)->put(route('administration.team.update', $otherStaff->id), $payload($otherStaff, 'founder'))->assertRedirect(route('administration.team'));
+        $this->assertSame(User::ROLE_FOUNDER, $otherStaff->fresh()->role);
     }
 
     public function test_only_a_founder_may_reset_a_founders_password(): void
@@ -291,40 +335,37 @@ class V1P2PermissionMatrixTest extends TestCase
         $originalHash = $otherFounder->password;
         $reset = ['password' => 'newsecret1', 'password_confirmation' => 'newsecret1'];
 
-        $this->actingAs($this->admin)->post(route('administration.team.reset-password', $otherFounder->id), $reset)->assertForbidden();
+        $this->actingAs($this->staff)->post(route('administration.team.reset-password', $otherFounder->id), $reset)->assertForbidden();
+        $this->actingAs($this->legacyAdmin)->post(route('administration.team.reset-password', $otherFounder->id), $reset)->assertForbidden();
         $this->assertSame($originalHash, $otherFounder->fresh()->password);
 
         $this->actingAs($this->founder)->post(route('administration.team.reset-password', $otherFounder->id), $reset)->assertRedirect(route('administration.team'));
         $this->assertNotSame($originalHash, $otherFounder->fresh()->password);
     }
 
-    public function test_admin_manages_admin_and_staff_accounts_normally(): void
+    public function test_founder_manages_staff_accounts(): void
     {
-        $anotherAdmin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
         $reset = ['password' => 'newsecret1', 'password_confirmation' => 'newsecret1'];
 
-        $this->actingAs($this->admin)->post(route('administration.team.reset-password', $this->staff->id), $reset)->assertRedirect(route('administration.team'));
-        $this->actingAs($this->admin)->post(route('administration.team.reset-password', $anotherAdmin->id), $reset)->assertRedirect(route('administration.team'));
-
-        $this->actingAs($this->admin)->put(route('administration.team.update', $this->staff->id), [
-            'name' => $this->staff->name, 'email' => $this->staff->email, 'role' => 'admin', 'is_active' => '1',
+        $this->actingAs($this->founder)->post(route('administration.team.reset-password', $this->staff->id), $reset)->assertRedirect(route('administration.team'));
+        $this->actingAs($this->founder)->put(route('administration.team.update', $this->staff->id), [
+            'name' => 'Renamed Staff', 'email' => $this->staff->email, 'role' => 'staff', 'is_active' => '1', 'job_title' => 'Sales',
         ])->assertRedirect(route('administration.team'));
-        $this->assertSame(User::ROLE_ADMIN, $this->staff->fresh()->role);
+        $staff = $this->staff->fresh();
+        $this->assertSame(['Renamed Staff', User::ROLE_STAFF, 'Sales'], [$staff->name, $staff->role, $staff->job_title]);
 
-        $this->actingAs($this->admin)->put(route('administration.team.update', $anotherAdmin->id), [
-            'name' => $anotherAdmin->name, 'email' => $anotherAdmin->email, 'role' => 'staff', 'is_active' => '1',
+        // Returning a Founder to Staff is a Founder-only action.
+        $this->actingAs($this->founder)->put(route('administration.team.update', $this->cofounder->id), [
+            'name' => $this->cofounder->name, 'email' => $this->cofounder->email, 'role' => 'staff', 'is_active' => '1',
         ])->assertRedirect(route('administration.team'));
-        $this->assertSame(User::ROLE_STAFF, $anotherAdmin->fresh()->role);
-
-        $this->actingAs($this->admin)->post(route('administration.team.deactivate', $anotherAdmin->id))->assertRedirect(route('administration.team'));
-        $this->assertFalse($anotherAdmin->fresh()->is_active);
+        $this->assertSame(User::ROLE_STAFF, $this->cofounder->fresh()->role);
     }
 
     public function test_staff_cannot_reach_team_management(): void
     {
         $this->actingAs($this->staff)->get(route('administration.team'))->assertForbidden();
         $this->actingAs($this->staff)->post(route('administration.team.store'), [
-            'name' => 'X', 'email' => 'x@example.com', 'role' => 'admin', 'password' => 'secret123', 'password_confirmation' => 'secret123',
+            'name' => 'X', 'email' => 'x@example.com', 'role' => 'staff', 'password' => 'secret123', 'password_confirmation' => 'secret123',
         ])->assertForbidden();
         $this->assertDatabaseMissing('users', ['email' => 'x@example.com']);
     }

@@ -34,7 +34,7 @@ class FinancePhaseD2ATest extends TestCase
 
     public function test_admin_can_create_v2_company_account_expense_with_exact_cash_outflow(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $category = ExpenseCategory::where('key', 'fuel')->firstOrFail();
         $account = $this->createAccount('expense_cash', 'Expense Cash', '10.000');
         $archived = $this->createAccount('archived_cash', 'Archived Cash', '5.000');
@@ -98,8 +98,8 @@ class FinancePhaseD2ATest extends TestCase
 
     public function test_personal_expense_requires_internal_payer_and_creates_no_cash_movement(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $payer = User::factory()->create(['role' => 'admin', 'name' => 'Khalid']);
+        $admin = User::factory()->create(['role' => 'founder']);
+        $payer = User::factory()->create(['role' => 'founder', 'name' => 'Khalid']);
         $category = ExpenseCategory::where('key', 'hosting')->firstOrFail();
         $vendor = Vendor::create(['name' => 'Cloud Vendor', 'is_active' => true, 'created_by' => $admin->id]);
 
@@ -132,8 +132,8 @@ class FinancePhaseD2ATest extends TestCase
 
     public function test_expense_reversal_is_append_only_and_cash_aware(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $payer = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
+        $payer = User::factory()->create(['role' => 'founder']);
         $category = ExpenseCategory::where('key', 'other')->firstOrFail();
         $account = $this->createAccount('reverse_cash', 'Reverse Cash', '20.000');
         $companyExpense = $this->createCompanyExpense($admin, $category, $account, '4.000');
@@ -170,7 +170,7 @@ class FinancePhaseD2ATest extends TestCase
 
     public function test_categories_and_vendors_are_configurable_and_archived_not_deleted(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $category = ExpenseCategory::where('key', 'office_supplies')->firstOrFail();
         $vendor = Vendor::create(['name' => 'Stationery Vendor', 'is_active' => true, 'created_by' => $admin->id]);
         $account = $this->createAccount('category_cash', 'Category Cash', '10.000');
@@ -202,7 +202,7 @@ class FinancePhaseD2ATest extends TestCase
 
     public function test_recurring_templates_generate_obligations_idempotently_and_do_not_move_cash_until_paid(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $category = ExpenseCategory::where('key', 'internet_communications')->firstOrFail();
         $account = $this->createAccount('recurring_cash', 'Recurring Cash', '100.000');
 
@@ -265,8 +265,8 @@ class FinancePhaseD2ATest extends TestCase
 
     public function test_personal_obligation_skip_cancel_legacy_and_partner_boundaries(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $payer = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
+        $payer = User::factory()->create(['role' => 'founder']);
         $category = ExpenseCategory::where('key', 'software_subscriptions')->firstOrFail();
         $template = RecurringExpenseTemplate::create([
             'name' => 'Software',

@@ -54,9 +54,9 @@ class BackendClosureG3IdentityPermissionsTest extends TestCase
         $this->actingAs($staff)->get(route('settings.index'))->assertForbidden();
     }
 
-    public function test_admin_keeps_approved_high_risk_access(): void
+    public function test_founder_keeps_approved_high_risk_access(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
 
         $this->actingAs($admin)
             ->get(route('commercial-catalog.index'))

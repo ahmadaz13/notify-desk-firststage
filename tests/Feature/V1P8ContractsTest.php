@@ -39,7 +39,7 @@ class V1P8ContractsTest extends TestCase
         Carbon::setTestNow('2026-09-24 10:00:00');
         $this->seed(SettingsSeeder::class);
         $this->founder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true, 'name' => 'Founder P8']);
-        $this->admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+        $this->admin = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
         $this->staff = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true]);
         foreach (['company_address', 'company_phone', 'company_email', 'registration_number', 'company_national_number', 'tax_number', 'authorized_signatory', 'default_contract_terms'] as $key) {
             Setting::set($key, '');

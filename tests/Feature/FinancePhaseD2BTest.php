@@ -58,7 +58,7 @@ class FinancePhaseD2BTest extends TestCase
 
     public function test_admin_can_create_funding_source_and_partner_cannot(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         [, $partnerUser] = $this->createPartnerUser();
 
         $this->actingAs($admin)->post(route('funding-sources.store'), [
@@ -82,7 +82,7 @@ class FinancePhaseD2BTest extends TestCase
 
     public function test_capital_funding_exact_cash_behavior_and_reversal(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         // P6 (§10.2, §13): funding is received by Cash or CliQ and resolved to the V1 company account.
         $account = FinancialAccount::where('code', 'CASH-BOX')->firstOrFail();
         $source = FundingSource::create(['name' => 'Owner', 'type' => FundingSource::TYPE_OWNER, 'is_active' => true, 'created_by' => $admin->id]);
@@ -132,7 +132,7 @@ class FinancePhaseD2BTest extends TestCase
 
     public function test_asset_category_and_company_funded_fixed_asset_cash_behavior(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $account = $this->createAccount('asset_cash', 'Asset Cash', '100.000');
         $archived = $this->createAccount('asset_archived', 'Asset Archived');
         $archived->update(['is_active' => false, 'archived_at' => now()]);
@@ -179,8 +179,8 @@ class FinancePhaseD2BTest extends TestCase
 
     public function test_personally_funded_asset_requires_payer_and_creates_no_cash_movement(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $payer = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
+        $payer = User::factory()->create(['role' => 'founder']);
         $category = AssetCategory::where('code', 'mobile_devices')->firstOrFail();
 
         $service = app(CapitalManagementService::class);
@@ -210,8 +210,8 @@ class FinancePhaseD2BTest extends TestCase
 
     public function test_asset_acquisition_reversal_and_status_are_append_only_and_cash_aware(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $payer = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
+        $payer = User::factory()->create(['role' => 'founder']);
         $account = $this->createAccount('asset_reverse_cash', 'Asset Reverse Cash', '60.000');
         $category = AssetCategory::where('code', 'tools')->firstOrFail();
         $companyAsset = $this->createCompanyAsset($admin, $category, $account, '10.000');
@@ -238,7 +238,7 @@ class FinancePhaseD2BTest extends TestCase
 
     public function test_capital_authority_and_partner_boundaries_hold(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $category = AssetCategory::where('code', 'other')->firstOrFail();
         $account = $this->createAccount('legacy_guard_cash', 'Legacy Guard Cash', '20.000');
 

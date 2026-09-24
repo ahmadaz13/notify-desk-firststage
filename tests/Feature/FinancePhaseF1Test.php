@@ -59,7 +59,7 @@ class FinancePhaseF1Test extends TestCase
 
     public function test_financial_statement_service_uses_accounting_sources_and_reconciles_management_reports(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $this->buildReportingScenario($admin);
         $period = $this->januaryPeriod();
         $service = app(FinancialStatementService::class);
@@ -136,7 +136,7 @@ class FinancePhaseF1Test extends TestCase
 
     public function test_management_dashboard_route_exports_csv_and_keeps_partner_boundary(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         [, $partnerUser] = $this->createPartnerUser();
         $this->buildReportingScenario($admin);
         $query = [
@@ -217,7 +217,7 @@ class FinancePhaseF1Test extends TestCase
 
         $companyCategory = ExpenseCategory::where('key', 'hosting')->firstOrFail();
         $personalCategory = ExpenseCategory::where('key', 'software_subscriptions')->firstOrFail();
-        $payer = User::factory()->create(['role' => 'admin']);
+        $payer = User::factory()->create(['role' => 'founder']);
         app(OperatingExpenseService::class)->createV2Expense([
             'amount' => '15.000',
             'category_id' => $companyCategory->id,

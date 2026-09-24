@@ -50,7 +50,7 @@ class BackendClosureG4AutomationIntegrityTest extends TestCase
     public function test_operational_reminders_are_internal_only_and_idempotent(): void
     {
         $staff = User::factory()->create(['role' => 'staff']);
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $partner = User::factory()->create(['role' => 'partner']);
 
         $appointmentClient = $this->client(['primary_owner_id' => $admin->id, 'stage' => ClientLifecycle::APPOINTMENT]);
@@ -113,7 +113,7 @@ class BackendClosureG4AutomationIntegrityTest extends TestCase
         $this->seed(CommercialCatalogSeeder::class);
         app(AccountingSetupService::class)->ensureSeeded();
 
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $subscription = $this->subscriptionDueForRenewal($admin);
         $invoice = $this->overdueInvoice($admin);
         $reviewSubscription = $this->billingReviewSubscription($admin);
@@ -139,7 +139,7 @@ class BackendClosureG4AutomationIntegrityTest extends TestCase
         $this->seed(CommercialCatalogSeeder::class);
         app(AccountingSetupService::class)->ensureSeeded();
 
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $category = ExpenseCategory::create([
             'name' => 'Internet',
             'key' => 'g4-internet',

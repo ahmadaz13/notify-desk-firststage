@@ -58,7 +58,7 @@ class FinancePhaseF2Test extends TestCase
 
     public function test_canonical_arr_mrr_excludes_setup_tax_one_time_cash_and_uses_aggregate_rounding(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $monthly = $this->startSubscription($admin, $this->createClient(), $this->createPlanWithPrice('f2_monthly', 10000, PlanPrice::MONTHLY, 50000, 1600), '2026-01-01');
         $annual = $this->startSubscription($admin, $this->createClient(), $this->createPlanWithPrice('f2_annual', 120000, PlanPrice::ANNUAL), '2026-01-01');
         $roundA = $this->startSubscription($admin, $this->createClient(), $this->createPlanWithPrice('f2_round_a', 6, PlanPrice::ANNUAL), '2026-01-01');
@@ -85,7 +85,7 @@ class FinancePhaseF2Test extends TestCase
 
     public function test_renewal_movements_classify_expansion_contraction_and_ignore_same_value(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $monthly = $this->createPlanWithPrice('f2_growth', 10000, PlanPrice::MONTHLY);
         $subscription = $this->startSubscription($admin, $this->createClient(), $monthly, '2026-01-01');
 
@@ -129,7 +129,7 @@ class FinancePhaseF2Test extends TestCase
 
     public function test_scheduled_plan_change_and_cancellation_do_not_move_mrr_until_effective_and_reactivation_is_not_new(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $base = $this->createPlanWithPrice('f2_lifecycle_base', 10000, PlanPrice::MONTHLY);
         $upgrade = $this->createPlanWithPrice('f2_lifecycle_upgrade', 30000, PlanPrice::MONTHLY);
         $subscription = $this->startSubscription($admin, $this->createClient(), $base, '2026-01-01');
@@ -157,7 +157,7 @@ class FinancePhaseF2Test extends TestCase
 
     public function test_metrics_equation_counts_retention_backfill_exports_and_partner_boundaries(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         [, $partnerUser] = $this->createPartnerUser();
         $subscription = $this->startSubscription($admin, $this->createClient(), $this->createPlanWithPrice('f2_ops', 10000, PlanPrice::MONTHLY), '2026-01-01');
         $cash = app(FinancialAccountService::class)->createAccount([

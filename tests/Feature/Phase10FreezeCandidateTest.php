@@ -35,7 +35,7 @@ class Phase10FreezeCandidateTest extends TestCase
         app(AccountingSetupService::class)->ensureSeeded();
 
         $this->admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_FOUNDER,
             'is_active' => true,
         ]);
 

@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Contract lifecycle (§8, FROZEN D-10): Draft (no number) → Owner/Admin Issue (number, company block
+ * Contract lifecycle (§8, FROZEN D-10): Draft (no number) → Founder (owner-level) Issue (number, company block
  * and service names captured, snapshot frozen) → PDF → physical signatures.
  *
  * The contract is generated from the client, subscription, subscribed systems, agreed value, payment
@@ -147,7 +147,7 @@ class ContractService
     }
 
     /**
-     * Owner/Admin Issue: exactly once, under a row lock. Re-running on an issued contract returns it unchanged.
+     * Founder (owner-level) Issue: exactly once, under a row lock. Re-running on an issued contract returns it unchanged.
      */
     public function issueContract(Contract $contract, User $actor): Contract
     {

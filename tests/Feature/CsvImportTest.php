@@ -24,7 +24,7 @@ class CsvImportTest extends TestCase
 
     public function test_csv_preview_detects_duplicates_and_invalid(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => User::ROLE_FOUNDER]); // import is Founder-only (D-25)
 
         // Existing client in DB
         DB::table('clients')->insert([
@@ -65,7 +65,7 @@ class CsvImportTest extends TestCase
 
     public function test_csv_confirm_imports_valid_prospects(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => User::ROLE_FOUNDER]); // import is Founder-only (D-25)
 
         $validRows = [
             [
@@ -104,7 +104,7 @@ class CsvImportTest extends TestCase
 
     public function test_csv_confirm_subscriber_type_imports_prospect_without_billing_records(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => User::ROLE_FOUNDER]); // import is Founder-only (D-25)
 
         $validRows = [
             [

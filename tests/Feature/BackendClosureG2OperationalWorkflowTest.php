@@ -18,7 +18,7 @@ class BackendClosureG2OperationalWorkflowTest extends TestCase
 
     public function test_manual_client_creation_starts_as_prospect_with_no_financial_records(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
 
         $this->actingAs($admin)->post(route('clients.store'), [
             'business_name' => 'G2 Prospect',
@@ -40,7 +40,7 @@ class BackendClosureG2OperationalWorkflowTest extends TestCase
 
     public function test_contact_appointment_outcome_creates_real_appointment_and_stage(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->client();
 
         $this->actingAs($admin)->post(route('clients.contact-attempts.store', $client), [
@@ -62,7 +62,7 @@ class BackendClosureG2OperationalWorkflowTest extends TestCase
 
     public function test_callback_later_requires_time_and_excludes_client_from_immediate_queue_until_due(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->client(['stage' => ClientLifecycle::CONTACTING]);
 
         $this->actingAs($admin)
@@ -91,7 +91,7 @@ class BackendClosureG2OperationalWorkflowTest extends TestCase
 
     public function test_no_answer_busy_moves_client_later_in_active_contact_queue(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $first = $this->client(['business_name' => 'First queue client', 'stage' => ClientLifecycle::CONTACTING]);
         $later = $this->client(['business_name' => 'Later queue client', 'phone' => '0799990001', 'stage' => ClientLifecycle::CONTACTING]);
 
@@ -107,7 +107,7 @@ class BackendClosureG2OperationalWorkflowTest extends TestCase
 
     public function test_wrong_invalid_and_not_interested_create_pending_review_items_without_closure(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $wrong = $this->client(['phone' => '0791000001']);
         $notInterested = $this->client(['phone' => '0791000002']);
 
@@ -139,7 +139,7 @@ class BackendClosureG2OperationalWorkflowTest extends TestCase
 
     public function test_reviewed_decline_can_close_and_reopen_preserves_history(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->client(['stage' => ClientLifecycle::DECISION_PENDING]);
 
         $this->actingAs($admin)->patch(route('clients.stage.update', $client), [
@@ -162,7 +162,7 @@ class BackendClosureG2OperationalWorkflowTest extends TestCase
 
     public function test_meeting_completion_can_schedule_installation_without_subscription(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->client(['stage' => ClientLifecycle::APPOINTMENT]);
         $appointment = Appointment::create([
             'client_id' => $client->id,
@@ -194,7 +194,7 @@ class BackendClosureG2OperationalWorkflowTest extends TestCase
 
     public function test_next_action_projection_prioritizes_review_followup_decision_and_active_call(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $reviewClient = $this->client(['phone' => '0792000001']);
         $followUpClient = $this->client(['phone' => '0792000002']);
         $decisionClient = $this->client(['phone' => '0792000003', 'stage' => ClientLifecycle::DECISION_PENDING]);

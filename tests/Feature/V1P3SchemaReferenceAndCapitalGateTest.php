@@ -38,7 +38,7 @@ class V1P3SchemaReferenceAndCapitalGateTest extends TestCase
         parent::setUp();
 
         $this->seed(SettingsSeeder::class);
-        $this->admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+        $this->admin = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
         $this->staff = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true]);
     }
 

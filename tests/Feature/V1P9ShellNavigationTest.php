@@ -36,7 +36,7 @@ class V1P9ShellNavigationTest extends TestCase
 
     private User $founder;
 
-    private User $admin;
+    private User $cofounder;
 
     private User $staff;
 
@@ -44,15 +44,28 @@ class V1P9ShellNavigationTest extends TestCase
     {
         parent::setUp();
         $this->founder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
-        $this->admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+        $this->cofounder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
         $this->staff = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true]);
     }
 
     // ----- Owner navigation -------------------------------------------------
 
+    /** D-25 (P13.1): two navigation experiences only — Founder (owner) and Staff. */
+    public function test_only_founder_and_staff_navigation_experiences_exist(): void
+    {
+        $founderSidebar = $this->destinations($this->sidebar($this->page($this->founder, route('dashboard'))));
+        $staffSidebar = $this->destinations($this->sidebar($this->page($this->staff, route('dashboard'))));
+        $this->assertSame(self::OWNER_SIDEBAR, $founderSidebar);
+        $this->assertNotSame($founderSidebar, $staffSidebar);
+
+        // A user still carrying the deferred Admin value gets no application shell at all.
+        $legacyAdmin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $this->actingAs($legacyAdmin)->get(route('dashboard'))->assertForbidden();
+    }
+
     public function test_owner_sidebar_has_frozen_primary_destinations_and_groups_in_order(): void
     {
-        foreach ([$this->founder, $this->admin] as $owner) {
+        foreach ([$this->founder, $this->cofounder] as $owner) {
             $sidebar = $this->sidebar($this->page($owner, route('dashboard')));
 
             $this->assertSame(self::OWNER_SIDEBAR, $this->destinations($sidebar));

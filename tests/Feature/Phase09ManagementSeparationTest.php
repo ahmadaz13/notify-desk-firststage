@@ -98,9 +98,9 @@ class Phase09ManagementSeparationTest extends TestCase
         $this->assertSame(0, substr_count($staffMobileGrid, 'data-nav-destination="finance"'));
         $this->assertSame(0, substr_count($staffMobileGrid, 'data-nav-destination="work"'));
 
-        // Admin mobile navigation: Exactly 4 items (Today, Clients, Finance, More)
+        // Founder (owner-level) mobile navigation: Exactly 4 items (Today, Clients, Finance, More)
         $admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_FOUNDER,
             'is_active' => true,
         ]);
 

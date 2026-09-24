@@ -22,8 +22,8 @@ class MultiAttendeeAppointmentTest extends TestCase
 
     public function test_appointment_with_multiple_attendees(): void
     {
-        $ahmad = User::factory()->create(['role' => 'admin', 'name' => 'Ahmad']);
-        $khalid = User::factory()->create(['role' => 'admin', 'name' => 'Khalid']);
+        $ahmad = User::factory()->create(['role' => 'founder', 'name' => 'Ahmad']);
+        $khalid = User::factory()->create(['role' => 'founder', 'name' => 'Khalid']);
 
         $client = Client::create([
             'business_name' => 'شركة التقنية الحديثة',
@@ -71,8 +71,8 @@ class MultiAttendeeAppointmentTest extends TestCase
 
     public function test_appointment_attendee_chips_display(): void
     {
-        $ahmad = User::factory()->create(['role' => 'admin', 'name' => 'Ahmad']);
-        $khalid = User::factory()->create(['role' => 'admin', 'name' => 'Khalid']);
+        $ahmad = User::factory()->create(['role' => 'founder', 'name' => 'Ahmad']);
+        $khalid = User::factory()->create(['role' => 'founder', 'name' => 'Khalid']);
 
         $client = Client::create([
             'business_name' => 'سوبرماركت المدينة',
@@ -109,7 +109,7 @@ class MultiAttendeeAppointmentTest extends TestCase
 
     public function test_call_and_whatsapp_links_present_on_client_page(): void
     {
-        $admin = User::factory()->create(['role' => 'admin', 'name' => 'Ahmad']);
+        $admin = User::factory()->create(['role' => 'founder', 'name' => 'Ahmad']);
 
         $client = Client::create([
             'business_name' => 'مخبز الأمانة',

@@ -8,7 +8,8 @@ use App\Models\User;
  * Canonical V1 permission registry and role matrix (§2.2–2.3).
  *
  * The matrix is code, not data: allows() = user active AND role listed for the permission.
- * Owner-level = founder + admin. Staff operates the company but never changes company rules
+ * Owner-level = Founder (V1 roles are Founder and Staff; Admin is deferred post-V1, P13.1).
+ * Staff operates the company but never changes company rules
  * or creates authoritative money records.
  */
 class Permissions
@@ -70,8 +71,9 @@ class Permissions
     public const IMPORT_CLIENTS = 'import_clients';
     public const MANAGE_COMPANY_SETTINGS = 'manage_company_settings';
 
-    private const OWNER = [User::ROLE_FOUNDER, User::ROLE_ADMIN];
-    private const OWNER_AND_STAFF = [User::ROLE_FOUNDER, User::ROLE_ADMIN, User::ROLE_STAFF];
+    // V1 roles (P13.1): owner-level = Founder only. ROLE_ADMIN is deferred post-V1 and grants nothing.
+    private const OWNER = [User::ROLE_FOUNDER];
+    private const OWNER_AND_STAFF = [User::ROLE_FOUNDER, User::ROLE_STAFF];
 
     public const ROLE_MATRIX = [
         self::RECORD_PAYMENT => self::OWNER,

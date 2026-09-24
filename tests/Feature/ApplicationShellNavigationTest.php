@@ -176,7 +176,7 @@ class ApplicationShellNavigationTest extends TestCase
     public function test_header_exposes_persistent_theme_language_and_profile_controls(): void
     {
         // §26 FROZEN D-04: no theme control or theme script; language and profile controls remain.
-        $admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'password' => Hash::make('old-password')]);
+        $admin = User::factory()->create(['role' => User::ROLE_FOUNDER, 'password' => Hash::make('old-password')]);
         $response = $this->actingAs($admin)->withSession(['locale' => 'en'])->get(route('dashboard'))->assertOk();
         $response->assertDontSee('notify_theme', false)
             ->assertDontSee('toggleTheme', false)

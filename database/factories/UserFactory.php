@@ -29,7 +29,8 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            'role' => 'admin',
+            // Least-privileged active V1 role (P13.1); owner-level tests ask for ROLE_FOUNDER explicitly.
+            'role' => 'staff',
         ];
     }
 

@@ -41,7 +41,7 @@ class ContractPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isAdmin();
+        return $user->isOwnerLevelInternalUser();
     }
 
     /**

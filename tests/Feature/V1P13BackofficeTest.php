@@ -41,7 +41,7 @@ class V1P13BackofficeTest extends TestCase
 
     private User $founder;
 
-    private User $admin;
+    private User $cofounder;
 
     private User $staff;
 
@@ -50,7 +50,8 @@ class V1P13BackofficeTest extends TestCase
         parent::setUp();
         Carbon::setTestNow(Carbon::parse('2026-09-24 10:00:00', 'Asia/Amman'));
         $this->founder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true, 'name' => 'Founder One']);
-        $this->admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true, 'name' => 'Admin Amal']);
+        // V1 owner-level users are Founders only (D-25); a second Founder for owner scenarios.
+        $this->cofounder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true, 'name' => 'Co Founder']);
         $this->staff = User::factory()->create(['role' => User::ROLE_STAFF, 'is_active' => true, 'name' => 'Staff Sara']);
     }
 
@@ -123,22 +124,22 @@ class V1P13BackofficeTest extends TestCase
         $payload = fn (Product $p, array $extra = []) => array_merge(['name_ar' => $p->name_ar, 'name_en' => $p->name_en, 'is_active' => '1'], $extra);
 
         // Omitted → unchanged (a normal edit can never silently switch it off).
-        $this->actingAs($this->admin)->patch(route('commercial-catalog.products.update', $smartLink), $payload($smartLink))->assertSessionHasNoErrors();
+        $this->actingAs($this->cofounder)->patch(route('commercial-catalog.products.update', $smartLink), $payload($smartLink))->assertSessionHasNoErrors();
         $this->assertTrue($smartLink->fresh()->requires_credentials);
 
         // Switching on is allowed.
-        $this->actingAs($this->admin)->patch(route('commercial-catalog.products.update', $autoSms), $payload($autoSms, ['requires_credentials' => '1']))->assertSessionHasNoErrors();
+        $this->actingAs($this->cofounder)->patch(route('commercial-catalog.products.update', $autoSms), $payload($autoSms, ['requires_credentials' => '1']))->assertSessionHasNoErrors();
         $this->assertTrue($autoSms->fresh()->requires_credentials);
 
         // Switching off is refused while a client has saved credentials for the System.
         $client = $this->client('Cred Client');
-        (new ClientSystemCredential)->forceFill(['client_id' => $client->id, 'product_id' => $smartLink->id, 'username' => 'u', 'secret' => 'S3cret!', 'created_by' => $this->admin->id])->save();
-        $this->actingAs($this->admin)->patch(route('commercial-catalog.products.update', $smartLink), $payload($smartLink, ['requires_credentials' => '0']))
+        (new ClientSystemCredential)->forceFill(['client_id' => $client->id, 'product_id' => $smartLink->id, 'username' => 'u', 'secret' => 'S3cret!', 'created_by' => $this->cofounder->id])->save();
+        $this->actingAs($this->cofounder)->patch(route('commercial-catalog.products.update', $smartLink), $payload($smartLink, ['requires_credentials' => '0']))
             ->assertSessionHasErrors('requires_credentials');
         $this->assertTrue($smartLink->fresh()->requires_credentials);
 
         // Without saved credentials it can be switched off.
-        $this->actingAs($this->admin)->patch(route('commercial-catalog.products.update', $autoSms), $payload($autoSms, ['requires_credentials' => '0']))->assertSessionHasNoErrors();
+        $this->actingAs($this->cofounder)->patch(route('commercial-catalog.products.update', $autoSms), $payload($autoSms, ['requires_credentials' => '0']))->assertSessionHasNoErrors();
         $this->assertFalse($autoSms->fresh()->requires_credentials);
 
         $this->actingAs($this->staff)->patch(route('commercial-catalog.products.update', $autoSms), $payload($autoSms, ['requires_credentials' => '1']))->assertForbidden();
@@ -154,7 +155,7 @@ class V1P13BackofficeTest extends TestCase
 
     public function test_administration_index_is_orientation_only(): void
     {
-        $response = $this->actingAs($this->admin)->get(route('administration.index'))->assertOk();
+        $response = $this->actingAs($this->cofounder)->get(route('administration.index'))->assertOk();
         foreach (['systems', 'team', 'reference-data', 'import', 'settings'] as $key) {
             $response->assertSee('data-admin-destination="'.$key.'"', false);
         }
@@ -166,52 +167,66 @@ class V1P13BackofficeTest extends TestCase
 
     // ---------------------------------------------------------------- Team & Roles
 
-    public function test_team_page_does_not_offer_forbidden_founder_actions(): void
+    /** D-25 (P13.1): the page presents two roles, Founder and Staff; Admin is not an active V1 role. */
+    public function test_team_page_presents_founder_and_staff_only(): void
     {
-        $response = $this->actingAs($this->admin)->get(route('administration.team'))->assertOk();
+        $response = $this->actingAs($this->founder)->get(route('administration.team'))->assertOk();
         $html = $response->getContent();
 
-        $response->assertSee('data-team-member="'.$this->founder->id.'"', false)
-            ->assertDontSee('data-team-reset="'.$this->founder->id.'"', false)
-            ->assertDontSee('data-team-deactivate="'.$this->founder->id.'"', false)
+        // Role legend: exactly Founder and Staff, with the V1 descriptions; no Admin copy anywhere.
+        $legend = substr($html, strpos($html, 'id="team-roles-title"'), 1500);
+        $this->assertSame(2, substr_count($legend, '<dt>'));
+        $this->assertStringContainsString(__('notify.team.roles.founder'), $legend);
+        $this->assertStringContainsString(__('notify.team.roles.staff'), $legend);
+        $this->assertStringContainsString(__('notify.team.role_descriptions.founder'), $legend);
+        $response->assertDontSee('value="admin"', false)->assertDontSee('مدير النظام')->assertDontSee('>مدير<', false);
+        $this->actingAs($this->founder)->withSession(['locale' => 'en'])->get(route('administration.team'))->assertOk()
+            ->assertDontSee('Admin</', false)->assertDontSee('Administrator')->assertSee('Founder')->assertSee('Staff');
+
+        // Add member: Staff only, no role picker.
+        $add = substr($html, strpos($html, 'id="team-add"'), 5000);
+        $this->assertStringContainsString('data-add-role-staff', $add);
+        $this->assertStringNotContainsString('name="role"', $add);
+
+        // Edit Staff: a Founder may keep Staff or promote to Founder — nothing else.
+        $staffSheet = substr($html, strpos($html, 'id="team-edit-'.$this->staff->id.'"'), 7000);
+        preg_match_all('/name="role" value="([a-z]+)"/', $staffSheet, $roles);
+        $this->assertSame(['founder', 'staff'], $roles[1]);
+
+        // Another Founder: full Founder-only actions for a Founder actor.
+        $response->assertSee('data-team-reset="'.$this->cofounder->id.'"', false)
+            ->assertSee('data-team-deactivate="'.$this->cofounder->id.'"', false)
             ->assertSee('data-team-reset="'.$this->staff->id.'"', false)
-            ->assertSee('data-team-deactivate="'.$this->staff->id.'"', false)
-            ->assertDontSee('id="team-password-'.$this->founder->id.'"', false);
+            ->assertSee('data-team-deactivate="'.$this->staff->id.'"', false);
 
-        // Add sheet never offers Founder; an Admin's role choices never include Founder.
-        $add = substr($html, strpos($html, 'id="team-add"'), 4000);
-        $this->assertStringNotContainsString('value="founder"', $add);
-        $staffSheet = substr($html, strpos($html, 'id="team-edit-'.$this->staff->id.'"'), 6000);
-        $this->assertStringNotContainsString('name="role" value="founder" required', $staffSheet);
-        $founderSheet = substr($html, strpos($html, 'id="team-edit-'.$this->founder->id.'"'), 6000);
-        $this->assertStringContainsString('data-role-readonly', $founderSheet);
+        // Yourself: no deactivate, role read-only.
+        $response->assertDontSee('data-team-deactivate="'.$this->founder->id.'"', false);
+        $ownSheet = substr($html, strpos($html, 'id="team-edit-'.$this->founder->id.'"'), 7000);
+        $this->assertStringContainsString('data-role-readonly', $ownSheet);
 
-        // A Founder sees the full set for another Founder.
-        $other = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => true]);
-        $this->actingAs($this->founder)->get(route('administration.team'))
-            ->assertSee('data-team-reset="'.$other->id.'"', false)
-            ->assertSee('data-team-deactivate="'.$other->id.'"', false);
-
-        $this->actingAs($this->admin)->get(route('administration.team.create'))->assertOk()->assertSee('data-sheet-reopen', false);
+        $this->actingAs($this->founder)->get(route('administration.team.create'))->assertOk()->assertSee('data-sheet-reopen', false);
         $this->actingAs($this->staff)->get(route('administration.team'))->assertForbidden();
     }
 
     public function test_team_members_have_work_fields_and_founder_activation_stays_protected(): void
     {
-        $this->actingAs($this->admin)->post(route('administration.team.store'), [
-            'name' => 'New Staff', 'email' => 'new.staff@example.test', 'role' => 'staff', 'phone' => '0790001122', 'job_title' => 'Field sales',
+        $this->actingAs($this->founder)->post(route('administration.team.store'), [
+            'name' => 'New Staff', 'email' => 'new.staff@example.test', 'phone' => '0790001122', 'job_title' => 'Field sales',
             'password' => 'secret-pass-1', 'password_confirmation' => 'secret-pass-1',
         ])->assertRedirect(route('administration.team'));
         $member = User::where('email', 'new.staff@example.test')->sole();
         $this->assertSame(['staff', '0790001122', 'Field sales', true], [$member->role, $member->phone, $member->job_title, $member->is_active]);
 
-        $this->actingAs($this->admin)->post(route('administration.team.deactivate', $member->id))->assertRedirect(route('administration.team'));
+        $this->actingAs($this->founder)->post(route('administration.team.deactivate', $member->id))->assertRedirect(route('administration.team'));
         $this->assertFalse($member->fresh()->is_active);
-        $this->actingAs($this->admin)->post(route('administration.team.activate', $member->id))->assertRedirect(route('administration.team'));
+        $this->actingAs($this->founder)->post(route('administration.team.activate', $member->id))->assertRedirect(route('administration.team'));
         $this->assertTrue($member->fresh()->is_active);
 
+        // Reactivating a Founder is Founder-only: Staff and the dormant Admin value are refused.
         $inactiveFounder = User::factory()->create(['role' => User::ROLE_FOUNDER, 'is_active' => false]);
-        $this->actingAs($this->admin)->post(route('administration.team.activate', $inactiveFounder->id))->assertForbidden();
+        $legacyAdmin = User::factory()->create(['role' => User::ROLE_ADMIN, 'is_active' => true]);
+        $this->actingAs($this->staff)->post(route('administration.team.activate', $inactiveFounder->id))->assertForbidden();
+        $this->actingAs($legacyAdmin)->post(route('administration.team.activate', $inactiveFounder->id))->assertForbidden();
         $this->assertFalse($inactiveFounder->fresh()->is_active);
         $this->actingAs($this->founder)->post(route('administration.team.activate', $inactiveFounder->id))->assertRedirect(route('administration.team'));
         $this->assertTrue($inactiveFounder->fresh()->is_active);
@@ -221,16 +236,28 @@ class V1P13BackofficeTest extends TestCase
 
     public function test_editing_yourself_never_deactivates_or_demotes_you(): void
     {
-        $base = ['name' => 'Admin Amal', 'email' => $this->admin->email, 'role' => 'admin'];
+        $base = ['name' => 'Co Founder', 'email' => $this->cofounder->email, 'role' => 'founder'];
 
-        $this->actingAs($this->admin)->from(route('administration.team'))->put(route('administration.team.update', $this->admin->id), $base)
+        $this->actingAs($this->cofounder)->from(route('administration.team'))->put(route('administration.team.update', $this->cofounder->id), $base)
             ->assertSessionHasErrors('is_active');
-        $this->assertTrue($this->admin->fresh()->is_active);
+        $this->assertTrue($this->cofounder->fresh()->is_active);
 
-        $this->actingAs($this->admin)->put(route('administration.team.update', $this->admin->id), $base + ['is_active' => '1', 'job_title' => 'Operations lead'])
+        $this->actingAs($this->cofounder)->from(route('administration.team'))->put(route('administration.team.update', $this->cofounder->id), ['role' => 'staff', 'is_active' => '1'] + $base)
+            ->assertSessionHasErrors('role');
+        $this->assertSame(User::ROLE_FOUNDER, $this->cofounder->fresh()->role);
+
+        $this->actingAs($this->cofounder)->put(route('administration.team.update', $this->cofounder->id), $base + ['is_active' => '1', 'job_title' => 'Operations lead'])
             ->assertRedirect(route('administration.team'));
-        $this->assertSame('Operations lead', $this->admin->fresh()->job_title);
-        $this->assertTrue($this->admin->fresh()->is_active);
+        $this->assertSame('Operations lead', $this->cofounder->fresh()->job_title);
+        $this->assertTrue($this->cofounder->fresh()->is_active);
+    }
+
+    /** D-25: Profile shows the actual V1 role (Founder or Staff), read-only. */
+    public function test_profile_shows_the_v1_role_label(): void
+    {
+        $this->actingAs($this->founder)->get(route('profile.edit'))->assertOk()->assertSee(__('notify.team.roles.founder'))->assertDontSee('مدير النظام');
+        $this->actingAs($this->staff)->get(route('profile.edit'))->assertOk()->assertSee(__('notify.team.roles.staff'));
+        $this->actingAs($this->founder)->withSession(['locale' => 'en'])->get(route('profile.edit'))->assertOk()->assertSee('Founder')->assertDontSee('Administrator');
     }
 
     // ---------------------------------------------------------------- Reference data
@@ -256,14 +283,14 @@ class V1P13BackofficeTest extends TestCase
 
     public function test_business_types_are_managed_and_deactivation_keeps_history_renderable(): void
     {
-        $this->actingAs($this->admin)->post(route('administration.reference-data.store'), [
+        $this->actingAs($this->cofounder)->post(route('administration.reference-data.store'), [
             'list_key' => ReferenceDataService::CLIENT_CATEGORY, 'label_ar' => 'صالونات', 'label_en' => 'Salons',
         ])->assertSessionHasNoErrors();
         $salons = ReferenceOption::where('list_key', 'client_category')->where('value', 'Salons')->sole();
         $this->assertTrue($salons->is_active);
 
         // Duplicate names are refused (reactivate instead).
-        $this->actingAs($this->admin)->post(route('administration.reference-data.store'), [
+        $this->actingAs($this->cofounder)->post(route('administration.reference-data.store'), [
             'list_key' => ReferenceDataService::CLIENT_CATEGORY, 'label_ar' => 'صالونات 2', 'label_en' => 'salons',
         ])->assertSessionHasErrors('label_ar');
 
@@ -271,13 +298,13 @@ class V1P13BackofficeTest extends TestCase
         $restaurants = ReferenceOption::where('list_key', 'client_category')->where('value', 'Restaurants')->sole();
 
         // Relabel keeps the stored value; the workspace shows the localized label.
-        $this->actingAs($this->admin)->patch(route('administration.reference-data.update', $restaurants), ['label_ar' => 'مطاعم ومقاهي', 'label_en' => 'Restaurants & cafés', 'sort_order' => 5])
+        $this->actingAs($this->cofounder)->patch(route('administration.reference-data.update', $restaurants), ['label_ar' => 'مطاعم ومقاهي', 'label_en' => 'Restaurants & cafés', 'sort_order' => 5])
             ->assertSessionHasNoErrors();
         $this->assertSame('Restaurants', $restaurants->fresh()->value);
         $this->actingAs($this->staff)->get(route('clients.show', $historical))->assertOk()->assertSee('مطاعم ومقاهي')->assertSee('خرائط Google');
 
         // Deactivated: not offered for new clients, still selectable/renderable on the historical client.
-        $this->actingAs($this->admin)->post(route('administration.reference-data.active', $restaurants), ['active' => '0'])->assertSessionHasNoErrors();
+        $this->actingAs($this->cofounder)->post(route('administration.reference-data.active', $restaurants), ['active' => '0'])->assertSessionHasNoErrors();
         $this->assertFalse($restaurants->fresh()->is_active);
         $this->actingAs($this->staff)->get(route('clients.create'))->assertOk()
             ->assertDontSee('<option value="Restaurants"', false)
@@ -292,7 +319,7 @@ class V1P13BackofficeTest extends TestCase
         $this->assertFalse(method_exists(\App\Http\Controllers\ClientController::class, 'leadSourceOptions'));
         $this->assertFalse(defined(\App\Support\ClientLifecycle::class.'::SOURCE_TYPES'));
 
-        $this->actingAs($this->admin)->post(route('administration.reference-data.store'), [
+        $this->actingAs($this->cofounder)->post(route('administration.reference-data.store'), [
             'list_key' => ReferenceDataService::LEAD_SOURCE, 'label_ar' => 'تيك توك', 'label_en' => 'TikTok',
         ])->assertSessionHasNoErrors();
 
@@ -303,7 +330,7 @@ class V1P13BackofficeTest extends TestCase
 
     public function test_city_area_is_suggestions_plus_free_text(): void
     {
-        $this->actingAs($this->admin)->post(route('administration.reference-data.store'), [
+        $this->actingAs($this->cofounder)->post(route('administration.reference-data.store'), [
             'list_key' => ReferenceDataService::CITY_AREA, 'label_ar' => 'عبدون',
         ])->assertSessionHasNoErrors();
         $option = ReferenceOption::where('list_key', 'city_area')->sole();
@@ -312,7 +339,7 @@ class V1P13BackofficeTest extends TestCase
         $this->actingAs($this->staff)->get(route('clients.create'))->assertOk()->assertSee('<option value="عبدون"></option>', false);
 
         // Editing a suggestion changes future suggestions only.
-        $this->actingAs($this->admin)->patch(route('administration.reference-data.update', $option), ['label_ar' => 'عبدون الشمالي'])->assertSessionHasNoErrors();
+        $this->actingAs($this->cofounder)->patch(route('administration.reference-data.update', $option), ['label_ar' => 'عبدون الشمالي'])->assertSessionHasNoErrors();
         $this->assertSame('عبدون الشمالي', $option->fresh()->value);
 
         // Free text still works for any area.
@@ -327,7 +354,7 @@ class V1P13BackofficeTest extends TestCase
 
     public function test_settings_page_has_four_sections_no_theme_and_is_owner_only(): void
     {
-        $response = $this->actingAs($this->admin)->withSession(['locale' => 'en'])->get(route('settings.index'))->assertOk();
+        $response = $this->actingAs($this->cofounder)->withSession(['locale' => 'en'])->get(route('settings.index'))->assertOk();
         foreach (['company', 'operations', 'subscriptions', 'features'] as $section) {
             $response->assertSee('data-settings-section="'.$section.'"', false);
         }
@@ -341,7 +368,7 @@ class V1P13BackofficeTest extends TestCase
 
     public function test_company_settings_are_read_by_the_contract_authority(): void
     {
-        $this->actingAs($this->admin)->put(route('settings.update'), $this->settingsPayload([
+        $this->actingAs($this->cofounder)->put(route('settings.update'), $this->settingsPayload([
             'company_name_ar' => 'نوتيفاي للحلول', 'company_name_en' => 'Notify Solutions', 'company_phone' => '065000000',
             'company_email' => 'hello@notify.test', 'company_address' => 'Amman', 'tax_number' => 'TX-1', 'registration_number' => '',
             'authorized_signatory' => 'Ahmad', 'contract_prefix' => 'NDC',
@@ -371,10 +398,10 @@ class V1P13BackofficeTest extends TestCase
         ];
 
         foreach ($cases as $field => $overrides) {
-            $this->actingAs($this->admin)->put(route('settings.update'), $this->settingsPayload($overrides))->assertSessionHasErrors($field);
+            $this->actingAs($this->cofounder)->put(route('settings.update'), $this->settingsPayload($overrides))->assertSessionHasErrors($field);
         }
 
-        $this->actingAs($this->admin)->put(route('settings.update'), $this->settingsPayload(['workday_start' => '08:00', 'workday_end' => '16:30', 'appointment_duration' => 45]))
+        $this->actingAs($this->cofounder)->put(route('settings.update'), $this->settingsPayload(['workday_start' => '08:00', 'workday_end' => '16:30', 'appointment_duration' => 45]))
             ->assertSessionHasNoErrors();
         $this->assertSame(['08:00', '16:30', '45'], [Setting::get('workday_start'), Setting::get('workday_end'), Setting::get('appointment_duration')]);
     }
@@ -463,14 +490,14 @@ class V1P13BackofficeTest extends TestCase
     public function test_capital_flag_keeps_route_level_enforcement(): void
     {
         $this->assertFalse(Features::capitalEnabled());
-        $this->actingAs($this->admin)->get(route('finance.capital'))->assertNotFound();
+        $this->actingAs($this->cofounder)->get(route('finance.capital'))->assertNotFound();
 
-        $this->actingAs($this->admin)->put(route('settings.update'), $this->settingsPayload(['feature_capital_financing' => '1']))->assertSessionHasNoErrors();
+        $this->actingAs($this->cofounder)->put(route('settings.update'), $this->settingsPayload(['feature_capital_financing' => '1']))->assertSessionHasNoErrors();
         $this->assertTrue(Features::capitalEnabled());
-        $this->actingAs($this->admin)->get(route('finance.capital'))->assertOk();
+        $this->actingAs($this->cofounder)->get(route('finance.capital'))->assertOk();
 
-        $this->actingAs($this->admin)->put(route('settings.update'), $this->settingsPayload(['feature_capital_financing' => '0']))->assertSessionHasNoErrors();
-        $this->actingAs($this->admin)->get(route('finance.capital'))->assertNotFound();
+        $this->actingAs($this->cofounder)->put(route('settings.update'), $this->settingsPayload(['feature_capital_financing' => '0']))->assertSessionHasNoErrors();
+        $this->actingAs($this->cofounder)->get(route('finance.capital'))->assertNotFound();
     }
 
     // ---------------------------------------------------------------- Profile
@@ -539,7 +566,7 @@ class V1P13BackofficeTest extends TestCase
             $mine[] = $appointment;
         }
         $theirs = $this->appointment($this->client('Other Client'), '2026-09-24', '10:30:00');
-        $theirs->users()->attach($this->admin->id);
+        $theirs->users()->attach($this->cofounder->id);
 
         $expected = app(CompletedWorkService::class)->forUser($this->staff, Carbon::now('Asia/Amman'))['total'];
         $this->assertSame(1, $expected);
@@ -560,37 +587,37 @@ class V1P13BackofficeTest extends TestCase
 
     public function test_project_can_exist_without_a_client_but_cannot_be_invoiced(): void
     {
-        $this->actingAs($this->admin)->post(route('custom-projects.store'), [
+        $this->actingAs($this->cofounder)->post(route('custom-projects.store'), [
             'name' => 'Brand website', 'status' => 'planned', 'agreed_value_jod' => '750.500',
         ])->assertSessionHasNoErrors();
         $project = CustomProject::where('name', 'Brand website')->sole();
         $this->assertNull($project->client_id);
         $this->assertSame(750500, $project->agreed_value_minor);
 
-        $this->actingAs($this->admin)->get(route('custom-projects.show', $project))->assertOk()
+        $this->actingAs($this->cofounder)->get(route('custom-projects.show', $project))->assertOk()
             ->assertSee('data-invoice-needs-client', false)
             ->assertDontSee('id="project-invoice"', false)
             ->assertDontSee('data-project-invoice-open', false);
-        $this->actingAs($this->admin)->get(route('custom-projects.index'))->assertOk()->assertSee('data-no-client', false);
+        $this->actingAs($this->cofounder)->get(route('custom-projects.index'))->assertOk()->assertSee('data-no-client', false);
     }
 
     public function test_linking_a_client_writes_activity_enables_the_existing_invoice_flow_and_stays_outside_mrr(): void
     {
         $client = $this->client('Project Client', ['stage' => ClientLifecycle::SUBSCRIBER, 'status' => 'subscriber']);
-        $project = CustomProject::create(['name' => 'Menu redesign', 'status' => 'active', 'agreed_value_minor' => 200000, 'created_by' => $this->admin->id]);
+        $project = CustomProject::create(['name' => 'Menu redesign', 'status' => 'active', 'agreed_value_minor' => 200000, 'created_by' => $this->cofounder->id]);
 
-        $this->actingAs($this->admin)->put(route('custom-projects.update', $project), [
+        $this->actingAs($this->cofounder)->put(route('custom-projects.update', $project), [
             'name' => 'Menu redesign', 'status' => 'active', 'client_id' => $client->id,
         ])->assertSessionHasNoErrors();
         $this->assertSame($client->id, (int) $project->fresh()->client_id);
         $this->assertDatabaseHas('activity_logs', ['client_id' => $client->id, 'type' => 'custom_project_linked', 'description' => 'Menu redesign']);
 
-        $this->actingAs($this->admin)->get(route('custom-projects.show', $project))->assertOk()
+        $this->actingAs($this->cofounder)->get(route('custom-projects.show', $project))->assertOk()
             ->assertSee('id="project-invoice"', false)
             ->assertSee(route('clients.one-time-invoices.store', $client), false);
 
         $metricsBefore = DB::table('subscription_metric_events')->count();
-        $this->actingAs($this->admin)->post(route('clients.one-time-invoices.store', $client), [
+        $this->actingAs($this->cofounder)->post(route('clients.one-time-invoices.store', $client), [
             '_idempotency_key' => 'p13-project-invoice',
             'custom_project_id' => $project->id, 'issue_date' => '2026-09-24', 'due_date' => '2026-10-01',
             'lines' => [['line_type' => 'one_time_service', 'description' => 'Menu redesign', 'quantity' => 1, 'unit_price_jod' => '200.000']],
@@ -603,7 +630,7 @@ class V1P13BackofficeTest extends TestCase
         $this->assertSame(0, DB::table('subscriptions')->count());
 
         // Once invoiced, the client link is fixed.
-        $this->actingAs($this->admin)->put(route('custom-projects.update', $project), [
+        $this->actingAs($this->cofounder)->put(route('custom-projects.update', $project), [
             'name' => 'Menu redesign', 'status' => 'active', 'client_id' => null,
         ])->assertSessionHasErrors('client_id');
         $this->assertSame($client->id, (int) $project->fresh()->client_id);
@@ -612,9 +639,9 @@ class V1P13BackofficeTest extends TestCase
     public function test_unlinking_writes_activity_on_the_previous_client(): void
     {
         $client = $this->client('Was Linked');
-        $project = CustomProject::create(['client_id' => $client->id, 'name' => 'Signage', 'status' => 'planned', 'agreed_value_minor' => 0, 'created_by' => $this->admin->id]);
+        $project = CustomProject::create(['client_id' => $client->id, 'name' => 'Signage', 'status' => 'planned', 'agreed_value_minor' => 0, 'created_by' => $this->cofounder->id]);
 
-        $this->actingAs($this->admin)->put(route('custom-projects.update', $project), ['name' => 'Signage', 'status' => 'planned', 'client_id' => ''])
+        $this->actingAs($this->cofounder)->put(route('custom-projects.update', $project), ['name' => 'Signage', 'status' => 'planned', 'client_id' => ''])
             ->assertSessionHasNoErrors();
         $this->assertNull($project->fresh()->client_id);
         $this->assertDatabaseHas('activity_logs', ['client_id' => $client->id, 'type' => 'custom_project_unlinked']);
@@ -623,7 +650,7 @@ class V1P13BackofficeTest extends TestCase
     public function test_staff_sees_custom_projects_read_only(): void
     {
         $client = $this->client('Staff View Client');
-        $project = CustomProject::create(['client_id' => $client->id, 'name' => 'Read only project', 'status' => 'active', 'agreed_value_minor' => 1000, 'created_by' => $this->admin->id]);
+        $project = CustomProject::create(['client_id' => $client->id, 'name' => 'Read only project', 'status' => 'active', 'agreed_value_minor' => 1000, 'created_by' => $this->cofounder->id]);
 
         $this->actingAs($this->staff)->get(route('custom-projects.index'))->assertOk()
             ->assertSee('Read only project')->assertSee('data-read-only', false)
@@ -639,11 +666,11 @@ class V1P13BackofficeTest extends TestCase
 
     public function test_owner_navigation_has_reference_data_and_staff_has_no_administration(): void
     {
-        $owner = new ShellNavigation($this->admin, 'dashboard');
+        $owner = new ShellNavigation($this->cofounder, 'dashboard');
         $this->assertSame(['systems', 'team', 'reference-data', 'import', 'settings'], array_column($owner->groups['administration']['items'], 'key'));
         $this->assertSame(['systems', 'team', 'reference-data', 'import', 'settings'], array_column($owner->moreSections['administration']['items'], 'key'));
 
-        $active = new ShellNavigation($this->admin, 'administration.reference-data');
+        $active = new ShellNavigation($this->cofounder, 'administration.reference-data');
         $this->assertSame('administration', $active->area);
         $this->assertTrue(collect($active->groups['administration']['items'])->firstWhere('key', 'reference-data')['active']);
 
@@ -651,7 +678,7 @@ class V1P13BackofficeTest extends TestCase
         $this->assertArrayNotHasKey('administration', $staff->groups);
         $this->assertArrayNotHasKey('administration', $staff->moreSections);
 
-        $this->actingAs($this->admin)->get(route('dashboard'))->assertOk()->assertSee(route('administration.reference-data'), false);
+        $this->actingAs($this->cofounder)->get(route('dashboard'))->assertOk()->assertSee(route('administration.reference-data'), false);
         $this->actingAs($this->staff)->get(route('dashboard'))->assertOk()
             ->assertDontSee(route('administration.reference-data'), false)
             ->assertDontSee(route('settings.index'), false)
@@ -663,17 +690,17 @@ class V1P13BackofficeTest extends TestCase
     public function test_import_page_is_owner_only_and_previews_before_saving(): void
     {
         $this->actingAs($this->staff)->get(route('clients.import'))->assertForbidden();
-        $this->actingAs($this->admin)->get(route('clients.import'))->assertOk()->assertSee('data-import-upload', false);
+        $this->actingAs($this->cofounder)->get(route('clients.import'))->assertOk()->assertSee('data-import-upload', false);
 
         $csv = "business_name,phone,city_area,business_category,lead_source\nمطعم تجربة,0791112233,عبدون,Restaurants,Google Maps\n,0791112234,عبدون,Restaurants,Google Maps\n";
         $file = UploadedFile::fake()->createWithContent('prospects.csv', $csv);
 
-        $this->actingAs($this->admin)->post(route('clients.import.preview'), ['type' => 'prospect', 'csv_file' => $file])->assertOk()
+        $this->actingAs($this->cofounder)->post(route('clients.import.preview'), ['type' => 'prospect', 'csv_file' => $file])->assertOk()
             ->assertSee('data-import-result', false)->assertSee('data-import-confirm', false)
             ->assertSee('data-import-row="valid"', false)->assertSee('data-import-row="invalid"', false);
         $this->assertSame(0, Client::count(), 'Preview never writes clients.');
 
-        $this->actingAs($this->admin)->post(route('clients.import.confirm'))->assertRedirect(route('clients.index'));
+        $this->actingAs($this->cofounder)->post(route('clients.import.confirm'))->assertRedirect(route('clients.index'));
         $this->assertSame(1, Client::count());
         $this->assertSame(0, DB::table('subscriptions')->count());
     }

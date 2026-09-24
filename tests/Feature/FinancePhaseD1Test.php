@@ -35,7 +35,7 @@ class FinancePhaseD1Test extends TestCase
 
     public function test_admin_can_create_financial_account_with_exact_opening_balance_and_partner_cannot(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         [, $partnerUser] = $this->createPartnerUser();
 
         $this->actingAs($admin)->post(route('financial-accounts.store'), [
@@ -67,7 +67,7 @@ class FinancePhaseD1Test extends TestCase
 
     public function test_new_v2_payment_requires_active_destination_account_and_posts_one_full_cash_inflow(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 100000, '2026-09-14');
         $activeAccount = $this->createAccount($admin, 'cash', 'Cash', '50.000');
@@ -114,7 +114,7 @@ class FinancePhaseD1Test extends TestCase
 
     public function test_payment_reversal_posts_equal_outflow_only_when_original_receipt_movement_exists(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $account = $this->createAccount($admin, 'bank', 'Bank');
         $payment = $this->recordPayment($admin, $client, '10.000', $account);
@@ -157,7 +157,7 @@ class FinancePhaseD1Test extends TestCase
 
     public function test_refund_requires_source_account_posts_outflow_and_may_use_different_account_than_payment(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient(['status' => 'subscriber', 'stage' => ClientLifecycle::SUBSCRIBER]);
         $invoice = $this->createInvoice($client, 100000, '2026-09-14');
         $receiptAccount = $this->createAccount($admin, 'receipt_bank', 'Receipt Bank');
@@ -196,7 +196,7 @@ class FinancePhaseD1Test extends TestCase
 
     public function test_historical_payments_and_refunds_can_be_assigned_once_and_queue_excludes_legacy_and_unposted_reversed_payments(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $account = $this->createAccount($admin, 'assignment_bank', 'Assignment Bank');
         $historicalPayment = Payment::create([
@@ -270,7 +270,7 @@ class FinancePhaseD1Test extends TestCase
 
     public function test_financial_transfer_and_reversal_change_account_balances_but_not_company_cash(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $from = $this->createAccount($admin, 'cash_transfer', 'Cash Transfer', '100.000');
         $to = $this->createAccount($admin, 'wallet_transfer', 'Wallet Transfer', '10.000');
         $balances = app(\App\Services\FinancialAccountBalanceService::class);
@@ -320,7 +320,7 @@ class FinancePhaseD1Test extends TestCase
 
     public function test_allocations_credit_notes_and_credit_applications_do_not_create_cash_movements(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 100000, '2026-09-14');
         $account = $this->createAccount($admin, 'cash_no_extra', 'Cash No Extra');

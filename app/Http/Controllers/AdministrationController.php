@@ -86,11 +86,12 @@ class AdministrationController extends Controller
     {
         $this->checkAdmin();
 
-        // Team creation never creates a Founder (§2.1).
+        // Ordinary team creation creates Staff only (P13.1): never a Founder (§2.1) and never the
+        // deferred Admin role. A Founder promotes an existing member through edit.
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
-            'role' => ['required', 'in:admin,staff'],
+            'role' => ['sometimes', 'in:'.User::ROLE_STAFF],
             'job_title' => 'nullable|string|max:120',
             'phone' => 'nullable|string|max:50',
             'password' => ['required', 'string', 'confirmed', Password::min(8)],
@@ -99,7 +100,7 @@ class AdministrationController extends Controller
         User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'role' => $validated['role'],
+            'role' => User::ROLE_STAFF,
             'job_title' => $validated['job_title'] ?? null,
             'phone' => $validated['phone'] ?? null,
             'password' => Hash::make($validated['password']),
@@ -137,7 +138,8 @@ class AdministrationController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,'.$member->id,
-            'role' => ['required', 'in:founder,admin,staff'],
+            // V1 roles are Founder and Staff only (P13.1); Admin cannot be assigned.
+            'role' => ['required', 'in:'.implode(',', User::activeInternalRoles())],
             'job_title' => 'nullable|string|max:120',
             'phone' => 'nullable|string|max:50',
             'is_active' => 'nullable',
@@ -214,7 +216,7 @@ class AdministrationController extends Controller
         $actorIsFounder = $actor->isFounder();
 
         $teamMembers = User::whereIn('role', User::activeInternalRoles())
-            ->orderByRaw("CASE role WHEN 'founder' THEN 1 WHEN 'admin' THEN 2 WHEN 'staff' THEN 3 ELSE 4 END")
+            ->orderByRaw("CASE role WHEN 'founder' THEN 1 WHEN 'staff' THEN 2 ELSE 3 END")
             ->orderByDesc('is_active')
             ->orderBy('name')
             ->get();
@@ -226,7 +228,8 @@ class AdministrationController extends Controller
             return [$member->id => [
                 'self' => $isSelf,
                 'change_role' => ! $isSelf && ! $protected,
-                'roles' => $actorIsFounder ? ['founder', 'admin', 'staff'] : ['admin', 'staff'],
+                // Promotion to Founder stays Founder-only; only Founders reach Team in V1.
+                'roles' => $actorIsFounder ? User::activeInternalRoles() : [User::ROLE_STAFF],
                 'toggle_active' => ! $isSelf && ! $protected,
                 'reset_password' => ! $protected,
             ]];

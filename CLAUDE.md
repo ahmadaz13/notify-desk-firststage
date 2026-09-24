@@ -1,7 +1,8 @@
 # Notify Desk Agent Instructions
 
 - `NOTIFY_DESK_V1_FINAL_ARCHITECTURE.md` is the single implementation authority and is **FROZEN FOR IMPLEMENTATION**.
-- Never reopen or reinterpret a `[FROZEN D-xx]` owner decision. If a genuine business-rule gap remains, stop and report it instead of guessing.
+- Never reopen or reinterpret a `[FROZEN D-xx]` owner decision.
+- V1 active roles are **Founder and Staff only** (owner decision D-25, P13.1). Admin is deferred post-V1: never creatable, assignable or owner-level. Read any older "Owner/Admin" or "Founder/Admin" text as Founder. If a genuine business-rule gap remains, stop and report it instead of guessing.
 - Implement exactly one approved architecture phase at a time. Read that phase's scope, dependencies, risks, and exit criteria before editing.
 - Inspect the existing implementation before creating replacements. Reuse proven services and engines whenever possible.
 - Keep changes inside the active phase. Do not fix unrelated baseline failures or start the next phase automatically.

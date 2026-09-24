@@ -21,7 +21,7 @@ class RouteConsolidationTest extends TestCase
 
     public function test_client_routes_still_functional_after_consolidation(): void
     {
-        $admin = User::factory()->create(['role' => 'admin', 'name' => 'Ahmad']);
+        $admin = User::factory()->create(['role' => 'founder', 'name' => 'Ahmad']);
 
         // 1. GET /clients
         $this->actingAs($admin)

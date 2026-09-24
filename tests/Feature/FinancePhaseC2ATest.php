@@ -32,7 +32,7 @@ class FinancePhaseC2ATest extends TestCase
 
     public function test_allocation_reversal_is_append_only_and_restores_invoice_and_payment_balances(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 100000, '2026-09-14');
         $payment = $this->recordPayment($admin, $client, '100.000', [
@@ -59,7 +59,7 @@ class FinancePhaseC2ATest extends TestCase
 
     public function test_allocation_can_only_be_reversed_once_and_requires_reason(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 10000, '2026-09-14');
         $this->recordPayment($admin, $client, '10.000', [
@@ -86,7 +86,7 @@ class FinancePhaseC2ATest extends TestCase
 
     public function test_reversing_one_allocation_reopens_paid_invoice_to_partially_paid(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 100000, '2026-09-14');
         $this->recordPayment($admin, $client, '40.000', [
@@ -110,7 +110,7 @@ class FinancePhaseC2ATest extends TestCase
     public function test_reopened_overdue_invoice_returns_to_aging_queue_and_can_be_voided_after_all_allocations_reversed(): void
     {
         Carbon::setTestNow('2026-09-14 12:00:00');
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 100000, '2026-08-01');
         $this->recordPayment($admin, $client, '100.000', [
@@ -137,7 +137,7 @@ class FinancePhaseC2ATest extends TestCase
 
     public function test_payment_with_active_allocation_cannot_be_reversed_but_can_after_allocation_reversal(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient(['status' => 'subscriber', 'stage' => ClientLifecycle::SUBSCRIBER]);
         $subscription = Subscription::create([
             'client_id' => $client->id,
@@ -182,7 +182,7 @@ class FinancePhaseC2ATest extends TestCase
 
     public function test_payment_reversal_requires_reason_can_only_happen_once_and_prevents_future_allocation(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 10000, '2026-09-14');
         $payment = $this->recordPayment($admin, $client, '10.000');
@@ -211,7 +211,7 @@ class FinancePhaseC2ATest extends TestCase
     public function test_partner_cannot_reverse_allocation_or_payment(): void
     {
         [, $partnerUser] = $this->createPartnerUser();
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 10000, '2026-09-14');
         $payment = $this->recordPayment($admin, $client, '10.000', [
@@ -233,7 +233,7 @@ class FinancePhaseC2ATest extends TestCase
 
     public function test_legacy_payment_cannot_be_reversed_through_v2_correction_workflow(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient(['status' => 'subscriber', 'stage' => ClientLifecycle::SUBSCRIBER]);
         $subscription = Subscription::create([
             'client_id' => $client->id,

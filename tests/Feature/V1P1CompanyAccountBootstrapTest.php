@@ -146,7 +146,7 @@ class V1P1CompanyAccountBootstrapTest extends TestCase
 
     public function test_new_record_payment_selector_offers_only_cash_and_cliq(): void
     {
-        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $admin = User::factory()->create(['role' => 'founder', 'is_active' => true]);
         $client = Client::create([
             'business_name' => 'Selector Client',
             'phone' => '0790000001',

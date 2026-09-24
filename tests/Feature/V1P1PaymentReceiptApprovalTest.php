@@ -53,7 +53,7 @@ class V1P1PaymentReceiptApprovalTest extends TestCase
         app(AccountingSetupService::class)->ensureSeeded();
 
         $this->founder = User::factory()->create(['role' => 'founder', 'is_active' => true]);
-        $this->admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $this->admin = User::factory()->create(['role' => 'founder', 'is_active' => true]);
         $this->staff = User::factory()->create(['role' => 'staff', 'is_active' => true]);
         $this->otherStaff = User::factory()->create(['role' => 'staff', 'is_active' => true]);
         $this->client = Client::create([
@@ -569,7 +569,7 @@ class V1P1PaymentReceiptApprovalTest extends TestCase
 
     public function test_submission_notifies_owner_level_users_only(): void
     {
-        $inactiveAdmin = User::factory()->create(['role' => 'admin', 'is_active' => false]);
+        $inactiveAdmin = User::factory()->create(['role' => 'founder', 'is_active' => false]);
         $receipt = $this->submitAsStaff('9.000');
 
         $recipients = DB::table('notifications')

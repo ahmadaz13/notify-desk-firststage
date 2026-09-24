@@ -17,7 +17,7 @@ class Phase1VerificationTest extends TestCase
         $admin = User::factory()->create([
             'email' => 'admin@notify.local',
             'password' => Hash::make('secret12345'),
-            'role' => 'admin',
+            'role' => 'founder',
         ]);
 
         $this->post(route('login.store'), [
@@ -47,7 +47,7 @@ class Phase1VerificationTest extends TestCase
     public function test_canonical_mode_server_rendering(): void
     {
         $this->seed(SettingsSeeder::class);
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
 
         $responseDaily = $this->actingAs($admin)->get(route('dashboard'));
         $responseDaily->assertOk();
@@ -65,7 +65,7 @@ class Phase1VerificationTest extends TestCase
     public function test_retired_financial_mode_falls_back_to_today(): void
     {
         $this->seed(SettingsSeeder::class);
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
 
         $response = $this->actingAs($admin)->get(route('dashboard', ['mode' => 'financial']));
         $response->assertOk();
@@ -78,7 +78,7 @@ class Phase1VerificationTest extends TestCase
     public function test_shell_add_client_action_has_touch_target_and_accessibility(): void
     {
         // P9 (§3.3): "Add client" lives on Today and the Clients page header, not in the shell header.
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
 
         foreach ([route('dashboard'), route('clients.index')] as $url) {
             $response = $this->actingAs($admin)->get($url);

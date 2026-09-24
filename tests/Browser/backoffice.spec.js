@@ -108,7 +108,9 @@ test.describe('owner backoffice', () => {
         await page.locator('[data-page-action="add-member"]').click();
         const add = page.locator('#team-add');
         await expect(add).toBeVisible();
-        await expect(add.locator('input[name="role"][value="founder"]')).toHaveCount(0);
+        // P13.1 (D-25): ordinary creation is Staff only — no role picker, no Admin.
+        await expect(add.locator('input[name="role"]')).toHaveCount(0);
+        await expect(add.locator('[data-add-role-staff]')).toBeVisible();
         await shot(page, testInfo, 'team-add');
         await page.keyboard.press('Escape');
         await expect(add).toBeHidden();
@@ -117,8 +119,15 @@ test.describe('owner backoffice', () => {
         await staffRow.locator('[data-team-edit]').click();
         const editSheet = page.locator('.notify-sheet:not([hidden])');
         await expect(editSheet).toBeVisible();
-        await expect(editSheet.locator('input[name="role"]')).not.toHaveCount(0);
+        const roleValues = await editSheet.locator('input[name="role"]').evaluateAll((inputs) => inputs.map((input) => input.value));
+        expect(roleValues).toEqual(['founder', 'staff']);
+        await shot(page, testInfo, 'team-edit-staff');
         await page.keyboard.press('Escape');
+
+        // Two roles only in the role information, no Admin anywhere on the page.
+        await expect(page.locator('.notify-admin-roles dt')).toHaveCount(2);
+        await expect(page.locator('main')).not.toContainText('مدير النظام');
+        await expect(page.locator('input[value="admin"]')).toHaveCount(0);
 
         await staffRow.locator('.notify-menu summary').click();
         await expect(staffRow.locator('[data-team-reset]')).toBeVisible();
@@ -187,6 +196,10 @@ test.describe('english LTR', () => {
             await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
             await expectNoOverflow(page);
         }
+        await page.goto('/administration/team');
+        await expect(page.locator('.notify-admin-roles dt')).toHaveText(['Founder', 'Staff']);
+        await expect(page.locator('main')).not.toContainText('Admin ');
+        await shot(page, testInfo, 'team-en');
         await page.goto('/administration/settings');
         await shot(page, testInfo, 'settings-en');
         await page.goto('/locale/ar');

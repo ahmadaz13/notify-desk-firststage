@@ -31,7 +31,7 @@ class Phase3ClientWorkspaceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->admin = User::factory()->create(['role' => 'admin']);
+        $this->admin = User::factory()->create(['role' => 'founder']);
         $this->staff = User::factory()->create(['role' => 'staff']);
     }
 

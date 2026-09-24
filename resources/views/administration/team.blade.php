@@ -7,7 +7,8 @@
 @php
     use App\Support\FormState;
     $openSheet ??= null;
-    $roleVariant = ['founder' => 'info', 'admin' => 'info', 'staff' => 'neutral'];
+    // V1 roles: Founder and Staff only (P13.1).
+    $roleVariant = ['founder' => 'info', 'staff' => 'neutral'];
 @endphp
 
 @section('content')
@@ -91,7 +92,7 @@
     <section class="notify-admin-card notify-admin-card--quiet" aria-labelledby="team-roles-title">
         <h2 id="team-roles-title" class="notify-admin-card__title">{{ __('notify.team.roles_title') }}</h2>
         <dl class="notify-admin-roles">
-            @foreach(['founder', 'admin', 'staff'] as $role)
+            @foreach(\App\Models\User::activeInternalRoles() as $role)
                 <div><dt>{{ __('notify.team.roles.'.$role) }}</dt><dd>{{ __('notify.team.role_descriptions.'.$role) }}</dd></div>
             @endforeach
         </dl>
@@ -115,16 +116,12 @@
         <x-notify.form-field :label="__('notify.team.job_title')" for="team-add-job" name="job_title" :optional="true" class="notify-form-row__full">
             <input id="team-add-job" class="notify-input" name="job_title" value="{{ $old('job_title') }}" maxlength="120" @invalid('job_title', 'team-add-job')>
         </x-notify.form-field>
-        <x-notify.form-field :label="__('notify.team.role')" name="role" :required="true" :group="true" class="notify-form-row__full">
-            <div class="notify-choices notify-choices--segmented">
-                @foreach(['staff', 'admin'] as $role)
-                    <label class="notify-choice-chip">
-                        <input type="radio" name="role" value="{{ $role }}" required @checked($old('role', 'staff') === $role)>
-                        <span>{{ __('notify.team.roles.'.$role) }}</span>
-                    </label>
-                @endforeach
-            </div>
-        </x-notify.form-field>
+        {{-- Ordinary creation is Staff only (P13.1); a Founder can promote an existing member later. --}}
+        <div class="notify-form-row__full notify-admin-readonly" data-add-role-staff>
+            <span class="notify-admin-readonly__label">{{ __('notify.team.role') }}</span>
+            <span><x-notify.badge variant="neutral">{{ __('notify.team.roles.staff') }}</x-notify.badge></span>
+            <small class="notify-admin-muted">{{ __('notify.team.add_role_note') }}</small>
+        </div>
         <x-notify.form-field :label="__('notify.team.password')" for="team-add-password" name="password" :required="true" :hint="__('notify.team.password_hint')">
             <input id="team-add-password" class="notify-input" type="password" name="password" required minlength="8" autocomplete="new-password" @invalid('password', 'team-add-password', 'default', true)>
         </x-notify.form-field>

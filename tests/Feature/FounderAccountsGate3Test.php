@@ -154,12 +154,16 @@ class FounderAccountsGate3Test extends TestCase
         ])->assertSessionHasErrors('email');
     }
 
-    public function test_future_admin_and_employee_account_values_are_representable(): void
+    /** D-25 (P13.1): Admin is a deferred post-V1 value — representable, but grants nothing in V1. */
+    public function test_future_admin_and_employee_account_values_are_representable_but_inactive(): void
     {
         $admin = new User(['role' => User::ROLE_ADMIN, 'is_active' => true]);
         $employee = new User(['role' => User::ROLE_EMPLOYEE, 'is_active' => true]);
 
-        $this->assertTrue($admin->isAdmin());
+        $this->assertSame('admin', $admin->role);
+        $this->assertFalse($admin->isOwnerLevelInternalUser());
+        $this->assertFalse($admin->isAdmin());
+        $this->assertFalse($admin->isActiveApplicationUser());
         $this->assertTrue($employee->isEmployee());
         $this->assertFalse($employee->isActiveApplicationUser());
     }

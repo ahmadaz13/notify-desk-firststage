@@ -20,7 +20,7 @@ class Phase2FreeInstallationWorkflowTest extends TestCase
 
     public function test_installation_appointment_can_be_scheduled_without_subscription_or_payment(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->makeClient();
 
         $this->actingAs($admin)
@@ -53,7 +53,7 @@ class Phase2FreeInstallationWorkflowTest extends TestCase
 
     public function test_installation_appointment_can_be_rescheduled_with_real_date_time_and_timeline(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->makeClient(['stage' => ClientLifecycle::INSTALLATION_SCHEDULED]);
         $appointment = $this->makeAppointment($client);
 
@@ -79,8 +79,8 @@ class Phase2FreeInstallationWorkflowTest extends TestCase
 
     public function test_completed_linked_installation_creates_history_items_follow_up_and_no_billing_records(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $installer = User::factory()->create(['role' => 'admin', 'name' => 'Installer']);
+        $admin = User::factory()->create(['role' => 'founder']);
+        $installer = User::factory()->create(['role' => 'founder', 'name' => 'Installer']);
         $client = $this->makeClient(['stage' => ClientLifecycle::INSTALLATION_SCHEDULED]);
         $appointment = $this->makeAppointment($client);
         $service = Service::create([
@@ -149,7 +149,7 @@ class Phase2FreeInstallationWorkflowTest extends TestCase
 
     public function test_duplicate_completion_of_same_installation_appointment_is_prevented(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->makeClient();
         $appointment = $this->makeAppointment($client);
 
@@ -174,7 +174,7 @@ class Phase2FreeInstallationWorkflowTest extends TestCase
 
     public function test_completion_without_precreated_appointment_schedules_default_three_day_follow_up(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->makeClient();
 
         $this->actingAs($admin)
@@ -197,7 +197,7 @@ class Phase2FreeInstallationWorkflowTest extends TestCase
 
     public function test_cancelled_installation_appointment_creates_no_installation_and_requires_fallback_stage(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->makeClient(['stage' => ClientLifecycle::INSTALLATION_SCHEDULED]);
         $appointment = $this->makeAppointment($client);
 
@@ -224,7 +224,7 @@ class Phase2FreeInstallationWorkflowTest extends TestCase
 
     public function test_legacy_appointment_types_continue_to_work(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->makeClient();
 
         $this->actingAs($admin)
@@ -248,7 +248,7 @@ class Phase2FreeInstallationWorkflowTest extends TestCase
 
     public function test_daily_operations_exposes_installation_preparation_counts(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $scheduledClient = $this->makeClient();
         $installedClient = $this->makeClient([
             'business_name' => 'عميل مركب',

@@ -31,7 +31,7 @@ class Phase2VerificationTest extends TestCase
     public function test_daily_reminder_is_idempotent_and_sets_reminder_sent_at(): void
     {
         $notificationService = app(NotificationService::class);
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
 
         $client = Client::create([
             'business_name' => 'صالون رتوش',
@@ -93,7 +93,7 @@ class Phase2VerificationTest extends TestCase
     public function test_service_deactivation_does_not_break_historical_selections(): void
     {
         $pos = Service::where('key', 'restaurant_pos')->first();
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = Client::create([
             'business_name' => 'مطعم برجر ستيشن',
             'phone' => '0795556677',

@@ -23,7 +23,7 @@ class Phase5FinanceCockpitConsolidationTest extends TestCase
     {
         parent::setUp();
 
-        $this->admin = User::factory()->create(['role' => 'admin']);
+        $this->admin = User::factory()->create(['role' => 'founder']);
         $this->founder = User::factory()->create(['role' => 'founder']);
         $this->staff = User::factory()->create(['role' => 'staff']);
     }

@@ -68,7 +68,7 @@ class BackendClosureG5GoldenFlowTest extends TestCase
 
     public function test_golden_backend_flow_from_prospect_to_reactivation_reconciles(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->client($admin);
         $cashAccount = app(FinancialAccountService::class)->createAccount([
             'code' => 'g5-bank',

@@ -17,7 +17,7 @@ class Phase2BClientWorkspaceTest extends TestCase
 
     public function test_client_detail_uses_workspace_shell_and_presentation_view_models(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->client([
             'business_name' => 'شركة الإشعارات التجارية ذات الاسم الطويل جداً لفرع خلدا',
             'stage' => ClientLifecycle::DECISION_PENDING,
@@ -63,7 +63,7 @@ class Phase2BClientWorkspaceTest extends TestCase
 
     public function test_contact_outcome_ui_uses_canonical_phase_2b_choices_without_close_checkbox(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->client();
 
         $response = $this->actingAs($admin)->get(route('clients.show', $client));
@@ -81,7 +81,7 @@ class Phase2BClientWorkspaceTest extends TestCase
 
     public function test_not_interested_requires_note_and_wrong_invalid_preserves_review_workflow(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $notInterested = $this->client(['phone' => '0792002001']);
         $wrongInvalid = $this->client(['phone' => '0792002002']);
 
@@ -112,7 +112,7 @@ class Phase2BClientWorkspaceTest extends TestCase
 
     public function test_workspace_preserves_legacy_action_routes(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->client();
         Appointment::create([
             'client_id' => $client->id,

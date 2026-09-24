@@ -35,7 +35,7 @@ class FinancePhaseC2BTest extends TestCase
 
     public function test_credit_note_uses_exact_fils_requires_reason_caps_invoice_credit_and_preserves_invoice_total(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 100000, '2026-09-14');
         $originalTotal = $invoice->total_minor;
@@ -77,7 +77,7 @@ class FinancePhaseC2BTest extends TestCase
 
     public function test_credit_application_reduces_outstanding_and_reversal_restores_invoice_and_credit_balance(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 100000, '2026-08-20');
         $payment = $this->recordPayment($admin, $client, '40.000', [
@@ -118,7 +118,7 @@ class FinancePhaseC2BTest extends TestCase
 
     public function test_credit_application_rejects_cross_client_over_outstanding_and_over_available(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $clientA = $this->createClient(['business_name' => 'A']);
         $clientB = $this->createClient(['business_name' => 'B', 'phone' => '0791111111']);
         $invoiceA = $this->createInvoice($clientA, 10000, '2026-09-14');
@@ -148,7 +148,7 @@ class FinancePhaseC2BTest extends TestCase
 
     public function test_fully_paid_invoice_can_generate_customer_credit_and_credit_note_refund_consumes_only_available_balance(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient(['status' => 'subscriber', 'stage' => ClientLifecycle::SUBSCRIBER]);
         $subscription = Subscription::create([
             'client_id' => $client->id,
@@ -195,7 +195,7 @@ class FinancePhaseC2BTest extends TestCase
 
     public function test_refund_from_unallocated_payment_credit_works_and_reversed_or_legacy_payments_cannot_fund_refunds(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient(['status' => 'subscriber', 'stage' => ClientLifecycle::SUBSCRIBER]);
         $subscription = Subscription::create([
             'client_id' => $client->id,
@@ -267,7 +267,7 @@ class FinancePhaseC2BTest extends TestCase
 
     public function test_credit_note_voiding_requires_reason_blocks_active_applications_and_refunds_and_zeroes_available_balance(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 100000, '2026-09-14');
         $active = $this->createCreditNote($admin, $client, '10.000', '0.000', $invoice, 'Active credit');
@@ -311,7 +311,7 @@ class FinancePhaseC2BTest extends TestCase
 
     public function test_customer_credit_projection_and_collections_queue_include_payment_and_credit_note_origins_after_refunds(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 100000, '2026-09-14');
         $payment = $this->recordPayment($admin, $client, '120.000', [
@@ -351,7 +351,7 @@ class FinancePhaseC2BTest extends TestCase
     public function test_partner_cannot_create_credit_notes_or_issue_refunds(): void
     {
         [, $partnerUser] = $this->createPartnerUser();
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
         $client = $this->createClient();
         $invoice = $this->createInvoice($client, 10000, '2026-09-14');
         $payment = $this->recordPayment($admin, $client, '1.000');

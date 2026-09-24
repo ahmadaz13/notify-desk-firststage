@@ -47,7 +47,7 @@ class Phase1FinancialSafetyTest extends TestCase
         app(AccountingSetupService::class)->ensureSeeded();
 
         $this->admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_FOUNDER,
             'is_active' => true,
         ]);
 
@@ -634,7 +634,7 @@ class Phase1FinancialSafetyTest extends TestCase
     public function test_cross_user_idempotency_key_isolation(): void
     {
         $admin2 = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_FOUNDER,
             'is_active' => true,
         ]);
 

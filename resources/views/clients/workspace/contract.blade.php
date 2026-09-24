@@ -1,4 +1,4 @@
-{{-- F. Contract (§8.3, §19.7): Preview and Download PDF; Issue on drafts for Owner/Admin only. --}}
+{{-- F. Contract (§8.3, §19.7): Preview and Download PDF; Issue on drafts for Founder (owner-level) only. --}}
 @if($workspace->contracts)
 <section class="notify-card notify-ws-card" aria-labelledby="client-contract-title" id="sec-contracts" data-client-contract>
     <header class="notify-ws-card__head">

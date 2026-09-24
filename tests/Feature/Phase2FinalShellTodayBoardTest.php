@@ -162,7 +162,7 @@ class Phase2FinalShellTodayBoardTest extends TestCase
 
         // Admin has 4 items
         $admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_FOUNDER,
             'is_active' => true,
         ]);
 

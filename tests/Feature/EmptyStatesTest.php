@@ -13,7 +13,7 @@ class EmptyStatesTest extends TestCase
 
     public function test_empty_clients_list_shows_helpful_message(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
 
         // P10 (§33): each segment has its own empty state; Owners land on Subscribers.
         $response = $this->actingAs($admin)->get(route('clients.index'));
@@ -29,7 +29,7 @@ class EmptyStatesTest extends TestCase
     public function test_empty_dashboard_appointments_shows_helpful_message(): void
     {
         Carbon::setTestNow('2026-09-12 10:00:00');
-        $admin = User::factory()->create(['role' => 'admin']);
+        $admin = User::factory()->create(['role' => 'founder']);
 
         $response = $this->actingAs($admin)->get(route('dashboard'));
 
